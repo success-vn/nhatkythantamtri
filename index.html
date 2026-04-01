@@ -733,6 +733,15 @@ textarea { min-height: 80px; }
       padding:5px 11px;display:flex;align-items:center;gap:5px">
       <span>👤</span><span id="header-username">–</span>
     </div>
+    <!-- Cloud sync status -->
+    <div id="sync-status" title="Trạng thái đồng bộ dữ liệu" style="
+      font-size:11px;font-weight:700;
+      color:rgba(253,248,240,0.55);
+      background:rgba(255,255,255,0.06);border-radius:20px;
+      padding:5px 10px;display:flex;align-items:center;gap:4px;
+      cursor:default;transition:all 0.3s">
+      ☁️ <span id="sync-status-text">–</span>
+    </div>
     <button id="header-admin-btn" onclick="openAdminFromHeader()" style="
       display:none;font-size:11px;font-weight:700;
       color:rgba(201,168,76,0.9);
@@ -2415,6 +2424,7 @@ const MEMBER_COLORS = ['#5b8a6e','#c9a84c','#c0606a','#4a7fa8','#7c5cbf','#d4872
 function save(key, obj) {
   try {
     localStorage.setItem(key, JSON.stringify(obj));
+    scheduleSyncPush(key);
   } catch(e) {
     if (e.name === 'QuotaExceededError') {
       console.warn('localStorage quota exceeded for key:', key);
@@ -2520,8 +2530,8 @@ function bootApp() {
   // Setup autosave for all fields
   setupAutosave();
 
-  // Load Firebase trong nền sau khi app đã boot xong
-  setTimeout(initFirebaseBackground, 500);
+  // Load Firebase và sync dữ liệu 2 chiều
+  setTimeout(initFirebaseBackground, 800);
 }
 
 // ══════════════════════════════════════
@@ -2768,10 +2778,136 @@ function loadFirebase() {
 }
 
 // Load Firebase trong nền sau khi app đã khởi động
+function setSyncStatus(icon, text, color) {
+  const el = document.getElementById('sync-status-text');
+  const wrap = document.getElementById('sync-status');
+  if (el) el.textContent = text;
+  if (wrap) wrap.style.color = color || 'rgba(253,248,240,0.55)';
+}
+
 function initFirebaseBackground() {
+  setSyncStatus('⏳', 'Đang kết nối...', 'rgba(201,168,76,0.8)');
   loadFirebase().then(database => {
-    if (database) console.log('Firebase ready for team sync');
+    if (!database) {
+      setSyncStatus('⚠️', 'Offline', 'rgba(192,96,106,0.7)');
+      return;
+    }
+    setSyncStatus('🔄', 'Đang đồng bộ...', 'rgba(201,168,76,0.8)');
+    console.log('Firebase ready — syncing user data...');
+    syncUserDataBothWays();
   });
+}
+
+// ══════════════════════════════════════
+// PERSONAL DATA SYNC — 2 chiều
+// Firebase path: /userdata/{memberId}/
+// Chứa: daily, sp, kz, r3m, ms
+// ══════════════════════════════════════
+const SYNC_TS_KEY = 'nk5nn-sync-ts'; // timestamp lần sync gần nhất
+
+async function syncUserDataBothWays() {
+  if (!userInfo || !db) return;
+  setSyncStatus('🔄', 'Đang đồng bộ...', 'rgba(201,168,76,0.8)');
+  const ref = db.ref('userdata/' + userInfo.memberId);
+  try {
+    const snap = await ref.once('value');
+    const remote = snap.val();
+
+    if (!remote) {
+      await pushLocalToFirebase();
+      return;
+    }
+
+    const localTs  = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
+    const remoteTs = remote.syncedAt || 0;
+
+    if (remoteTs > localTs) {
+      // Firebase mới hơn → kéo về (thiết bị mới / thiết bị khác)
+      await pullFirebaseToLocal(remote);
+      showToast('🔄 Đã đồng bộ dữ liệu từ thiết bị khác!');
+    } else {
+      // Local mới hơn hoặc bằng → push lên
+      await pushLocalToFirebase();
+    }
+  } catch(e) {
+    console.warn('Sync error:', e);
+    setSyncStatus('⚠️', 'Lỗi sync', 'rgba(192,96,106,0.7)');
+  }
+}
+
+async function pushLocalToFirebase() {
+  if (!userInfo || !db) return;
+  try {
+    const ts = Date.now();
+    const payload = {
+      syncedAt: ts,
+      memberId: userInfo.memberId,
+      daily:  data,
+      sp:     spData,
+      kz:     kzData,
+      r3m:    r3mData,
+      ms:     msData,
+    };
+    await db.ref('userdata/' + userInfo.memberId).set(payload);
+    localStorage.setItem(SYNC_TS_KEY, String(ts));
+    const timeStr = new Date(ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
+    setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
+    console.log('Pushed local data to Firebase ✅');
+  } catch(e) {
+    console.warn('Push failed:', e);
+    setSyncStatus('⚠️', 'Lỗi lưu cloud', 'rgba(192,96,106,0.7)');
+  }
+}
+
+async function pullFirebaseToLocal(remote) {
+  try {
+    if (remote.daily && typeof remote.daily === 'object') {
+      Object.assign(data, remote.daily);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    if (remote.sp && typeof remote.sp === 'object') {
+      Object.assign(spData, remote.sp);
+      localStorage.setItem(SP_KEY, JSON.stringify(spData));
+      migrateSPLockIfNeeded();
+    }
+    if (Array.isArray(remote.kz)) {
+      kzData.splice(0, kzData.length, ...remote.kz);
+      localStorage.setItem(KZ_KEY, JSON.stringify(kzData));
+    }
+    if (remote.r3m && typeof remote.r3m === 'object') {
+      Object.assign(r3mData, remote.r3m);
+      localStorage.setItem(R3M_KEY, JSON.stringify(r3mData));
+    }
+    if (Array.isArray(remote.ms)) {
+      msData.splice(0, msData.length, ...remote.ms);
+      localStorage.setItem(MS_KEY, JSON.stringify(msData));
+    }
+    const ts = remote.syncedAt || Date.now();
+    localStorage.setItem(SYNC_TS_KEY, String(ts));
+    const timeStr = new Date(ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
+    setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
+    // Reload UI với dữ liệu mới
+    setDateBars();
+    renderRituals();
+    renderNNEnergySliders();
+    loadTodayFields();
+    renderTasksList();
+    console.log('Pulled Firebase data to local ✅');
+  } catch(e) {
+    console.warn('Pull failed:', e);
+    setSyncStatus('⚠️', 'Lỗi tải cloud', 'rgba(192,96,106,0.7)');
+  }
+}
+
+// Auto-push to Firebase after each local save — debounced 3 giây
+let _syncDebounceTimer = null;
+function scheduleSyncPush(key) {
+  const syncKeys = [STORAGE_KEY, SP_KEY, KZ_KEY, R3M_KEY, MS_KEY];
+  if (!syncKeys.includes(key)) return;
+  clearTimeout(_syncDebounceTimer);
+  _syncDebounceTimer = setTimeout(() => {
+    if (db && userInfo) pushLocalToFirebase();
+  }, 3000);
 }
 
 // ══════════════════════════════════════
