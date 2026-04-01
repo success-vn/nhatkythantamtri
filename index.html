@@ -1474,6 +1474,12 @@ textarea { min-height: 80px; }
     "Biết mình đang ở đâu là bước đầu tiên để biết mình cần đi về đâu. Đây là bức tranh thật nhất về chính mình hôm nay."
   </div>
 
+  <!-- Banner nháp: đang làm dở, chưa lưu chính thức -->
+  <div id="sp-draft-banner" style="display:none;margin-bottom:14px;padding:11px 16px;background:rgba(201,168,76,0.12);border:1.5px dashed rgba(201,168,76,0.5);border-radius:11px;font-size:12.5px;color:var(--gold-dark);font-weight:700">
+    <span style="font-size:16px">📝</span>
+    Bạn đang làm dở — dữ liệu đã được lưu tạm. Hoàn thành và bấm <strong>Lưu Điểm Xuất Phát</strong> để chốt lại.
+  </div>
+
 
   <!-- KHÁM NHÀ -->
   <div class="section-card" style="border:2px solid rgba(201,168,76,0.3);background:linear-gradient(135deg,rgba(201,168,76,0.04),rgba(255,255,255,0))">
@@ -3333,16 +3339,11 @@ function initStartPage() {
   // Tính điểm từ kết quả khám nhà (không cần slider tự chấm)
   const khamNhaAnswers = spData.khamNha || {};
   const nnScores = calcKhamNhaScore(khamNhaAnswers);
-  // Lưu điểm vào spData
-  NN_LIST.forEach((nn, i) => {
-    spData[nn.key] = nnScores[i+1] || 5;
-  });
+  NN_LIST.forEach((nn, i) => { spData[nn.key] = nnScores[i+1] || 5; });
 
   // Render score cards
   const scoreCards = document.getElementById('sp-nn-score-cards');
   if (scoreCards) {
-    const totalAnswered = Object.keys(khamNhaAnswers).length;
-    const totalQ = KHAM_NHA_QUESTIONS.length;
     scoreCards.innerHTML = NN_LIST.map((nn, i) => {
       const score = nnScores[i+1] || 5;
       const nnQs = KHAM_NHA_QUESTIONS.filter(q=>q.nn===(i+1));
@@ -3359,16 +3360,8 @@ function initStartPage() {
     }).join('');
   }
 
-  // Render wheel questionnaire
-  renderWheelQuestions('sp-wheel-questions', 'sp', spData.wheelAnswers || {});
-  // If answers exist, recalc scores
-  if (spData.wheelAnswers && Object.keys(spData.wheelAnswers).length > 0) {
-    const scores = calcWheelScore(spData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { spData['w_'+d.id] = scores[d.id]; });
-  }
-
-  // Set text fields
-  const setF=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+  // Set text fields — khôi phục dữ liệu đang làm dở (nháp hoặc đã lưu)
+  const setF=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};
   setF('sp-holes',spData.holes);
   setF('sp-assets',spData.assets);
   setF('sp-debt',spData.debt);
@@ -3376,13 +3369,33 @@ function initStartPage() {
   setF('sp-money-mind',spData.moneyMind);
   setF('sp-seeds',spData.seeds);
   setF('sp-intent',spData.intent);
-  document.getElementById('sp-start-day').value=spData.startDay||formatDate(new Date());
-  if(spData.finScore){ document.getElementById('sp-fin-score').value=spData.finScore; updateSlider('sp-fin-score','sp-fin-thumb','sp-fin-val'); }
-  if(spData.energy){ document.getElementById('sp-energy').value=spData.energy; updateSlider('sp-energy','sp-energy-thumb','sp-energy-val'); }
+  document.getElementById('sp-start-day').value = spData.startDay || formatDate(new Date());
+  if (spData.finScore) { document.getElementById('sp-fin-score').value=spData.finScore; updateSlider('sp-fin-score','sp-fin-thumb','sp-fin-val'); }
+  if (spData.energy)   { document.getElementById('sp-energy').value=spData.energy;     updateSlider('sp-energy','sp-energy-thumb','sp-energy-val'); }
 
-  setTimeout(()=>{ updateSPRadar(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); },100);
+  // Hook autosave nháp vào tất cả text fields của SP (chỉ khi chưa lưu chính thức)
+  if (!spData.saved) {
+    ['sp-holes','sp-assets','sp-debt','sp-income','sp-money-mind','sp-seeds','sp-intent'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || el._spAutoHooked) return;
+      el._spAutoHooked = true;
+      let t;
+      el.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(autosaveSPDraft, 600);
+      });
+    });
 
-  if(spData.saved) { showSPSaved(); }
+    // Hiển thị banner "đang làm dở" nếu có nháp
+    if (spData._draft) {
+      const draftBanner = document.getElementById('sp-draft-banner');
+      if (draftBanner) draftBanner.style.display = 'block';
+    }
+  }
+
+  setTimeout(()=>{ updateSPRadar(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); }, 100);
+
+  if (spData.saved) { showSPSaved(); }
 }
 
 function updateSPRadar() {
@@ -3429,68 +3442,93 @@ function updateSPWheel() {
   });
 }
 
-function saveStartingPoint() {
-  // Đã lưu rồi thì không cho lưu lại
-  if (spData.saved) {
-    showToast('⚠️ Điểm xuất phát đã được lưu vĩnh viễn. Không thể thay đổi!');
-    return;
-  }
-  // NN scores từ khamNha
+// ── Autosave nháp Điểm Xuất Phát (lưu liên tục khi đang làm, chưa bấm Lưu chính thức) ──
+function autosaveSPDraft() {
+  // Chỉ autosave khi chưa lưu chính thức
+  if (spData.saved) return;
   if (spData.khamNha && Object.keys(spData.khamNha).length > 0) {
     const scores = calcKhamNhaScore(spData.khamNha);
     NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
   }
-  spData.finScore=+(document.getElementById('sp-fin-score')?.value||5);
-  spData.energy=+(document.getElementById('sp-energy')?.value||5);
-  spData.holes=document.getElementById('sp-holes')?.value||'';
-  spData.assets=document.getElementById('sp-assets')?.value||'';
-  spData.debt=document.getElementById('sp-debt')?.value||'';
-  spData.income=document.getElementById('sp-income')?.value||'';
-  spData.moneyMind=document.getElementById('sp-money-mind')?.value||'';
-  spData.seeds=document.getElementById('sp-seeds')?.value||'';
-  spData.intent=document.getElementById('sp-intent')?.value||'';
-  spData.startDay=formatDate(new Date());
-  spData.saved=true;
-  spData.savedAt=new Date().toISOString();
-  save(SP_KEY,spData);
+  const get = id => document.getElementById(id)?.value || '';
+  spData.finScore = +(document.getElementById('sp-fin-score')?.value || 5);
+  spData.energy   = +(document.getElementById('sp-energy')?.value   || 5);
+  spData.holes     = get('sp-holes');
+  spData.assets    = get('sp-assets');
+  spData.debt      = get('sp-debt');
+  spData.income    = get('sp-income');
+  spData.moneyMind = get('sp-money-mind');
+  spData.seeds     = get('sp-seeds');
+  spData.intent    = get('sp-intent');
+  spData._draft    = true; // đánh dấu đang là nháp
+  save(SP_KEY, spData);
+  showAutosaveIndicator();
+}
+
+function saveStartingPoint() {
+  // Đã lưu chính thức rồi → chặn
+  if (spData.saved) {
+    showToast('🔒 Điểm xuất phát đã được lưu vĩnh viễn. Không thể thay đổi!');
+    return;
+  }
+  // Thu thập toàn bộ dữ liệu lần cuối
+  if (spData.khamNha && Object.keys(spData.khamNha).length > 0) {
+    const scores = calcKhamNhaScore(spData.khamNha);
+    NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
+  }
+  const get = id => document.getElementById(id)?.value || '';
+  spData.finScore  = +(document.getElementById('sp-fin-score')?.value || 5);
+  spData.energy    = +(document.getElementById('sp-energy')?.value   || 5);
+  spData.holes     = get('sp-holes');
+  spData.assets    = get('sp-assets');
+  spData.debt      = get('sp-debt');
+  spData.income    = get('sp-income');
+  spData.moneyMind = get('sp-money-mind');
+  spData.seeds     = get('sp-seeds');
+  spData.intent    = get('sp-intent');
+  spData.startDay  = formatDate(new Date());
+  spData.saved     = true;
+  spData.savedAt   = new Date().toISOString();
+  delete spData._draft;
+  save(SP_KEY, spData);
   showSPSaved();
   showToast('🌱 Điểm xuất phát đã được lưu vĩnh viễn!');
 }
 
 function showSPSaved() {
-  const view=document.getElementById('sp-saved-view');
-  const txt=document.getElementById('sp-saved-text');
-  if(!view||!txt) return;
-  view.style.display='block';
-  txt.innerHTML=`
-    <strong>📅 Ngày bắt đầu:</strong> ${spData.startDay||'–'}<br>
+  const view = document.getElementById('sp-saved-view');
+  const txt  = document.getElementById('sp-saved-text');
+  if (!view || !txt) return;
+  view.style.display = 'block';
+  txt.innerHTML = `
+    <strong>📅 Ngày bắt đầu:</strong> ${spData.startDay || '–'}<br>
     <strong>🏠 NL 5 Ngôi Nhà:</strong> ${NN_LIST.map(n=>`${n.icon}${spData[n.key]||5}`).join(' · ')}<br>
     <strong>⚡ NL tổng thể:</strong> ${spData.energy||5}/10 &nbsp;|&nbsp; <strong>💰 Tài chính:</strong> ${spData.finScore||5}/10<br>
-    ${spData.intent?`<strong>🎯 Mong muốn:</strong> ${spData.intent.slice(0,100)}...`:''}
+    ${spData.intent ? `<strong>🎯 Mong muốn:</strong> ${spData.intent.slice(0,120)}${spData.intent.length>120?'...':''}` : ''}
   `;
-  // Lock the form permanently — hide save button, disable all inputs
-  lockSPForm();
+  // Chỉ lock khi đã lưu chính thức
+  if (spData.saved) lockSPForm();
 }
 
 function lockSPForm() {
-  // Ẩn nút lưu
+  // Ẩn nút lưu chính thức
   const saveBtn = document.querySelector('#page-start .save-btn');
   if (saveBtn) saveBtn.style.display = 'none';
-  // Disable tất cả inputs/textareas/buttons trong form khám nhà và tài chính
+  // Disable toàn bộ input/textarea/button trong trang Điểm Xuất Phát
   document.querySelectorAll('#page-start input, #page-start textarea, #page-start select').forEach(el => {
     el.disabled = true;
-    el.style.opacity = '0.7';
-    el.style.cursor = 'not-allowed';
+    el.style.opacity = '0.65';
+    el.style.cursor  = 'not-allowed';
+    el.style.pointerEvents = 'none';
   });
-  // Disable tất cả buttons trong kham nha form
-  document.querySelectorAll('#kham-nha-form-sp button').forEach(btn => {
+  document.querySelectorAll('#kham-nha-form-sp button, #sp-wheel-questions button').forEach(btn => {
     btn.disabled = true;
     btn.style.cursor = 'not-allowed';
+    btn.style.pointerEvents = 'none';
   });
 }
 
-// Không cho phép chỉnh sửa điểm xuất phát sau khi đã lưu
-// editStartingPoint đã bị xóa để giữ tính bất biến của dữ liệu xuất phát
+// Không cho phép chỉnh sửa điểm xuất phát sau khi đã lưu chính thức
 
 function exportData() {
   const exportObj = {
@@ -3844,6 +3882,13 @@ function setKhamNha(prefix, qid, val) {
     // Recalculate NN scores và cập nhật cards + radar ngay
     const scores = calcKhamNhaScore(spData.khamNha);
     NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
+    // Autosave nháp nếu chưa lưu chính thức
+    if (!spData.saved) {
+      spData._draft = true;
+      const banner = document.getElementById('sp-draft-banner');
+      if (banner) banner.style.display = 'block';
+      showAutosaveIndicator();
+    }
     save(SP_KEY, spData);
     // Update score cards
     const scoreCards = document.getElementById('sp-nn-score-cards');
@@ -4740,7 +4785,11 @@ const AUTOSAVE_MAP = {
 
 function getAutoSaveObj(store) {
   if (store==='daily')  return { obj: getTodayEntry(), storageKey: STORAGE_KEY, rootObj: data };
-  if (store==='sp')     return { obj: spData,          storageKey: SP_KEY,      rootObj: spData };
+  if (store==='sp') {
+    // Khi SP đã lưu chính thức → không autosave các text field nữa (chỉ đọc)
+    if (spData.saved) return null;
+    return { obj: spData, storageKey: SP_KEY, rootObj: spData };
+  }
   if (store==='r3m')    return { obj: r3mData,         storageKey: R3M_KEY,     rootObj: r3mData };
   if (store==='kz') {
     const w = getWeekKey();
@@ -4787,14 +4836,14 @@ function setupAutosave() {
     });
   });
 
-  // SP sliders
+  // SP sliders — autosave nháp (chưa lưu chính thức)
   ['sp-fin-score','sp-energy'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', () => {
       if (id==='sp-fin-score') spData.finScore = +el.value;
       if (id==='sp-energy')    spData.energy   = +el.value;
-      save(SP_KEY, spData);
+      if (!spData.saved) { spData._draft = true; save(SP_KEY, spData); showAutosaveIndicator(); }
     });
   });
 
@@ -4862,17 +4911,20 @@ function forceSaveAll() {
   });
   save(STORAGE_KEY, data);
 
-  // SP
-  Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
-    if (cfg.store !== 'sp') return;
-    const el = document.getElementById(id);
-    if (el) spData[cfg.key] = el.value;
-  });
-  const spFinEl = document.getElementById('sp-fin-score');
-  const spEngEl = document.getElementById('sp-energy');
-  if (spFinEl) spData.finScore = +spFinEl.value;
-  if (spEngEl) spData.energy   = +spEngEl.value;
-  save(SP_KEY, spData);
+  // SP — chỉ autosave nháp khi chưa lưu chính thức
+  if (!spData.saved) {
+    Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
+      if (cfg.store !== 'sp') return;
+      const el = document.getElementById(id);
+      if (el) spData[cfg.key] = el.value;
+    });
+    const spFinEl = document.getElementById('sp-fin-score');
+    const spEngEl = document.getElementById('sp-energy');
+    if (spFinEl) spData.finScore = +spFinEl.value;
+    if (spEngEl) spData.energy   = +spEngEl.value;
+    spData._draft = true;
+    save(SP_KEY, spData);
+  }
 
   // R3M
   Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
