@@ -1526,22 +1526,6 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <!-- Bánh xe cuộc đời -->
-  <div class="section-card">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(212,135,42,0.12)">🎡</div>
-      Bánh Xe Cuộc Đời – Điểm Xuất Phát
-    </div>
-    <div style="font-size:12.5px;color:var(--ink-muted);margin-bottom:16px;line-height:1.7;font-style:italic">
-      Trả lời trung thực các câu hỏi bên dưới. Điểm số sẽ được tính tự động và vẽ lên bánh xe — khách quan hơn tự chấm.
-    </div>
-    <div id="sp-wheel-questions"></div>
-    <div class="chart-wrap" style="height:260px;margin-top:16px">
-      <canvas id="sp-wheel-chart"></canvas>
-    </div>
-    <div style="font-size:11px;color:var(--ink-muted);text-align:center;margin-top:6px">📊 Bánh Xe Cuộc Đời – Tính từ câu trả lời</div>
-  </div>
-
   <!-- Tài chính xuất phát -->
   <div class="section-card">
     <div class="section-title">
@@ -1613,10 +1597,12 @@ textarea { min-height: 80px; }
   <div id="sp-saved-view" style="display:none;margin-top:16px">
     <div class="section-card" style="border:2px solid var(--nn1);background:var(--nn1-l)">
       <div style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--nn1);margin-bottom:8px">
-        ✅ Điểm xuất phát đã được lưu
+        🔒 Điểm Xuất Phát Đã Được Lưu Vĩnh Viễn
       </div>
       <div id="sp-saved-text" style="font-size:13px;line-height:1.8;color:var(--ink-soft)"></div>
-      <button class="btn-outline" onclick="editStartingPoint()" style="margin-top:12px;font-size:12px">✏️ Chỉnh sửa</button>
+      <div style="margin-top:12px;font-size:11.5px;color:var(--jade);font-weight:700;background:rgba(74,140,111,0.1);border-radius:9px;padding:8px 12px">
+        🌱 Điểm xuất phát là tấm gương phản chiếu thực trạng tại thời điểm bắt đầu — không thể thay đổi để đảm bảo tính so sánh chính xác của hành trình.
+      </div>
     </div>
   </div>
 </div>
@@ -1715,23 +1701,20 @@ textarea { min-height: 80px; }
       <canvas id="ms-compare-radar"></canvas>
     </div>
     <div style="font-size:11.5px;color:var(--ink-muted);text-align:center;margin-top:4px">🟢 Mốc này · 🟡 Điểm xuất phát</div>
+
+    <!-- Biểu đồ phân tích lỗ thủng -->
+    <div style="margin-top:20px">
+      <div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--rose);margin-bottom:10px">🔍 Phân Tích Lỗ Thủng Từng Nhóm</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;line-height:1.6">
+        Điểm càng <strong style="color:var(--rose)">cao</strong> = lỗ thủng càng lớn (cần ưu tiên chữa lành). Điểm <strong style="color:var(--jade)">thấp</strong> = đang tốt.
+      </div>
+      <div id="ms-hole-breakdown"></div>
+    </div>
+
     <div class="field-row" style="margin-top:14px">
       <label class="field-label">Lỗ thủng nào đã được vá? Điều gì thay đổi rõ nhất?</label>
       <textarea id="ms-holes" rows="3" placeholder="Tôi thấy rõ mình đã thay đổi ở..."></textarea>
     </div>
-  </div>
-
-  <!-- Bánh xe -->
-  <div class="section-card">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(212,135,42,0.12)">🎡</div>
-      Bánh Xe Cuộc Đời – <span id="ms-wheel-title">Mốc này</span>
-    </div>
-    <div id="ms-wheel-questions"></div>
-    <div class="chart-wrap" style="height:260px;margin-top:16px">
-      <canvas id="ms-wheel-chart"></canvas>
-    </div>
-    <div style="font-size:11px;color:var(--ink-muted);text-align:center;margin-top:6px">🟡 Vàng = Mốc này · 🟢 Xanh = Điểm xuất phát</div>
   </div>
 
   <!-- Tài chính -->
@@ -2029,22 +2012,6 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <!-- Bánh xe 3 tháng -->
-  <div class="section-card">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(212,135,42,0.12)">🎡</div>
-      Bánh Xe Cuộc Đời Sau 3 Tháng
-    </div>
-    <div style="font-size:12.5px;color:var(--ink-muted);margin-bottom:16px;line-height:1.7;font-style:italic">
-      Trả lời trung thực. Kết quả sẽ so sánh tự động với điểm xuất phát.
-    </div>
-    <div id="r3m-wheel-questions"></div>
-    <div class="chart-wrap" style="height:260px;margin-top:16px">
-      <canvas id="r3m-wheel-chart"></canvas>
-    </div>
-    <div style="font-size:11px;color:var(--ink-muted);text-align:center;margin-top:6px">🟢 Xanh = 3 tháng · 🟡 Vàng = Điểm xuất phát</div>
-  </div>
-
   <!-- Tài chính 3 tháng -->
   <div class="section-card">
     <div class="section-title">
@@ -2223,12 +2190,12 @@ const WHEEL_QUESTIONS = [
     label:'Thu nhập hiện tại của bạn đủ trang trải chi phí sinh hoạt và vẫn có thể để dành tiết kiệm mỗi tháng?' },
   { id:'wq_w4_2', dim:'w4', rev:false,
     label:'Bạn cảm thấy an tâm và tự tin về tình hình tài chính — không bị áp lực bởi nợ nần hoặc thiếu hụt?' },
-  { id:'wq_w4_3', dim:'w4', rev:true,
-    label:'Bạn có hay lo lắng về tiền bạc, mất ngủ vì tài chính hoặc cảm thấy không kiểm soát được dòng tiền của mình?' },
+  { id:'wq_w4_3', dim:'w4', rev:false,
+    label:'Bạn cảm thấy bình an và kiểm soát tốt dòng tiền — không bị lo lắng hay mất ngủ vì áp lực tài chính?' },
   { id:'wq_w4_4', dim:'w4', rev:false,
     label:'Bạn có kế hoạch tài chính rõ ràng cho tương lai (tiết kiệm, đầu tư, dự phòng rủi ro...)?' },
-  { id:'wq_w4_5', dim:'w4', rev:true,
-    label:'Bạn có hay tiêu xài bốc đồng, mua sắm để giải tỏa cảm xúc hoặc chi nhiều hơn thu nhập thực tế?' },
+  { id:'wq_w4_5', dim:'w4', rev:false,
+    label:'Bạn chi tiêu có kỷ luật, không mua sắm bốc đồng và luôn sống trong khả năng thu nhập thực tế của mình?' },
 
   // ── W5 · TÂM LINH ──────────────────────────────────
   // Nguồn: SWBS — Spiritual Well-Being Scale (Ellison, 1983) + Frankl's Logotherapy
@@ -3413,9 +3380,9 @@ function initStartPage() {
   if(spData.finScore){ document.getElementById('sp-fin-score').value=spData.finScore; updateSlider('sp-fin-score','sp-fin-thumb','sp-fin-val'); }
   if(spData.energy){ document.getElementById('sp-energy').value=spData.energy; updateSlider('sp-energy','sp-energy-thumb','sp-energy-val'); }
 
-  setTimeout(()=>{ updateSPRadar(); updateSPWheel(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); },100);
+  setTimeout(()=>{ updateSPRadar(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); },100);
 
-  if(spData.saved) showSPSaved();
+  if(spData.saved) { showSPSaved(); }
 }
 
 function updateSPRadar() {
@@ -3463,15 +3430,15 @@ function updateSPWheel() {
 }
 
 function saveStartingPoint() {
+  // Đã lưu rồi thì không cho lưu lại
+  if (spData.saved) {
+    showToast('⚠️ Điểm xuất phát đã được lưu vĩnh viễn. Không thể thay đổi!');
+    return;
+  }
   // NN scores từ khamNha
   if (spData.khamNha && Object.keys(spData.khamNha).length > 0) {
     const scores = calcKhamNhaScore(spData.khamNha);
     NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
-  }
-  // Bánh xe từ câu hỏi (wheelAnswers → w_*)
-  if (spData.wheelAnswers && Object.keys(spData.wheelAnswers).length > 0) {
-    const wScores = calcWheelScore(spData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { spData['w_'+d.id] = wScores[d.id]; });
   }
   spData.finScore=+(document.getElementById('sp-fin-score')?.value||5);
   spData.energy=+(document.getElementById('sp-energy')?.value||5);
@@ -3484,9 +3451,10 @@ function saveStartingPoint() {
   spData.intent=document.getElementById('sp-intent')?.value||'';
   spData.startDay=formatDate(new Date());
   spData.saved=true;
+  spData.savedAt=new Date().toISOString();
   save(SP_KEY,spData);
   showSPSaved();
-  showToast('🌱 Đã lưu điểm xuất phát!');
+  showToast('🌱 Điểm xuất phát đã được lưu vĩnh viễn!');
 }
 
 function showSPSaved() {
@@ -3500,12 +3468,29 @@ function showSPSaved() {
     <strong>⚡ NL tổng thể:</strong> ${spData.energy||5}/10 &nbsp;|&nbsp; <strong>💰 Tài chính:</strong> ${spData.finScore||5}/10<br>
     ${spData.intent?`<strong>🎯 Mong muốn:</strong> ${spData.intent.slice(0,100)}...`:''}
   `;
+  // Lock the form permanently — hide save button, disable all inputs
+  lockSPForm();
 }
 
-function editStartingPoint() {
-  document.getElementById('sp-saved-view').style.display='none';
-  spData.saved=false;
+function lockSPForm() {
+  // Ẩn nút lưu
+  const saveBtn = document.querySelector('#page-start .save-btn');
+  if (saveBtn) saveBtn.style.display = 'none';
+  // Disable tất cả inputs/textareas/buttons trong form khám nhà và tài chính
+  document.querySelectorAll('#page-start input, #page-start textarea, #page-start select').forEach(el => {
+    el.disabled = true;
+    el.style.opacity = '0.7';
+    el.style.cursor = 'not-allowed';
+  });
+  // Disable tất cả buttons trong kham nha form
+  document.querySelectorAll('#kham-nha-form-sp button').forEach(btn => {
+    btn.disabled = true;
+    btn.style.cursor = 'not-allowed';
+  });
 }
+
+// Không cho phép chỉnh sửa điểm xuất phát sau khi đã lưu
+// editStartingPoint đã bị xóa để giữ tính bất biến của dữ liệu xuất phát
 
 function exportData() {
   const exportObj = {
@@ -3847,6 +3832,8 @@ function setKhamNha(prefix, qid, val) {
     });
     if (typeof renderMSCompareSummary==='function') renderMSCompareSummary();
     if (typeof updateMSRadar==='function') updateMSRadar();
+    // Update hole breakdown for milestone
+    renderHoleBreakdown('ms-hole-breakdown', ms.khamNha||{});
     return;
   }
 
@@ -3890,6 +3877,8 @@ function setKhamNha(prefix, qid, val) {
     }
     // Update radar
     updateSPRadar();
+    // Update hole breakdown live
+    renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{});
   } else {
     if (!r3mData.khamNha) r3mData.khamNha = {};
     r3mData.khamNha[qid] = val;
@@ -3981,9 +3970,6 @@ function renderMilestoneList() {
         <span style="background:rgba(91,138,110,0.1);color:var(--jade);font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:8px">
           🔍 ${answeredKN}/${KHAM_NHA_QUESTIONS.length} câu KN
         </span>
-        <span style="background:rgba(212,135,42,0.1);color:var(--amber);font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:8px">
-          🎡 ${answeredW}/${WHEEL_QUESTIONS.length} câu BX
-        </span>
       </div>
       <div style="margin-top:10px;display:flex;gap:6px">
         <button onclick="event.stopPropagation();openMilestoneDetail('${ms.id}')"
@@ -4013,7 +3999,7 @@ function openMilestoneDetail(id) {
   if (!ms) return;
 
   // Update labels
-  ['ms-compare-title','ms-khamNha-title','ms-nn-title','ms-wheel-title','ms-fin-title'].forEach(elId => {
+  ['ms-compare-title','ms-khamNha-title','ms-nn-title','ms-fin-title'].forEach(elId => {
     const el = document.getElementById(elId);
     if (el) el.textContent = ms.name;
   });
@@ -4052,8 +4038,8 @@ function openMilestoneDetail(id) {
       </div>`).join('');
   }
 
-  // Render wheel questions (preserve existing answers)
-  renderWheelQuestions('ms-wheel-questions', 'ms_'+id, ms.wheelAnswers || {});
+  // Render hole breakdown
+  renderHoleBreakdown('ms-hole-breakdown', ms.khamNha || {});
 
   // Load text/number fields
   const setF = (id, v) => { const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
@@ -4070,7 +4056,7 @@ function openMilestoneDetail(id) {
 
   // Render comparison + charts
   renderMSCompareSummary();
-  setTimeout(() => { updateMSRadar(); updateMSWheel(); }, 100);
+  setTimeout(() => { updateMSRadar(); }, 100);
 }
 
 function getCurrentMS() { return msData.find(m => m.id === currentMsId); }
@@ -4310,12 +4296,7 @@ function initResult3mPage() {
       </div>`).join('');
   }
 
-  // Wheel questionnaire (thay slider)
-  renderWheelQuestions('r3m-wheel-questions', 'r3m', r3mData.wheelAnswers || {});
-  if (r3mData.wheelAnswers && Object.keys(r3mData.wheelAnswers).length > 0) {
-    const scores = calcWheelScore(r3mData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { r3mData['rw_'+d.id] = scores[d.id]; });
-  }
+  // Wheel questionnaire đã bỏ — chỉ dùng Khám Nhà
 
   // Load text fields
   const setF = (id,v) => { const el=document.getElementById(id); if(el&&v) el.value=v; };
@@ -4330,7 +4311,7 @@ function initResult3mPage() {
   if (r3mData.finScore) { document.getElementById('r3m-fin-score').value=r3mData.finScore; updateSlider('r3m-fin-score','r3m-fin-thumb','r3m-fin-val'); }
   if (r3mData.energy) { document.getElementById('r3m-energy').value=r3mData.energy; updateSlider('r3m-energy','r3m-energy-thumb','r3m-energy-val'); }
 
-  setTimeout(() => { updateR3MRadar(); updateR3MWheel(); }, 100);
+  setTimeout(() => { updateR3MRadar(); }, 100);
 }
 
 function renderR3MCompareSummary() {
@@ -4486,10 +4467,6 @@ function renderR3MCompareSummary() {
     <!-- Chi tiết từng NN -->
     <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:10px">🏠 5 Ngôi Nhà – Chi Tiết</div>
     ${nnRows}
-
-    <!-- Bánh xe cuộc đời -->
-    <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin:16px 0 10px">🎡 Bánh Xe Cuộc Đời – So Sánh</div>
-    ${wheelRows}
 
     <!-- NL & Tài chính -->
     <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--jade);margin:16px 0 10px">⚡ Năng Lượng & Tài Chính – So Sánh</div>
