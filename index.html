@@ -1595,7 +1595,7 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <button class="save-btn" style="background:linear-gradient(135deg,var(--nn1),#3d6b54)" onclick="saveStartingPoint()">
+  <button class="save-btn" id="sp-save-btn" style="background:linear-gradient(135deg,var(--nn1),#3d6b54)" onclick="saveStartingPoint()">
     🌱 LƯU ĐIỂM XUẤT PHÁT
   </button>
 
@@ -2107,6 +2107,22 @@ let spData = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
 let kzData = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
 let userInfo = JSON.parse(localStorage.getItem(USER_KEY)  || 'null');
 // userInfo = { name, groupCode, memberId }
+
+// ── Migration: nếu spData.saved=true nhưng chưa trả lời hết câu Khám Nhà
+// → tự động mở lại để làm tiếp (check sau khi KHAM_NHA_QUESTIONS được định nghĩa)
+function migrateSPLockIfNeeded() {
+  if (!spData.saved) return; // chưa lock → không cần
+  const totalQ    = KHAM_NHA_QUESTIONS.length;
+  const answeredQ = Object.keys(spData.khamNha || {}).length;
+  if (answeredQ < totalQ) {
+    // Chưa xong → unlock để làm tiếp
+    spData.saved  = false;
+    spData._draft = true;
+    delete spData.savedAt;
+    try { localStorage.setItem(SP_KEY, JSON.stringify(spData)); } catch(e) {}
+    console.log('SP migration: unlocked (answered ' + answeredQ + '/' + totalQ + ')');
+  }
+}
 
 const RITUALS = [
   { id:'r1', label:'1. Thức dậy bằng tiềm thức', sub:'Giao tiếp tâm thức khi thức dậy' },
@@ -3395,7 +3411,41 @@ function initStartPage() {
 
   setTimeout(()=>{ updateSPRadar(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); }, 100);
 
-  if (spData.saved) { showSPSaved(); }
+  // Cập nhật label nút lưu theo tiến độ
+  const _spBtn = document.getElementById('sp-save-btn');
+  if (_spBtn) {
+    const _done2 = Object.keys(spData.khamNha || {}).length;
+    const _total2 = KHAM_NHA_QUESTIONS.length;
+    if (_done2 >= _total2) {
+      _spBtn.innerHTML = '🌱 LƯU ĐIỂM XUẤT PHÁT';
+      _spBtn.style.background = 'linear-gradient(135deg,var(--nn1),#3d6b54)';
+    } else {
+      _spBtn.innerHTML = '💾 Lưu tạm (' + _done2 + '/' + _total2 + ' câu) — làm tiếp sau';
+      _spBtn.style.background = 'linear-gradient(135deg,var(--gold-dark),#6b4a10)';
+    }
+  }
+
+  // Nếu đã saved nhưng chưa hoàn thành hết câu hỏi → bỏ lock, cho làm tiếp
+  const _totalQ    = KHAM_NHA_QUESTIONS.length;
+  const _answeredQ = Object.keys(spData.khamNha || {}).length;
+  if (spData.saved && _answeredQ < _totalQ) {
+    // Reset về trạng thái nháp để người dùng làm tiếp
+    spData.saved  = false;
+    spData._draft = true;
+    save(SP_KEY, spData);
+  }
+
+  if (spData.saved) {
+    showSPSaved(); // Đã hoàn thành → hiện kết quả + lock
+  } else if (spData._draft || _answeredQ > 0) {
+    // Đang làm dở → hiện banner
+    const banner = document.getElementById('sp-draft-banner');
+    if (banner) {
+      banner.style.display = 'block';
+      const rem = _totalQ - _answeredQ;
+      banner.innerHTML = '<span style="font-size:16px">📝</span> Đã lưu tạm — còn <strong>' + rem + ' câu</strong> Khám Nhà chưa trả lời. Tiếp tục bên dưới!';
+    }
+  }
 }
 
 function updateSPRadar() {
@@ -3466,12 +3516,7 @@ function autosaveSPDraft() {
 }
 
 function saveStartingPoint() {
-  // Đã lưu chính thức rồi → chặn
-  if (spData.saved) {
-    showToast('🔒 Điểm xuất phát đã được lưu vĩnh viễn. Không thể thay đổi!');
-    return;
-  }
-  // Thu thập toàn bộ dữ liệu lần cuối
+  // Thu thập dữ liệu hiện tại từ form
   if (spData.khamNha && Object.keys(spData.khamNha).length > 0) {
     const scores = calcKhamNhaScore(spData.khamNha);
     NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
@@ -3486,13 +3531,33 @@ function saveStartingPoint() {
   spData.moneyMind = get('sp-money-mind');
   spData.seeds     = get('sp-seeds');
   spData.intent    = get('sp-intent');
-  spData.startDay  = formatDate(new Date());
-  spData.saved     = true;
-  spData.savedAt   = new Date().toISOString();
-  delete spData._draft;
-  save(SP_KEY, spData);
-  showSPSaved();
-  showToast('🌱 Điểm xuất phát đã được lưu vĩnh viễn!');
+  if (!spData.startDay) spData.startDay = formatDate(new Date());
+
+  // Kiểm tra đã trả lời hết tất cả câu Khám Nhà chưa
+  const totalQ    = KHAM_NHA_QUESTIONS.length;
+  const answeredQ = Object.keys(spData.khamNha || {}).length;
+  const allDone   = answeredQ >= totalQ;
+
+  if (allDone) {
+    // Hoàn thành hết → lock vĩnh viễn
+    spData.saved   = true;
+    spData.savedAt = new Date().toISOString();
+    delete spData._draft;
+    save(SP_KEY, spData);
+    showSPSaved();
+    showToast('🌱 Điểm xuất phát đã được lưu vĩnh viễn!');
+  } else {
+    // Chưa xong → lưu nháp, vẫn làm tiếp được
+    spData._draft = true;
+    save(SP_KEY, spData);
+    const remaining = totalQ - answeredQ;
+    showToast('💾 Đã lưu tạm! Còn ' + remaining + ' câu Khám Nhà — mở lại làm tiếp được.');
+    const banner = document.getElementById('sp-draft-banner');
+    if (banner) {
+      banner.style.display = 'block';
+      banner.innerHTML = '<span style="font-size:16px">📝</span> Đã lưu tạm — còn <strong>' + remaining + ' câu</strong> Khám Nhà chưa trả lời. Mở lại bất kỳ lúc nào để làm tiếp.';
+    }
+  }
 }
 
 function showSPSaved() {
@@ -3500,14 +3565,17 @@ function showSPSaved() {
   const txt  = document.getElementById('sp-saved-text');
   if (!view || !txt) return;
   view.style.display = 'block';
+  const totalQ    = KHAM_NHA_QUESTIONS.length;
+  const answeredQ = Object.keys(spData.khamNha || {}).length;
+  const allDone   = spData.saved && answeredQ >= totalQ;
   txt.innerHTML = `
     <strong>📅 Ngày bắt đầu:</strong> ${spData.startDay || '–'}<br>
     <strong>🏠 NL 5 Ngôi Nhà:</strong> ${NN_LIST.map(n=>`${n.icon}${spData[n.key]||5}`).join(' · ')}<br>
     <strong>⚡ NL tổng thể:</strong> ${spData.energy||5}/10 &nbsp;|&nbsp; <strong>💰 Tài chính:</strong> ${spData.finScore||5}/10<br>
     ${spData.intent ? `<strong>🎯 Mong muốn:</strong> ${spData.intent.slice(0,120)}${spData.intent.length>120?'...':''}` : ''}
   `;
-  // Chỉ lock khi đã lưu chính thức
-  if (spData.saved) lockSPForm();
+  // Chỉ lock khi thực sự hoàn thành hết tất cả câu hỏi
+  if (allDone) lockSPForm();
 }
 
 function lockSPForm() {
@@ -3766,6 +3834,9 @@ const KN_LEVELS = [
 
 const NN_NAMES = ['','NN1 · Cội Nguồn','NN2 · Cha Mẹ','NN3 · Gia Đình','NN4 · Hồn Thiêng','NN5 · Mẹ Trái Đất'];
 
+// Chạy migration ngay sau khi KHAM_NHA_QUESTIONS được định nghĩa
+migrateSPLockIfNeeded();
+
 function renderKhamNha(containerId, prefix, savedAnswers={}) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -3877,8 +3948,8 @@ function setKhamNha(prefix, qid, val) {
 
   // Save to spData or r3mData
   if (prefix === 'sp') {
-    // Nếu đã lưu chính thức → không cho thay đổi
-    if (spData.saved) return;
+    // Nếu đã hoàn thành toàn bộ và lock → không cho thay đổi
+    if (spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length) return;
     if (!spData.khamNha) spData.khamNha = {};
     spData.khamNha[qid] = val;
     // Recalculate NN scores và cập nhật cards + radar ngay
@@ -3926,6 +3997,19 @@ function setKhamNha(prefix, qid, val) {
     updateSPRadar();
     // Update hole breakdown live
     renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{});
+    // Update save button label với tiến độ
+    const _spBtn2 = document.getElementById('sp-save-btn');
+    if (_spBtn2) {
+      const _d = Object.keys(spData.khamNha||{}).length;
+      const _t = KHAM_NHA_QUESTIONS.length;
+      if (_d >= _t) {
+        _spBtn2.innerHTML = '🌱 LƯU ĐIỂM XUẤT PHÁT';
+        _spBtn2.style.background = 'linear-gradient(135deg,var(--nn1),#3d6b54)';
+      } else {
+        _spBtn2.innerHTML = '💾 Lưu tạm (' + _d + '/' + _t + ' câu) — làm tiếp sau';
+        _spBtn2.style.background = 'linear-gradient(135deg,var(--gold-dark),#6b4a10)';
+      }
+    }
   } else {
     if (!r3mData.khamNha) r3mData.khamNha = {};
     r3mData.khamNha[qid] = val;
@@ -4788,8 +4872,9 @@ const AUTOSAVE_MAP = {
 function getAutoSaveObj(store) {
   if (store==='daily')  return { obj: getTodayEntry(), storageKey: STORAGE_KEY, rootObj: data };
   if (store==='sp') {
-    // Khi SP đã lưu chính thức → không autosave các text field nữa (chỉ đọc)
-    if (spData.saved) return null;
+    // Khi SP đã lock hoàn toàn (saved + đủ câu hỏi) → không autosave nữa
+    const _spComplete = spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length;
+    if (_spComplete) return null;
     return { obj: spData, storageKey: SP_KEY, rootObj: spData };
   }
   if (store==='r3m')    return { obj: r3mData,         storageKey: R3M_KEY,     rootObj: r3mData };
@@ -4845,7 +4930,8 @@ function setupAutosave() {
     el.addEventListener('input', () => {
       if (id==='sp-fin-score') spData.finScore = +el.value;
       if (id==='sp-energy')    spData.energy   = +el.value;
-      if (!spData.saved) { spData._draft = true; save(SP_KEY, spData); showAutosaveIndicator(); }
+      const _spDone = spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length;
+      if (!_spDone) { spData._draft = true; save(SP_KEY, spData); showAutosaveIndicator(); }
     });
   });
 
@@ -4913,8 +4999,9 @@ function forceSaveAll() {
   });
   save(STORAGE_KEY, data);
 
-  // SP — chỉ autosave nháp khi chưa lưu chính thức
-  if (!spData.saved) {
+  // SP — chỉ autosave khi chưa lock hoàn toàn (saved + đủ câu hỏi)
+  const _spLocked = spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length;
+  if (!_spLocked) {
     Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
       if (cfg.store !== 'sp') return;
       const el = document.getElementById(id);
