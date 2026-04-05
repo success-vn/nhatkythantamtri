@@ -2180,11 +2180,16 @@ const STORAGE_KEY = 'nk5nn-main';
 const SP_KEY      = 'nk5nn-sp';
 const KZ_KEY      = 'nk5nn-kaizen';
 const USER_KEY    = 'nk5nn-user';
+const R3M_KEY     = 'nk5nn-r3m';
+const MS_KEY      = 'nk5nn-milestones';
 
-let data   = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-let spData = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
-let kzData = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
-let userInfo = JSON.parse(localStorage.getItem(USER_KEY)  || 'null');
+let data     = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+let spData   = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
+let kzData   = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
+let userInfo = JSON.parse(localStorage.getItem(USER_KEY)    || 'null');
+let r3mData  = JSON.parse(localStorage.getItem(R3M_KEY)     || '{}');
+let msData   = JSON.parse(localStorage.getItem(MS_KEY)      || '[]');
+let currentMsId = null;
 // userInfo = { name, groupCode, memberId }
 
 // ── Migration: nếu spData.saved=true nhưng chưa trả lời hết câu Khám Nhà
@@ -2598,6 +2603,7 @@ function doLogin() {
 }
 
 function loginSuccess(name, group, memberId, isLeader) {
+  if (_pendingPollTimer) { clearInterval(_pendingPollTimer); _pendingPollTimer = null; }
   userInfo = { name, groupCode: group, memberId, isLeader };
   save(USER_KEY, userInfo);
   document.getElementById('login-screen').style.display = 'none';
@@ -2606,6 +2612,7 @@ function loginSuccess(name, group, memberId, isLeader) {
   bootApp();
 }
 
+let _pendingPollTimer = null;
 function showPendingScreen(info) {
   document.getElementById('login-screen').style.display = 'none';
   const screen = document.getElementById('pending-approval-screen');
@@ -2619,6 +2626,25 @@ function showPendingScreen(info) {
     (info.phone ? `📱 ${info.phone}<br>` : '') +
     `👥 Nhóm: <strong>${info.groupCode}</strong><br>` +
     `🕐 Gửi lúc: ${info.requestedAt ? new Date(info.requestedAt).toLocaleString('vi') : '–'}`;
+
+  // Auto-poll Firebase mỗi 15 giây, tự vào app khi được duyệt
+  if (_pendingPollTimer) clearInterval(_pendingPollTimer);
+  _pendingPollTimer = setInterval(async () => {
+    const pending = JSON.parse(localStorage.getItem('nk5nn-pending') || 'null');
+    if (!pending) { clearInterval(_pendingPollTimer); _pendingPollTimer = null; return; }
+    try {
+      const database = await loadFirebase();
+      if (!database) return;
+      const snap = await database.ref('member_requests/' + pending.memberId).once('value');
+      const req = snap.val();
+      if (req && req.status === 'approved') {
+        clearInterval(_pendingPollTimer); _pendingPollTimer = null;
+        localStorage.removeItem('nk5nn-pending');
+        showToast('✅ Bạn đã được duyệt! Đang vào app...');
+        setTimeout(() => loginSuccess(pending.name, pending.groupCode, pending.memberId, req.isLeader || false), 800);
+      }
+    } catch(e) { /* polling error, retry next interval */ }
+  }, 15000);
 }
 
 async function checkMemberApprovalStatus() {
@@ -2642,6 +2668,7 @@ async function checkMemberApprovalStatus() {
 }
 
 function cancelPendingAndReRegister() {
+  if (_pendingPollTimer) { clearInterval(_pendingPollTimer); _pendingPollTimer = null; }
   localStorage.removeItem('nk5nn-pending');
   document.getElementById('pending-approval-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -3049,10 +3076,11 @@ const firebaseConfig = {
   appId: "1:93665142564:web:718c27e06c1326f8cd75b1",
 };
 
+let _firebaseLoadPromise = null; // FIX: prevent race condition on parallel loadFirebase() calls
 function loadFirebase() {
-  return new Promise((resolve) => {
-    if (db) { resolve(db); return; }
-    // Load scripts động
+  if (db) return Promise.resolve(db);
+  if (_firebaseLoadPromise) return _firebaseLoadPromise; // FIX: reuse in-flight promise
+  _firebaseLoadPromise = new Promise((resolve) => {
     const s1 = document.createElement('script');
     s1.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
     s1.onload = () => {
@@ -3066,14 +3094,16 @@ function loadFirebase() {
         } catch(e) {
           console.warn('Firebase init error:', e);
         }
+        _firebaseLoadPromise = null;
         resolve(db);
       };
-      s2.onerror = () => resolve(null);
+      s2.onerror = () => { _firebaseLoadPromise = null; resolve(null); };
       document.head.appendChild(s2);
     };
-    s1.onerror = () => resolve(null);
+    s1.onerror = () => { _firebaseLoadPromise = null; resolve(null); };
     document.head.appendChild(s1);
   });
+  return _firebaseLoadPromise;
 }
 
 // Load Firebase trong nền sau khi app đã khởi động
@@ -3161,7 +3191,16 @@ async function pushLocalToFirebase() {
 async function pullFirebaseToLocal(remote) {
   try {
     if (remote.daily && typeof remote.daily === 'object') {
-      Object.assign(data, remote.daily);
+      // Merge by date: keep the entry with more fields (safer than full overwrite)
+      Object.entries(remote.daily).forEach(([date, remoteEntry]) => {
+        const localEntry = data[date];
+        if (!localEntry) {
+          data[date] = remoteEntry;
+        } else {
+          // Merge fields: remote wins for fields not in local
+          data[date] = Object.assign({}, remoteEntry, localEntry);
+        }
+      });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
     if (remote.sp && typeof remote.sp === 'object') {
@@ -3185,12 +3224,23 @@ async function pullFirebaseToLocal(remote) {
     localStorage.setItem(SYNC_TS_KEY, String(ts));
     const timeStr = new Date(ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
     setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
-    // Reload UI với dữ liệu mới
+    // Reload UI với dữ liệu mới — FIX: thêm đầy đủ các hàm render bị thiếu
     setDateBars();
     renderRituals();
     renderNNEnergySliders();
     loadTodayFields();
     renderTasksList();
+    // FIX: Reload các trang khác nếu đang active
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+      const pageId = activePage.id.replace('page-', '');
+      if (pageId === 'dashboard')  renderDashboard();
+      if (pageId === 'history')    renderHistory();
+      if (pageId === 'team')       { renderMyNNSliders(); renderTeam(); }
+      if (pageId === 'start')      initStartPage();
+      if (pageId === 'milestones') initMilestonesPage();
+      if (pageId === 'result3m')   initResult3mPage();
+    }
     console.log('Pulled Firebase data to local ✅');
   } catch(e) {
     console.warn('Pull failed:', e);
@@ -4524,16 +4574,11 @@ function calcKhamNhaScore(answers) {
 // ══════════════════════════════════════
 // 3-MONTH RESULT DATA
 // ══════════════════════════════════════
-const R3M_KEY = 'nk5nn-r3m';
-let r3mData = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
+// NOTE: R3M_KEY, MS_KEY, r3mData, msData, currentMsId declared at top of script
 
 // ══════════════════════════════════════
 // MILESTONES SYSTEM — đánh giá liên tục
 // ══════════════════════════════════════
-const MS_KEY = 'nk5nn-milestones';
-let msData = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
-// msData = [{ id, name, note, createdAt, khamNha, wheelAnswers, nn{}, rw_{}, finScore, energy, assets, debt, income, moneyMind, seedsChanged, proud, commit, savedAt }]
-let currentMsId = null;
 
 function createMilestone() {
   const name = document.getElementById('new-milestone-name').value.trim();
