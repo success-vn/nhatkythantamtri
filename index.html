@@ -712,7 +712,41 @@ textarea { min-height: 80px; }
     </div>
   </div>
 </div>
-<!-- Autosave indicator -->
+
+<!-- Màn hình chờ duyệt thành viên -->
+<div id="pending-approval-screen" style="
+  display:none;position:fixed;inset:0;z-index:9998;
+  background:linear-gradient(160deg,#0e1a12 0%,#1a2818 50%,#1a1410 100%);
+  display:none;align-items:center;justify-content:center;padding:20px;
+">
+  <div style="background:var(--card);border-radius:24px;padding:32px 26px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.45);text-align:center">
+    <div style="font-size:52px;margin-bottom:12px">⏳</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:8px">Đang Chờ Được Duyệt</div>
+    <div style="font-size:13.5px;color:var(--ink-muted);line-height:1.8;margin-bottom:20px">
+      Yêu cầu tham gia của bạn đã được gửi đến<br>
+      <strong style="color:var(--ink)" id="pending-group-label">nhóm</strong>.<br>
+      Trưởng nhóm hoặc Admin sẽ duyệt sớm nhất có thể.
+    </div>
+    <div style="background:rgba(201,168,76,0.1);border:1.5px solid rgba(201,168,76,0.3);border-radius:12px;padding:14px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Thông tin đăng ký</div>
+      <div id="pending-info" style="font-size:13px;color:var(--ink-soft);line-height:1.8"></div>
+    </div>
+    <button onclick="checkMemberApprovalStatus()" style="
+      width:100%;padding:13px;margin-bottom:10px;
+      background:linear-gradient(135deg,var(--nn1),#3d6b54);
+      color:white;border:none;border-radius:13px;
+      font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer">
+      🔄 Kiểm Tra Trạng Thái
+    </button>
+    <button onclick="cancelPendingAndReRegister()" style="
+      width:100%;padding:11px;
+      background:none;border:1.5px solid rgba(192,96,106,0.3);border-radius:13px;
+      font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;
+      color:var(--rose);cursor:pointer">
+      ← Đăng ký lại với thông tin khác
+    </button>
+  </div>
+</div>
 <div id="autosave-indicator" style="
   position:fixed;bottom:16px;right:16px;z-index:500;
   background:var(--jade);color:white;
@@ -1247,6 +1281,9 @@ textarea { min-height: 80px; }
         <div style="font-size:11.5px;font-weight:400;color:var(--ink-muted);margin-top:1px" id="team-my-name-label"></div>
       </div>
     </div>
+    <div style="font-size:11.5px;color:var(--jade);font-weight:700;background:rgba(74,140,111,0.08);border-radius:9px;padding:8px 12px;margin-bottom:14px">
+      ✨ Dữ liệu được tự động lấy từ nhật ký hôm nay của bạn. Kéo thanh để điều chỉnh nếu cần.
+    </div>
     <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Số nghi thức hoàn thành hôm nay</div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <input type="range" id="my-rituals" min="0" max="9" value="0"
@@ -1262,7 +1299,7 @@ textarea { min-height: 80px; }
     </div>
 
     <button onclick="saveMyTeamStats()" class="save-btn">
-      📤 Gửi Thống Kê Lên Nhóm
+      📤 Cập Nhật & Gửi Lên Nhóm
     </button>
     <div id="my-last-sync" style="font-size:11px;color:var(--ink-muted);text-align:center;margin-top:8px"></div>
   </div>
@@ -1828,6 +1865,20 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
+  <!-- Duyệt thành viên mới (chỉ thấy nhóm mình) -->
+  <div class="section-card" style="border:2px solid rgba(74,127,168,0.3);margin-bottom:16px">
+    <div class="section-title">
+      <div class="section-icon" style="background:rgba(74,127,168,0.12)">👤</div>
+      <div>Duyệt Thành Viên Mới
+        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Chỉ thành viên đăng ký nhóm của bạn</div>
+      </div>
+    </div>
+    <div id="leader-member-requests-list">
+      <div class="empty-state" style="padding:12px 0"><div class="empty-icon" style="font-size:24px">✅</div><p style="font-size:12.5px">Không có thành viên nào chờ duyệt.</p></div>
+    </div>
+    <button class="btn-outline" onclick="loadLeaderMemberRequests()" style="width:100%;margin-top:8px;font-size:12px">🔄 Làm mới</button>
+  </div>
+
   <!-- Lọc & tìm thành viên -->
   <div style="display:flex;gap:8px;margin-bottom:14px">
     <input type="text" id="leader-search" placeholder="🔍 Tìm thành viên..."
@@ -1892,26 +1943,30 @@ textarea { min-height: 80px; }
   <div id="admin-content" style="display:none">
 
     <!-- Tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0">
+    <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0;overflow-x:auto;scrollbar-width:none">
       <button class="admin-tab active" id="atab-pending" onclick="switchAdminTab('pending')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--rose);border-bottom:3px solid var(--rose);cursor:pointer;font-family:'Nunito',sans-serif">
-        ⏳ Chờ Duyệt <span id="pending-count-badge" style="background:var(--rose);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px">0</span>
+        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--rose);border-bottom:3px solid var(--rose);cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
+        ⏳ Chờ TN <span id="pending-count-badge" style="background:var(--rose);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px">0</span>
+      </button>
+      <button class="admin-tab" id="atab-members" onclick="switchAdminTab('members')"
+        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
+        👤 Duyệt TV <span id="member-pending-badge" style="background:var(--sky);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px;display:none">0</span>
       </button>
       <button class="admin-tab" id="atab-leaders" onclick="switchAdminTab('leaders')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
         👑 Trưởng Nhóm
       </button>
       <button class="admin-tab" id="atab-groups" onclick="switchAdminTab('groups')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
         👥 Tất Cả Nhóm
       </button>
       <button class="admin-tab" id="atab-settings" onclick="switchAdminTab('settings')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
         ⚙️ Cài Đặt
       </button>
     </div>
 
-    <!-- Tab: Chờ duyệt -->
+    <!-- Tab: Chờ duyệt Trưởng Nhóm -->
     <div id="admin-tab-pending">
       <div class="note-quote" style="margin-bottom:14px">
         Các thành viên đăng ký vai trò Trưởng Nhóm đang chờ bạn xét duyệt.
@@ -1920,6 +1975,21 @@ textarea { min-height: 80px; }
         <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
       </div>
       <button class="btn-outline" onclick="loadAdminData()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
+    </div>
+
+    <!-- Tab: Duyệt Thành Viên (Admin thấy tất cả nhóm) -->
+    <div id="admin-tab-members" style="display:none">
+      <div class="note-quote" style="margin-bottom:14px">
+        Thành viên đăng ký mới đang chờ được duyệt. Admin có thể duyệt tất cả nhóm.
+      </div>
+      <div id="admin-member-pending-list">
+        <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">Đã duyệt</div>
+        <div id="admin-member-approved-list"></div>
+      </div>
+      <button class="btn-outline" onclick="loadAdminMemberRequests()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
     </div>
 
     <!-- Tab: Trưởng nhóm đã duyệt -->
@@ -2469,10 +2539,234 @@ function doLogin() {
   if (!name || !group) { errEl.style.display='block'; return; }
   errEl.style.display='none';
   const memberId = 'u_' + btoa(encodeURIComponent(name+'|'+group)).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
-  userInfo = { name, groupCode: group, memberId };
+
+  // Kiểm tra trạng thái duyệt trước khi vào app
+  loadFirebase().then(async database => {
+    if (!database) {
+      // Không có mạng → cho vào ngay (offline mode)
+      loginSuccess(name, group, memberId, false);
+      return;
+    }
+    try {
+      const snap = await database.ref('member_requests/' + memberId).once('value');
+      const req = snap.val();
+      if (!req) {
+        // Chưa có member_request → có thể là thành viên cũ đăng ký trước khi có tính năng này
+        // Kiểm tra xem đã có trong /members chưa
+        const memberSnap = await database.ref('members/' + memberId).once('value');
+        const member = memberSnap.val();
+        if (member) {
+          // Thành viên cũ → tự động tạo member_request approved và cho vào
+          await database.ref('member_requests/' + memberId).set({
+            memberId, name: member.name||name, phone: member.phone||'', email: member.email||'',
+            groupCode: member.groupCode||group, referrer: member.referrer||'',
+            status: 'approved', approvedAt: new Date().toISOString(),
+            autoApproved: true, requestedAt: member.registeredAt||new Date().toISOString()
+          });
+          loginSuccess(name, group, memberId, member.isLeader||false);
+        } else {
+          // Thực sự là người mới → gửi request pending
+          const pendingInfo = { name, phone:'', email:'', groupCode: group, referrer:'', memberId, isLeaderReg:false, requestedAt: new Date().toISOString() };
+          localStorage.setItem('nk5nn-pending', JSON.stringify(pendingInfo));
+          await database.ref('member_requests/' + memberId).set({
+            memberId, name, phone:'', email:'', groupCode: group,
+            status: 'pending', requestedAt: new Date().toISOString()
+          });
+          await database.ref('members/' + memberId).set({
+            name, phone:'', email:'', groupCode: group, referrer:'',
+            isLeader: false, approved: false,
+            registeredAt: new Date().toISOString(), memberId
+          });
+          showPendingScreen(pendingInfo);
+        }
+        return;
+      }
+      if (req.status === 'approved') {
+        loginSuccess(name, group, memberId, req.isLeader || false);
+      } else if (req.status === 'rejected') {
+        errEl.textContent = '❌ Yêu cầu của bạn đã bị từ chối. Vui lòng liên hệ trưởng nhóm.';
+        errEl.style.display = 'block';
+      } else {
+        // pending → hiện màn hình chờ
+        showPendingScreen({ name, groupCode: group, memberId, phone: req.phone||'', email: req.email||'', requestedAt: req.requestedAt });
+      }
+    } catch(e) {
+      // Lỗi Firebase → cho vào (offline fallback)
+      loginSuccess(name, group, memberId, false);
+    }
+  });
+}
+
+function loginSuccess(name, group, memberId, isLeader) {
+  userInfo = { name, groupCode: group, memberId, isLeader };
   save(USER_KEY, userInfo);
-  document.getElementById('login-screen').style.display='none';
+  document.getElementById('login-screen').style.display = 'none';
+  const pendingScreen = document.getElementById('pending-approval-screen');
+  if (pendingScreen) pendingScreen.style.display = 'none';
   bootApp();
+}
+
+function showPendingScreen(info) {
+  document.getElementById('login-screen').style.display = 'none';
+  const screen = document.getElementById('pending-approval-screen');
+  if (!screen) return;
+  screen.style.display = 'flex';
+  const groupLabel = document.getElementById('pending-group-label');
+  if (groupLabel) groupLabel.textContent = 'nhóm ' + info.groupCode;
+  const infoEl = document.getElementById('pending-info');
+  if (infoEl) infoEl.innerHTML =
+    `👤 <strong>${info.name}</strong><br>` +
+    (info.phone ? `📱 ${info.phone}<br>` : '') +
+    `👥 Nhóm: <strong>${info.groupCode}</strong><br>` +
+    `🕐 Gửi lúc: ${info.requestedAt ? new Date(info.requestedAt).toLocaleString('vi') : '–'}`;
+}
+
+async function checkMemberApprovalStatus() {
+  const pending = JSON.parse(localStorage.getItem('nk5nn-pending') || 'null');
+  if (!pending) { location.reload(); return; }
+  const database = await loadFirebase();
+  if (!database) { showToast('⚠️ Không kết nối được. Thử lại sau.'); return; }
+  try {
+    const snap = await database.ref('member_requests/' + pending.memberId).once('value');
+    const req = snap.val();
+    if (!req || req.status === 'pending') {
+      showToast('⏳ Vẫn đang chờ duyệt. Trưởng nhóm sẽ duyệt sớm!');
+    } else if (req.status === 'approved') {
+      localStorage.removeItem('nk5nn-pending');
+      showToast('✅ Đã được duyệt! Đang vào app...');
+      setTimeout(() => loginSuccess(pending.name, pending.groupCode, pending.memberId, req.isLeader || false), 800);
+    } else if (req.status === 'rejected') {
+      showToast('❌ Yêu cầu bị từ chối. Liên hệ trưởng nhóm.');
+    }
+  } catch(e) { showToast('⚠️ Lỗi kết nối: ' + e.message); }
+}
+
+function cancelPendingAndReRegister() {
+  localStorage.removeItem('nk5nn-pending');
+  document.getElementById('pending-approval-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  showRegisterStep();
+}
+
+// ── Leader: load member requests của nhóm mình ──────────────
+async function loadLeaderMemberRequests() {
+  if (!isLeader() || !userInfo) return;
+  const el = document.getElementById('leader-member-requests-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:10px;font-size:12px;color:var(--ink-muted)">⏳ Đang tải...</div>';
+  const database = await loadFirebase();
+  if (!database) { el.innerHTML = '<div style="font-size:12px;color:var(--rose);padding:8px">Không kết nối Firebase</div>'; return; }
+  try {
+    const snap = await database.ref('member_requests').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value');
+    const all = snap.val() || {};
+    const pending  = Object.entries(all).filter(([,r]) => r.status === 'pending');
+    const approved = Object.entries(all).filter(([,r]) => r.status === 'approved');
+    if (!pending.length && !approved.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:12px 0"><div class="empty-icon" style="font-size:24px">✅</div><p style="font-size:12.5px">Không có thành viên nào chờ duyệt.</p></div>';
+      return;
+    }
+    el.innerHTML = pending.map(([id, r]) => renderMemberRequestCard(id, r, 'leader')).join('') +
+      (approved.length ? `<div style="font-size:11px;font-weight:800;color:var(--jade);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 6px">✅ Đã duyệt (${approved.length})</div>` +
+        approved.map(([id, r]) => renderMemberApprovedCard(id, r, 'leader')).join('') : '');
+  } catch(e) { el.innerHTML = '<div style="font-size:12px;color:var(--rose);padding:8px">Lỗi: ' + e.message + '</div>'; }
+}
+
+// ── Admin: load ALL member requests ──────────────
+async function loadAdminMemberRequests() {
+  const elPending  = document.getElementById('admin-member-pending-list');
+  const elApproved = document.getElementById('admin-member-approved-list');
+  if (!elPending) return;
+  elPending.innerHTML = '<div style="text-align:center;padding:10px;font-size:12px;color:var(--ink-muted)">⏳ Đang tải...</div>';
+  const database = await loadFirebase();
+  if (!database) { elPending.innerHTML = '<div style="font-size:12px;color:var(--rose)">Không kết nối Firebase</div>'; return; }
+  try {
+    const snap = await database.ref('member_requests').once('value');
+    const all = snap.val() || {};
+    const pending  = Object.entries(all).filter(([,r]) => r.status === 'pending');
+    const approved = Object.entries(all).filter(([,r]) => r.status === 'approved');
+    // Update badge
+    const badge = document.getElementById('member-pending-badge');
+    if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
+    elPending.innerHTML = pending.length
+      ? pending.map(([id,r]) => renderMemberRequestCard(id, r, 'admin')).join('')
+      : '<div class="empty-state" style="padding:10px 0"><div class="empty-icon" style="font-size:22px">✅</div><p style="font-size:12px">Không có yêu cầu nào chờ duyệt.</p></div>';
+    if (elApproved) elApproved.innerHTML = approved.length
+      ? approved.map(([id,r]) => renderMemberApprovedCard(id, r, 'admin')).join('')
+      : '<div style="font-size:12px;color:var(--ink-muted);padding:6px 0">Chưa có thành viên nào được duyệt.</div>';
+  } catch(e) { elPending.innerHTML = '<div style="font-size:12px;color:var(--rose)">Lỗi: ' + e.message + '</div>'; }
+}
+
+function renderMemberRequestCard(id, r, role) {
+  return `<div style="padding:12px 14px;background:var(--card);border:1.5px solid rgba(74,127,168,0.25);border-radius:12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800;font-size:13.5px;color:var(--ink)">👤 ${r.name}</div>
+      <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">
+        📱 ${r.phone||'–'} &nbsp;·&nbsp; 👥 Nhóm: <strong>${r.groupCode}</strong>
+      </div>
+      ${r.email ? `<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">📧 ${r.email}</div>` : ''}
+      ${r.referrer ? `<div style="font-size:11px;color:var(--gold-dark);margin-top:1px">🌱 Gieo duyên: ${r.referrer}</div>` : ''}
+      <div style="font-size:10.5px;color:var(--ink-muted);margin-top:3px">🕐 ${r.requestedAt ? new Date(r.requestedAt).toLocaleString('vi') : '–'}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+      <button type="button" onclick="approveMember('${id}','${role}')"
+        style="padding:7px 12px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+        ✅ Duyệt
+      </button>
+      <button type="button" onclick="rejectMember('${id}','${role}')"
+        style="padding:7px 12px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+        ❌ Từ chối
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderMemberApprovedCard(id, r, role) {
+  return `<div style="padding:10px 14px;background:var(--card);border:1px solid rgba(74,140,111,0.2);border-radius:11px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <div>
+      <div style="font-weight:800;font-size:13px;color:var(--ink)">✅ ${r.name}</div>
+      <div style="font-size:11px;color:var(--ink-muted);margin-top:2px">👥 ${r.groupCode} &nbsp;·&nbsp; 📱 ${r.phone||'–'}</div>
+      <div style="font-size:10.5px;color:var(--jade);margin-top:2px">Duyệt: ${r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi') : '–'}</div>
+    </div>
+    <button type="button" onclick="revokeMember('${id}','${role}')"
+      style="padding:5px 10px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+      Thu hồi
+    </button>
+  </div>`;
+}
+
+async function approveMember(memberId, role) {
+  const database = await loadFirebase();
+  if (!database) return;
+  try {
+    await database.ref('member_requests/' + memberId).update({ status:'approved', approvedAt: new Date().toISOString() });
+    await database.ref('members/' + memberId).update({ approved: true, approvedAt: new Date().toISOString() });
+    showToast('✅ Đã duyệt thành viên!');
+    role === 'leader' ? loadLeaderMemberRequests() : loadAdminMemberRequests();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
+async function rejectMember(memberId, role) {
+  if (!confirm('Từ chối thành viên này?')) return;
+  const database = await loadFirebase();
+  if (!database) return;
+  try {
+    await database.ref('member_requests/' + memberId).update({ status:'rejected', rejectedAt: new Date().toISOString() });
+    await database.ref('members/' + memberId).update({ approved: false });
+    showToast('❌ Đã từ chối yêu cầu.');
+    role === 'leader' ? loadLeaderMemberRequests() : loadAdminMemberRequests();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
+async function revokeMember(memberId, role) {
+  if (!confirm('Thu hồi quyền truy cập của thành viên này?')) return;
+  const database = await loadFirebase();
+  if (!database) return;
+  try {
+    await database.ref('member_requests/' + memberId).update({ status:'pending', revokedAt: new Date().toISOString() });
+    await database.ref('members/' + memberId).update({ approved: false });
+    showToast('🔄 Đã thu hồi quyền truy cập.');
+    role === 'leader' ? loadLeaderMemberRequests() : loadAdminMemberRequests();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
 }
 
 function changeGroup() {
@@ -2583,6 +2877,9 @@ function toggleRitual(id) {
   item.classList.toggle('done',entry.rituals[id]);
   item.querySelector('.ritual-check').textContent=entry.rituals[id]?'✓':'';
   updateRitualProgress();
+  // Auto-sync thống kê nhóm khi thay đổi nghi thức
+  clearTimeout(toggleRitual._timer);
+  toggleRitual._timer = setTimeout(autoSyncMyTeamStats, 5000);
 }
 function updateRitualProgress() {
   const entry=getTodayEntry();
@@ -2660,6 +2957,8 @@ function saveEnergy() {
   e.savedEnergy=true;
   save(STORAGE_KEY,data);
   showToast('⚡ Đã lưu năng lượng!');
+  // Auto-sync thống kê nhóm sau khi lưu NL
+  setTimeout(autoSyncMyTeamStats, 2000);
 }
 function saveGratitude() {
   const e=getTodayEntry();
@@ -2929,15 +3228,28 @@ function fbMemberRef() {
 function renderMyNNSliders() {
   const wrap = document.getElementById('my-nn-sliders');
   if (!wrap) return;
-  const saved = getMyLocalStats();
-  const nn = saved?.nn || [5,5,5,5,5];
-  const rituals = saved?.rituals || 0;
-  document.getElementById('my-rituals').value = rituals;
-  document.getElementById('my-rituals-val').textContent = rituals;
+
+  // Ưu tiên: lấy từ nhật ký hôm nay (đã điền ở các tab khác)
+  const todayEntry = getTodayEntry();
+  const savedStats = getMyLocalStats(); // stats đã gửi lên nhóm hôm nay
+
+  // Số nghi thức: lấy từ rituals của hôm nay
+  const ritualsDone = Object.values(todayEntry.rituals || {}).filter(Boolean).length;
+  // NL 5 Ngôi Nhà: lấy từ nnEnergy hôm nay
+  const nnFromEntry = NN_LIST.map(nn => todayEntry.nnEnergy?.[nn.key] || 5);
+
+  // Dùng dữ liệu hôm nay nếu có, ngược lại dùng stats đã lưu
+  const rituals = ritualsDone > 0 ? ritualsDone : (savedStats?.rituals || 0);
+  const nn = nnFromEntry.some(v => v !== 5) ? nnFromEntry : (savedStats?.nn || [5,5,5,5,5]);
+
+  const ritualEl = document.getElementById('my-rituals');
+  const ritualValEl = document.getElementById('my-rituals-val');
+  if (ritualEl) { ritualEl.value = rituals; }
+  if (ritualValEl) { ritualValEl.textContent = rituals; }
 
   wrap.style.gridColumn = '1/-1';
   wrap.parentElement.style.gridTemplateColumns = 'repeat(5,1fr)';
-  wrap.innerHTML = NN_LIST.map((n,i)=>`
+  wrap.innerHTML = NN_LIST.map((n,i) => `
     <div style="text-align:center">
       <div style="font-size:18px">${n.icon}</div>
       <div style="font-size:9.5px;font-weight:800;color:${n.color};margin:2px 0">${n.label.split('·')[0]}</div>
@@ -2946,6 +3258,38 @@ function renderMyNNSliders() {
         style="position:relative;opacity:1;width:100%;height:5px;cursor:pointer;accent-color:${n.color}">
       <div id="my-nn-val-${i}" style="font-size:14px;font-weight:800;color:${n.color};margin-top:2px">${nn[i]||5}</div>
     </div>`).join('');
+
+  // Auto-sync lên Firebase nếu có dữ liệu hôm nay và chưa sync hôm nay
+  const alreadySyncedToday = savedStats?.date === todayKey();
+  const hasNewData = ritualsDone > 0 || nnFromEntry.some(v => v !== 5);
+  if (hasNewData && !alreadySyncedToday) {
+    // Auto-sync trong nền
+    setTimeout(autoSyncMyTeamStats, 1000);
+  }
+}
+
+// Tự động sync thống kê từ dữ liệu đã có — không cần bấm nút
+async function autoSyncMyTeamStats() {
+  const k = todayKey();
+  const todayEntry = getTodayEntry();
+  const rituals = Object.values(todayEntry.rituals || {}).filter(Boolean).length;
+  const nn = NN_LIST.map(n => todayEntry.nnEnergy?.[n.key] || 5);
+
+  if (rituals === 0 && nn.every(v => v === 5)) return; // không có gì để sync
+
+  const myStats = { name: userInfo.name, date: k, rituals, nn, ts: Date.now(), autoSynced: true };
+  localStorage.setItem('my-team-stats-' + userInfo.memberId, JSON.stringify(myStats));
+
+  const database = await loadFirebase();
+  if (!database) return;
+  db = database;
+  try {
+    await fbMemberRef().set(myStats);
+    loadMyLastSync();
+    console.log('Auto-synced team stats ✅');
+  } catch(e) {
+    console.warn('Auto-sync failed:', e);
+  }
 }
 
 // Save my stats to localStorage cache (for slider reload)
@@ -2993,9 +3337,13 @@ function loadMyLastSync() {
   const saved = getMyLocalStats();
   const syncEl = document.getElementById('my-last-sync');
   if (!syncEl) return;
-  syncEl.textContent = saved
-    ? '✅ Đã gửi lúc ' + new Date(saved.ts).toLocaleTimeString('vi')
-    : 'Chưa gửi thống kê hôm nay';
+  if (!saved) {
+    syncEl.textContent = '⏳ Chưa đồng bộ hôm nay';
+    return;
+  }
+  const timeStr = new Date(saved.ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
+  const autoLabel = saved.autoSynced ? ' (tự động)' : '';
+  syncEl.innerHTML = `✅ Đã gửi lúc ${timeStr}${autoLabel} · ${saved.rituals}/9 nghi thức`;
 }
 
 async function refreshTeam() {
@@ -5048,6 +5396,7 @@ function setupAutosave() {
   });
 
   // NN energy sliders
+  let _nnSyncTimer = null;
   NN_LIST.forEach(nn => {
     const el = document.getElementById('nne-'+nn.key);
     if (!el) return;
@@ -5056,6 +5405,9 @@ function setupAutosave() {
       if (!entry.nnEnergy) entry.nnEnergy = {};
       entry.nnEnergy[nn.key] = +el.value;
       save(STORAGE_KEY, data);
+      // Auto-sync team stats sau 5 giây idle
+      clearTimeout(_nnSyncTimer);
+      _nnSyncTimer = setTimeout(autoSyncMyTeamStats, 5000);
     });
   });
 
@@ -5307,36 +5659,44 @@ function doRegister() {
   }
   errEl.style.display='none';
 
-  // Trưởng nhóm = người bấm "Tôi là Trưởng Nhóm" (wrap đang hiện)
   const leaderWrap = document.getElementById('leader-request-wrap');
   const isLeaderReg = leaderWrap && leaderWrap.style.display !== 'none';
 
   const memberId = 'u_' + btoa(encodeURIComponent(name+'|'+group)).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
-  userInfo = { name, groupCode: group, memberId, isLeader: isLeaderReg };
-  save(USER_KEY, userInfo);
-  document.getElementById('login-screen').style.display='none';
-  bootApp();
 
-  // Push to Firebase
-  const memberData = { name, phone, email, groupCode: group, referrer,
-    isLeader: false, // sẽ được cập nhật sau khi host duyệt
-    registeredAt: new Date().toISOString(), memberId };
+  // Lưu thông tin pending tạm vào localStorage để kiểm tra sau
+  const pendingInfo = { name, phone, email, groupCode: group, referrer, memberId, isLeaderReg, requestedAt: new Date().toISOString() };
+  localStorage.setItem('nk5nn-pending', JSON.stringify(pendingInfo));
+
   loadFirebase().then(database => {
     if (database) {
+      // Ghi vào /members trước
+      const memberData = { name, phone, email, groupCode: group, referrer,
+        isLeader: false, approved: false,
+        registeredAt: new Date().toISOString(), memberId };
       database.ref('members/' + memberId).set(memberData).catch(e => console.warn('Firebase register failed:', e));
+
+      // Gửi member_requests chờ duyệt
+      database.ref('member_requests/' + memberId).set({
+        memberId, name, phone, email, groupCode: group, referrer,
+        status: 'pending',
+        requestedAt: new Date().toISOString()
+      }).catch(e => console.warn('Member request failed:', e));
+
+      // Nếu là trưởng nhóm → gửi thêm leader_request
       if (isLeaderReg) {
-        // Gửi request lên Firebase chờ host duyệt
         const requestId = 'req_' + memberId + '_' + Date.now();
         database.ref('leader_requests/' + requestId).set({
           memberId, name, phone, email, groupCode: group,
           status: 'pending',
           requestedAt: new Date().toISOString()
-        }).then(() => {
-          showToast('📨 Đã gửi yêu cầu Trưởng Nhóm! Host sẽ duyệt sớm.');
         }).catch(e => console.warn('Leader request failed:', e));
       }
     }
   });
+
+  // Hiện màn hình chờ duyệt
+  showPendingScreen(pendingInfo);
 }
 
 // Override showPage for leader
@@ -5358,6 +5718,7 @@ function showPage(name, btn) {
 function initLeaderPage() {
   if (!isLeader()) { showPage('today', null); return; }
   document.getElementById('leader-group-name').textContent = userInfo.groupCode;
+  loadLeaderMemberRequests();
   loadLeaderData();
 }
 
@@ -5652,7 +6013,7 @@ async function changeAdminPassword() {
 }
 
 function switchAdminTab(tab) {
-  ['pending','leaders','groups','settings'].forEach(t => {
+  ['pending','members','leaders','groups','settings'].forEach(t => {
     const tabEl = document.getElementById('admin-tab-' + t);
     const btnEl = document.getElementById('atab-' + t);
     if (tabEl) tabEl.style.display = t === tab ? 'block' : 'none';
@@ -5661,7 +6022,8 @@ function switchAdminTab(tab) {
       btnEl.style.borderBottom = t === tab ? '3px solid var(--rose)' : '3px solid transparent';
     }
   });
-  if (tab === 'groups') loadAdminGroups();
+  if (tab === 'members')  loadAdminMemberRequests();
+  if (tab === 'groups')   loadAdminGroups();
   if (tab === 'settings') loadAdminStats();
 }
 
@@ -5680,17 +6042,16 @@ async function loadAdminData() {
     const requests = snap.val() || {};
     const pending = Object.entries(requests).filter(([,r]) => r.status === 'pending');
     const approved = Object.entries(requests).filter(([,r]) => r.status === 'approved');
-
-    // Update badge
     const badge = document.getElementById('pending-count-badge');
     if (badge) badge.textContent = pending.length;
-
-    // Render pending
     renderAdminPending(pending);
     renderAdminLeaders(approved);
   } catch(e) {
     console.error('Admin load error:', e);
   }
+
+  // Also load member requests count for badge
+  loadAdminMemberRequests();
 }
 
 function renderAdminPending(pending) {
@@ -5868,6 +6229,13 @@ async function loadAdminStats() {
 // INIT
 // ══════════════════════════════════════
 function init() {
+  // Check if there's a pending approval state (đã đăng ký nhưng chưa được duyệt)
+  const pendingRaw = localStorage.getItem('nk5nn-pending');
+  if (pendingRaw && !userInfo) {
+    const pending = JSON.parse(pendingRaw);
+    showPendingScreen(pending);
+    return;
+  }
   // Check if already logged in
   if (userInfo) {
     document.getElementById('login-screen').style.display = 'none';
