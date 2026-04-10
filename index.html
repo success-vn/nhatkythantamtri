@@ -3632,8 +3632,14 @@ async function initFirebaseBackground() {
   if (auth && auth.currentUser) {
     try { await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh:', e.message); }
   }
+  // Đảm bảo có valid auth token trước khi sync
+  if (auth && auth.currentUser) {
+    try { await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh:', e.message); }
+  }
   await pullLocalFromFirebase();
   await pushLocalToFirebase();
+  // FIX L3: Bắt đầu lắng nghe realtime isLeader sau khi Firebase kết nối
+  startLeaderStatusListener();
 }
 
 // Kiểm tra auth state Firebase khi app load (auto-login nếu còn session)
@@ -6182,11 +6188,46 @@ function initLeaderUI() {
   const navMemberTeam = document.getElementById('nav-member-team');
   if (navLeader) navLeader.style.display = isLeader() ? 'flex' : 'none';
   if (navMemberTeam) navMemberTeam.style.display = isLeader() ? 'flex' : 'none';
-
-  // Show leader badge in team section if leader
   if (isLeader()) {
     const badge = document.getElementById('team-group-badge');
     if (badge) badge.textContent = '👑 ' + userInfo.groupCode;
+  }
+}
+
+// FIX L3 REALTIME: Tự cập nhật tab trưởng nhóm khi admin duyệt từ xa
+let _leaderStatusListener = null;
+function startLeaderStatusListener() {
+  if (!db || !userInfo || _leaderStatusListener) return;
+  // Listener cho /members/{memberId}/isLeader
+  const memberRef = db.ref('members/' + userInfo.memberId + '/isLeader');
+  memberRef.on('value', snap => {
+    const fromDB = snap.val() === true;
+    if (fromDB !== userInfo.isLeader) {
+      userInfo.isLeader = fromDB;
+      save(USER_KEY, userInfo);
+      initLeaderUI();
+      if (fromDB && !userInfo._leaderNotified) {
+        userInfo._leaderNotified = true;
+        save(USER_KEY, userInfo);
+        showToast('👑 Bạn đã được duyệt làm Trưởng Nhóm!');
+      }
+    }
+  });
+  _leaderStatusListener = memberRef;
+  // Listener cho /leaders/{groupCode}/{memberId}
+  if (userInfo.groupCode) {
+    db.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).on('value', snap => {
+      if (snap.val() && !userInfo.isLeader) {
+        userInfo.isLeader = true;
+        save(USER_KEY, userInfo);
+        initLeaderUI();
+        if (!userInfo._leaderNotified) {
+          userInfo._leaderNotified = true;
+          save(USER_KEY, userInfo);
+          showToast('👑 Bạn đã được duyệt làm Trưởng Nhóm!');
+        }
+      }
+    });
   }
 }
 
@@ -7015,14 +7056,34 @@ function renderAdminLeaders(approved) {
           Thu hồi
         </button>
       </div>
-      <!-- Danh sách thành viên nhóm này -->
+      <!-- Danh sách thành viên nhóm này – có toggle -->
       <div id="admin-group-members-${r.groupCode}" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-        <div style="font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">👤 Thành viên nhóm</div>
-        <div id="admin-group-members-list-${r.groupCode}" style="font-size:11.5px;color:var(--ink-muted)">
-          <button onclick="loadGroupMembers('${r.groupCode}')" style="font-size:11px;font-weight:700;color:var(--sky);background:none;border:none;cursor:pointer;text-decoration:underline">Tải danh sách →</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:11px;font-weight:700;color:var(--ink-muted)">👤 Thành viên nhóm</div>
+          <button id="admin-toggle-btn-${r.groupCode}" onclick="toggleGroupMembers('${r.groupCode}')"
+            style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:3px 10px;cursor:pointer;font-family:'Nunito',sans-serif">
+            Xem danh sách ▼
+          </button>
         </div>
+        <div id="admin-group-members-list-${r.groupCode}" style="font-size:11.5px;color:var(--ink-muted);display:none"></div>
       </div>
     </div>`).join('');
+}
+
+function toggleGroupMembers(groupCode) {
+  const el = document.getElementById('admin-group-members-list-' + groupCode);
+  const btn = document.getElementById('admin-toggle-btn-' + groupCode);
+  if (!el) return;
+  const isHidden = el.style.display === 'none';
+  if (isHidden) {
+    el.style.display = 'block';
+    if (btn) btn.textContent = 'Thu gọn ▲';
+    // Chỉ load nếu chưa có dữ liệu
+    if (!el.dataset.loaded) loadGroupMembers(groupCode);
+  } else {
+    el.style.display = 'none';
+    if (btn) btn.textContent = 'Xem danh sách ▼';
+  }
 }
 
 async function loadGroupMembers(groupCode) {
@@ -7040,6 +7101,7 @@ async function loadGroupMembers(groupCode) {
     const todayStats = groupSnap.val() || {};
     const todayK = new Date().toISOString().split('T')[0];
     const memberList = Object.values(members);
+    el.dataset.loaded = '1';
     if (!memberList.length) { el.innerHTML = '<span style="font-size:11px;color:var(--ink-muted)">Chưa có thành viên</span>'; return; }
     el.innerHTML = memberList.map(m => {
       const stats = Object.entries(todayStats).find(([id]) => id === m.memberId);
@@ -7073,17 +7135,106 @@ async function loadGroupMembers(groupCode) {
 }
 
 async function adminChangeMemberGroup(memberId, memberName, currentGroup) {
-  const newGroup = prompt(`Đổi nhóm cho ${memberName}.\nNhóm hiện tại: ${currentGroup}\nNhập mã nhóm mới:`);
-  if (!newGroup || newGroup.trim() === currentGroup) return;
-  const confirmMsg = `Đổi ${memberName} từ nhóm ${currentGroup} sang nhóm ${newGroup.trim().toUpperCase()}?`;
-  if (!confirm(confirmMsg)) return;
+  const database = await loadFirebase();
+  if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
+  let groupList = [];
+  try {
+    const snap = await database.ref('groups').once('value');
+    groupList = Object.keys(snap.val() || {}).sort();
+  } catch(e) {}
+
+  const existing = document.getElementById('admin-change-group-modal');
+  if (existing) existing.remove();
+
+  const optionsHTML = groupList.map(g =>
+    '<div onclick="selectAdminGroup(\'' + g + '\')" id="agg-' + g + '" class="agg-item"' +
+    ' style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);' +
+    'font-weight:' + (g===currentGroup?'800':'600') + ';' +
+    'color:' + (g===currentGroup?'var(--rose)':'var(--ink)') + ';' +
+    'background:' + (g===currentGroup?'rgba(192,96,106,0.06)':'transparent') + '">' +
+    (g===currentGroup?'📍 ':'') + '👥 ' + g +
+    '</div>'
+  ).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-change-group-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML =
+    '<div style="background:var(--card);border-radius:20px;padding:28px 24px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">' +
+      '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;font-weight:600;color:var(--ink);margin-bottom:6px">Đổi nhóm</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-muted);margin-bottom:18px">' +
+        'Thành viên: <strong>' + memberName + '</strong><br>' +
+        'Nhóm hiện tại: <strong style="color:var(--rose)">' + currentGroup + '</strong>' +
+      '</div>' +
+      '<div style="margin-bottom:12px">' +
+        '<label style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:6px">Tìm nhóm</label>' +
+        '<input type="text" id="admin-group-search-input" placeholder="Gõ tên hoặc mã nhóm..."' +
+          ' style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:11px;font-size:14px;font-family:\'Nunito\',sans-serif;outline:none"' +
+          ' oninput="filterAdminGroupList(this.value)"' +
+          ' onfocus="this.style.borderColor=\'var(--sky)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
+      '</div>' +
+      '<div id="admin-group-dropdown" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:11px;margin-bottom:16px">' +
+        (optionsHTML || '<div style="padding:12px 14px;font-size:12px;color:var(--ink-muted)">Chưa có nhóm nào</div>') +
+        '<div style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--jade);border-top:1px solid var(--border)"' +
+          ' onclick="document.getElementById(\'admin-new-group-row\').style.display=\'block\'">' +
+          '➕ Tạo nhóm mới...' +
+        '</div>' +
+      '</div>' +
+      '<div id="admin-new-group-row" style="display:none;margin-bottom:12px">' +
+        '<input type="text" id="admin-new-group-code" placeholder="Nhập mã nhóm mới (VD: NHOM01)"' +
+          ' style="width:100%;padding:10px 14px;border:2px solid var(--jade);border-radius:11px;font-size:14px;font-family:\'Nunito\',sans-serif;outline:none;text-transform:uppercase">' +
+      '</div>' +
+      '<div id="admin-selected-group-display" style="font-size:12px;color:var(--sky);font-weight:700;margin-bottom:14px;min-height:18px"></div>' +
+      '<div style="display:flex;gap:10px">' +
+        '<button onclick="document.getElementById(\'admin-change-group-modal\').remove()"' +
+          ' style="flex:1;padding:12px;background:rgba(122,101,82,0.1);color:var(--ink-muted);border:1px solid var(--border);border-radius:12px;font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:700;cursor:pointer">' +
+          'Huỷ' +
+        '</button>' +
+        '<button onclick="confirmAdminChangeGroup(\'' + memberId + '\',\'' + memberName.replace(/'/g, "\\'") + '\',\'' + currentGroup + '\')"' +
+          ' style="flex:2;padding:12px;background:linear-gradient(135deg,var(--sky),#3a6a8a);color:white;border:none;border-radius:12px;font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:800;cursor:pointer">' +
+          '✅ Xác nhận đổi nhóm' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(modal);
+  setTimeout(() => { const inp = document.getElementById('admin-group-search-input'); if(inp) inp.focus(); }, 100);
+  window._adminSelectedGroup = null;
+}
+
+function filterAdminGroupList(q) {
+  document.querySelectorAll('.agg-item').forEach(item => {
+    const txt = item.textContent.toLowerCase();
+    item.style.display = !q || txt.includes(q.toLowerCase()) ? 'block' : 'none';
+  });
+}
+
+function selectAdminGroup(groupCode) {
+  window._adminSelectedGroup = groupCode;
+  const display = document.getElementById('admin-selected-group-display');
+  if (display) display.innerHTML = '→ Sẽ chuyển sang nhóm: <strong style="color:var(--jade)">' + groupCode + '</strong>';
+  document.querySelectorAll('.agg-item').forEach(el => {
+    el.style.fontWeight = el.id === 'agg-' + groupCode ? '800' : '600';
+    el.style.background = el.id === 'agg-' + groupCode ? 'rgba(74,140,111,0.1)' : 'transparent';
+  });
+}
+
+async function confirmAdminChangeGroup(memberId, memberName, currentGroup) {
+  const newGroupInput = document.getElementById('admin-new-group-code');
+  const newGroupFromInput = newGroupInput && newGroupInput.value.trim().toUpperCase();
+  const newGroupCode = newGroupFromInput || window._adminSelectedGroup;
+  if (!newGroupCode) { showToast('⚠️ Vui lòng chọn nhóm mới'); return; }
+  if (newGroupCode === currentGroup) { showToast('⚠️ Đây đã là nhóm hiện tại'); return; }
   const database = await loadFirebase();
   if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
   try {
-    const newGroupCode = newGroup.trim().toUpperCase();
     await database.ref('members/' + memberId).update({ groupCode: newGroupCode });
-    showToast('✅ Đã đổi nhóm cho ' + memberName + ' → ' + newGroupCode);
-    // Reload
+    const statsSnap = await database.ref('groups/' + currentGroup + '/' + memberId).once('value');
+    if (statsSnap.val()) {
+      await database.ref('groups/' + newGroupCode + '/' + memberId).set(statsSnap.val());
+      await database.ref('groups/' + currentGroup + '/' + memberId).remove();
+    }
+    document.getElementById('admin-change-group-modal').remove();
+    showToast('✅ Đã đổi ' + memberName + ' → nhóm ' + newGroupCode);
     loadAdminData();
   } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
 }
