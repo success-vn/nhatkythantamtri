@@ -3072,6 +3072,21 @@ async function doActivateAccount() {
     if (firebaseUid && database) {
       await database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode });
       await database.ref('members/' + memberId).update({ firebaseUid });
+
+      // MIGRATE: di chuyển dữ liệu cũ từ /users/{memberId}/ → /users/{firebaseUid}/
+      // Cần thiết vì trước khi kích hoạt, path dùng memberId; sau khi kích hoạt dùng firebaseUid
+      try {
+        const oldSnap = await database.ref('users/' + memberId).once('value');
+        const oldData = oldSnap.val();
+        if (oldData && memberId !== firebaseUid) {
+          // Copy dữ liệu cũ sang path mới
+          await database.ref('users/' + firebaseUid).set(oldData);
+          console.log('✅ Migrated user data from memberId path to firebaseUid path');
+          // Giữ path cũ lại để không mất, chỉ thêm pointer
+        }
+      } catch(migrateErr) {
+        console.warn('Data migration skipped:', migrateErr.message);
+      }
     }
 
     // Cập nhật userInfo local và boot app
@@ -3649,10 +3664,6 @@ async function initFirebaseBackground() {
   if (auth && auth.currentUser) {
     try { await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh:', e.message); }
   }
-  // Đảm bảo có valid auth token trước khi sync
-  if (auth && auth.currentUser) {
-    try { await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh:', e.message); }
-  }
   // Luôn pull trước (merge remote → local), sau đó push local lên (merge local → remote)
   await pullLocalFromFirebase();
   await pushLocalToFirebase();
@@ -3692,12 +3703,11 @@ async function checkFirebaseAuthState() {
 // Đẩy dữ liệu lên Firebase
 async function pushLocalToFirebase() {
   if (!db || !userInfo) return;
-  // Dùng firebaseUid làm key để khớp với Firebase Security Rules (auth.uid == key)
-  // Fallback về memberId nếu chưa có firebaseUid (user cũ chưa kích hoạt)
   const uidKey = userInfo.firebaseUid || userInfo.memberId;
   const base = 'users/' + uidKey;
   try {
-    // FIX L1: Đẩy toàn bộ daily (không giới hạn 7 ngày) + kz + r3m + ms
+    _isSyncingToFirebase = true; // Lock: tránh listener của mình bị trigger
+    // Đẩy toàn bộ daily + kz + r3m + ms
     const dailyBatch = {};
     Object.keys(data).sort().forEach(date => {
       dailyBatch[date] = Object.assign({}, data[date], {
@@ -3705,34 +3715,31 @@ async function pushLocalToFirebase() {
       });
     });
 
+    const nowTs = Date.now();
     await db.ref(base).update({
       daily:           dailyBatch,
       sp:              spData,
       kz:              kzData,
       r3m:             r3mData,
       ms:              msData,
-      'meta/syncedAt': Date.now(),
+      'meta/syncedAt': nowTs,
       'meta/name':     userInfo.name,
     });
 
-    const timeStr = new Date().toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
+    localStorage.setItem(SYNC_TS_KEY, String(nowTs));
+    const timeStr = new Date(nowTs).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
     setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
-    localStorage.setItem(SYNC_TS_KEY, String(Date.now()));
     console.log('✅ Push OK');
   } catch(e) {
-    // Log lỗi chi tiết để debug
     console.error('🔴 Push failed — code:', e.code, '| msg:', e.message);
 
     if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
       setSyncStatus('🔒','Rules chặn','rgba(192,96,106,0.8)');
-      console.error('⚠️ Firebase PERMISSION_DENIED — thử re-auth...');
-      // Tự động thử đăng nhập lại ẩn danh nếu mất auth session
       if (auth && !auth.currentUser) {
         auth.signInAnonymously()
           .then(() => { setTimeout(() => pushLocalToFirebase(), 2000); })
           .catch(e2 => console.warn('Re-auth failed:', e2.message));
       } else if (auth && auth.currentUser) {
-        // Đã có session nhưng vẫn bị chặn → thử refresh token
         auth.currentUser.getIdToken(true)
           .then(() => { setTimeout(() => pushLocalToFirebase(), 2000); })
           .catch(e2 => console.warn('Token refresh failed:', e2.message));
@@ -3742,13 +3749,17 @@ async function pushLocalToFirebase() {
     } else {
       setSyncStatus('⚠️','Lỗi sync','rgba(192,96,106,0.7)');
     }
-    // Thử lại sau 20s
     setTimeout(() => { if(db && userInfo) pushLocalToFirebase(); }, 20000);
+  } finally {
+    // Mở lock sau 1.5s để Firebase đã gửi event về cho listener của mình và bị bỏ qua
+    setTimeout(() => { _isSyncingToFirebase = false; }, 1500);
   }
 }
 
 // Realtime listener cho dữ liệu cá nhân — tự động sync khi thiết bị khác lưu
 let _userDataListener = null;
+let _isSyncingToFirebase = false; // Lock: tránh push của mình trigger listener của mình
+
 function startUserDataRealtimeListener() {
   if (!db || !userInfo) return;
   const uidKey = userInfo.firebaseUid || userInfo.memberId;
@@ -3760,8 +3771,13 @@ function startUserDataRealtimeListener() {
   let _firstCall = true;
   ref.on('value', snap => {
     if (_firstCall) { _firstCall = false; return; } // Bỏ qua lần đầu (đã pull trong initFirebaseBackground)
+    if (_isSyncingToFirebase) return; // Bỏ qua nếu chính mình đang push
     const remote = snap.val();
     if (!remote) return;
+    // Kiểm tra xem dữ liệu remote có thực sự mới hơn không
+    const remoteSyncedAt = remote.meta?.syncedAt || 0;
+    const localSyncedAt  = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
+    if (remoteSyncedAt <= localSyncedAt) return; // Remote không mới hơn → bỏ qua
     console.log('🔄 Realtime: Phát hiện dữ liệu mới từ thiết bị khác, đang merge...');
     _applyRemoteData(remote);
     setSyncStatus('🔄', 'Vừa đồng bộ', 'rgba(74,140,111,0.85)');
@@ -3828,13 +3844,29 @@ function _applyRemoteData(remote) {
       }
     }
 
-    // ── Kaizen (merge by week) ────────────────────
+    // ── Kaizen (merge by week, so sánh updatedAt) ────────────────
     if (Array.isArray(remote.kz)) {
+      let kzChanged = false;
       remote.kz.forEach(rKz => {
-        if (!kzData.find(k => k.week === rKz.week)) kzData.push(rKz);
+        const idx = kzData.findIndex(k => k.week === rKz.week);
+        if (idx === -1) {
+          // Tuần chưa có → thêm vào
+          kzData.push(rKz);
+          kzChanged = true;
+        } else {
+          // Tuần đã có → chỉ update nếu remote mới hơn
+          const remoteTs = rKz._updatedAt || 0;
+          const localTs  = kzData[idx]._updatedAt || 0;
+          if (remoteTs > localTs) {
+            kzData[idx] = rKz;
+            kzChanged = true;
+          }
+        }
       });
-      kzData.sort((a,b)=>(b.week||'').localeCompare(a.week||''));
-      localStorage.setItem(KZ_KEY, JSON.stringify(kzData));
+      if (kzChanged) {
+        kzData.sort((a,b)=>(b.week||'').localeCompare(a.week||''));
+        localStorage.setItem(KZ_KEY, JSON.stringify(kzData));
+      }
     }
 
     // ── R3M — merge theo key, remote thắng nếu có gì mới ────────────────────────
@@ -3898,6 +3930,8 @@ function _applyRemoteData(remote) {
       if (pid==='finance')    { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
     }
     console.log('✅ Merge OK — ' + Object.keys(remote.daily||{}).length + ' ngày từ cloud');
+    const t = new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});
+    setSyncStatus('✅', t, 'rgba(74,140,111,0.85)');
   } catch(e) {
     console.warn('Pull failed:', e.message);
     setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');
@@ -4320,6 +4354,7 @@ function setWeeklyRate(n) {
   let kz=kzData.find(k=>k.week===w);
   if(!kz){kz={week:w};kzData.unshift(kz);}
   kz.rate=n;
+  kz._updatedAt = Date.now();
   save(KZ_KEY,kzData);
 }
 function loadWeeklyRate() {
@@ -4335,11 +4370,12 @@ function getWeekKey() {
 function saveKaizen() {
   const w=getWeekKey();
   const idx=kzData.findIndex(k=>k.week===w);
+  const now = Date.now();
   const entry={ week:w, rate:weeklyRate,
     good:document.getElementById('kaizen-good').value,
     improve:document.getElementById('kaizen-improve').value,
     seed:document.getElementById('kaizen-seed').value,
-    ts:Date.now() };
+    ts: now, _updatedAt: now };
   if(idx>=0) kzData[idx]=entry; else kzData.unshift(entry);
   save(KZ_KEY,kzData);
   renderKaizenHistory();
@@ -6106,10 +6142,10 @@ function setupAutosave() {
   });
   window.addEventListener('beforeunload', forceSaveAll);
   setInterval(forceSaveAll, 30000);
-  // Sync journal every 5 min if firebase connected
+  // Sync journal cho trưởng nhóm xem (path /journals/) mỗi 5 phút
   setInterval(() => { if(db) syncJournalToFirebase(); }, 300000);
-  // FIX L6: Pull từ Firebase mỗi 5 phút để tự cập nhật lịch sử, biểu đồ, thống kê
-  setInterval(() => { if(db && userInfo) pullLocalFromFirebase(); }, 300000);
+  // Pull từ Firebase mỗi 10 phút làm backup (realtime listener đã xử lý realtime)
+  setInterval(() => { if(db && userInfo && !_isSyncingToFirebase) pullLocalFromFirebase(); }, 600000);
 }
 
 function forceSaveAll() {
@@ -6160,12 +6196,14 @@ function forceSaveAll() {
   const w = getWeekKey();
   let kz = kzData.find(k=>k.week===w);
   if (!kz) { kz={week:w}; kzData.unshift(kz); }
+  let kzChanged = false;
   ['kaizen-good','kaizen-improve','kaizen-seed'].forEach(id => {
     const el = document.getElementById(id);
     const key = id.replace('kaizen-','');
-    if (el) kz[key] = el.value;
+    if (el && el.value !== (kz[key]||'')) { kz[key] = el.value; kzChanged = true; }
   });
-  if (weeklyRate) kz.rate = weeklyRate;
+  if (weeklyRate && kz.rate !== weeklyRate) { kz.rate = weeklyRate; kzChanged = true; }
+  if (kzChanged) kz._updatedAt = Date.now();
   save(KZ_KEY, kzData);
 
   // Milestone hiện tại
@@ -6904,8 +6942,8 @@ function closeLeaderModal() {
 }
 
 // Sync journal lên Firebase để trưởng nhóm xem được
-// Path: /journals/{groupCode}/{memberId}/{date} (trưởng nhóm đọc)
-// Path: /users/{memberId}/daily/{date} (cá nhân đồng bộ đa thiết bị)
+// CHỈ ghi vào /journals/{groupCode}/{memberId}/{date} (trưởng nhóm đọc)
+// KHÔNG ghi vào /users/ — việc đó do pushLocalToFirebase đảm nhận (tránh xung đột)
 function syncJournalToFirebase() {
   if (!userInfo || !db) return;
   const todayK = todayKey();
@@ -6913,39 +6951,34 @@ function syncJournalToFirebase() {
   if (!entry) return;
 
   const safeEntry = {
-    rituals: entry.rituals||{},
-    energy: entry.energy||5,
-    lesson: entry.lesson||'',
-    seedGreen: entry.seedGreen||'',
-    seedRed: entry.seedRed||'',
-    gratitude1: entry.gratitude1||'',
-    gratitude2: entry.gratitude2||'',
-    gratitude3: entry.gratitude3||'',
-    selfLetter: entry.selfLetter||'',
-    selfProud: entry.selfProud||'',
-    dailyGood: entry.dailyGood||'',
-    dailyImprove: entry.dailyImprove||'',
+    rituals:     entry.rituals||{},
+    energy:      entry.energy||5,
+    lesson:      entry.lesson||'',
+    seedGreen:   entry.seedGreen||'',
+    seedRed:     entry.seedRed||'',
+    gratitude1:  entry.gratitude1||'',
+    gratitude2:  entry.gratitude2||'',
+    gratitude3:  entry.gratitude3||'',
+    selfLetter:  entry.selfLetter||'',
+    selfProud:   entry.selfProud||'',
+    dailyGood:   entry.dailyGood||'',
+    dailyImprove:entry.dailyImprove||'',
     wishContent: entry.wishContent||'',
-    tasks: (entry.tasks||[]).filter(t=>t.text),
-    tasksV2: entry.tasksV2 || null,
-    nnEnergy: entry.nnEnergy||{},
-    recvGreen: entry.recvGreen||0,
-    recvRed: entry.recvRed||0,
-    spendGreen: entry.spendGreen||0,
-    spendRed: entry.spendRed||0,
-    moneySeed: entry.moneySeed||'',
-    _updatedAt: entry._updatedAt || Date.now(),
-    syncedAt: Date.now()
+    tasks:       (entry.tasks||[]).filter(t=>t.text),
+    tasksV2:     entry.tasksV2 || null,
+    nnEnergy:    entry.nnEnergy||{},
+    recvGreen:   entry.recvGreen||0,
+    recvRed:     entry.recvRed||0,
+    spendGreen:  entry.spendGreen||0,
+    spendRed:    entry.spendRed||0,
+    moneySeed:   entry.moneySeed||'',
+    _updatedAt:  entry._updatedAt || Date.now(),
+    syncedAt:    Date.now(),
   };
 
-  // FIX L1+L6: Ghi vào cả 2 path đồng thời
+  // Chỉ ghi vào /journals/ để trưởng nhóm xem — KHÔNG ghi vào /users/
   db.ref('journals/' + userInfo.groupCode + '/' + userInfo.memberId + '/' + todayK)
     .set(safeEntry).catch(e => console.warn('Journal sync (leader path) failed:', e));
-  // Cũng đồng bộ vào /users/ path để đa thiết bị có thể pull về
-  // Dùng firebaseUid để khớp Security Rules
-  const _uidKey = userInfo.firebaseUid || userInfo.memberId;
-  db.ref('users/' + _uidKey + '/daily/' + todayK)
-    .set(safeEntry).catch(e => console.warn('Journal sync (user path) failed:', e));
 }
 
 
