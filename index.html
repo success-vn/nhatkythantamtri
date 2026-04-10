@@ -2211,36 +2211,14 @@ textarea { min-height: 80px; }
       <div class="date-label">Thành Viên Nhóm</div>
       <div class="date-value" id="member-team-group-name">–</div>
     </div>
-    <div class="day-badge" style="background:linear-gradient(135deg,var(--jade),#3d6b54)">🧑‍🤝‍🧑 Team</div>
+    <div class="day-badge" style="background:linear-gradient(135deg,var(--jade),#3d6b54)">🧑‍🤝‍🧑 <span id="mt-total-members-badge">0</span> TV</div>
   </div>
 
-  <!-- Thống kê tổng quan -->
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-    <div class="stat-box stat-gold">
-      <div class="stat-num" id="mt-total-members">0</div>
-      <div class="stat-label">Tổng thành viên</div>
-    </div>
-    <div class="stat-box stat-jade">
-      <div class="stat-num" id="mt-active-today">0</div>
-      <div class="stat-label">Hoạt động hôm nay</div>
-    </div>
-    <div class="stat-box stat-sky">
-      <div class="stat-num" id="mt-avg-ritual">0</div>
-      <div class="stat-label">TB nghi thức</div>
-    </div>
-  </div>
-
-  <!-- Lọc -->
-  <div style="display:flex;gap:8px;margin-bottom:14px">
-    <input type="text" id="mt-search" placeholder="🔍 Tìm thành viên..."
+  <!-- Tìm kiếm -->
+  <div style="margin-bottom:14px">
+    <input type="text" id="mt-search" placeholder="🔍 Tìm tên thành viên..."
       oninput="renderMemberTeamList()"
-      style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;">
-    <select id="mt-filter" onchange="renderMemberTeamList()"
-      style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:700;color:var(--ink-muted);outline:none;cursor:pointer">
-      <option value="all">Tất cả</option>
-      <option value="active">Hôm nay ✓</option>
-      <option value="inactive">Chưa hoạt động</option>
-    </select>
+      style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;">
   </div>
 
   <div id="mt-member-list">
@@ -2876,6 +2854,7 @@ async function doLogin() {
           const mData = mSnap.val();
           if (mData) {
             userInfo.isLeader = mData.isLeader || false;
+            userInfo.isAdmin = mData.isAdmin || false;
             userInfo.name = mData.name || localUser.name;
             userInfo.groupCode = mData.groupCode || localUser.groupCode;
           }
@@ -2884,6 +2863,7 @@ async function doLogin() {
             const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
             if (lSnap.val()) userInfo.isLeader = true;
           }
+          if (userInfo.isAdmin) localStorage.setItem(ADMIN_KEY, 'true');
         } catch(e) { console.warn('isLeader sync on login failed:', e.message); }
       }
     } else {
@@ -2906,8 +2886,10 @@ async function doLogin() {
           groupCode: member.groupCode || mapping.groupCode,
           memberId: mapping.memberId,
           isLeader: isApprovedLeader,
+          isAdmin: member.isAdmin || false,
           email, firebaseUid
         };
+        if (userInfo.isAdmin) localStorage.setItem(ADMIN_KEY, 'true');
       } else {
         // Không tìm thấy mapping — tạo mới
         userInfo = {
@@ -3123,6 +3105,7 @@ function doLogout() {
   if (!confirm('Đăng xuất khỏi tài khoản này?\nDữ liệu của bạn vẫn được giữ nguyên trên thiết bị.')) return;
   userInfo = null;
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(ADMIN_KEY);
   sessionStorage.setItem('nk_show_login', '1');
   location.reload();
 }
@@ -6268,10 +6251,10 @@ function initAdminPage() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('admin') || params.has('host')) {
     adminAuthed = true;
-    sessionStorage.setItem(ADMIN_KEY, 'true');
+    localStorage.setItem(ADMIN_KEY, 'true');
   }
 
-  if (adminAuthed || sessionStorage.getItem(ADMIN_KEY) === 'true') {
+  if (adminAuthed || localStorage.getItem(ADMIN_KEY) === 'true') {
     adminAuthed = true;
     document.getElementById('admin-login-section').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
@@ -6500,60 +6483,56 @@ function initMemberTeamPage() {
 
 function loadMemberTeamData() {
   const list = document.getElementById('mt-member-list');
-  if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải dữ liệu nhóm...</p></div>';
+  if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải danh sách...</p></div>';
 
-  loadFirebase().then(db_ => {
+  loadFirebase().then(async db_ => {
     if (!db_) {
       if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase</p></div>';
       return;
     }
     db = db_;
-    // Real-time listener cho nhóm
-    db.ref('groups/' + userInfo.groupCode).on('value', snap => {
-      const stats = snap.val() || {};
-      const memberIds = Object.keys(stats);
-      const todayK = todayKey();
-      const activeToday = Object.values(stats).filter(m => m.date === todayK).length;
-      const totalRituals = Object.values(stats).filter(m=>m.date===todayK).reduce((s,m)=>s+(m.rituals||0),0);
-      const avgRitual = activeToday ? Math.round(totalRituals/activeToday) : 0;
-
-      document.getElementById('mt-total-members').textContent = memberIds.length;
-      document.getElementById('mt-active-today').textContent = activeToday;
-      document.getElementById('mt-avg-ritual').textContent = avgRitual;
-
+    try {
+      // Chỉ load thông tin đăng ký từ /members/ — không load stats hay journal
+      const snap = await db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value');
+      const membersObj = snap.val() || {};
       _memberTeamData = {};
-      memberIds.forEach(mid => {
-        _memberTeamData[mid] = { name: stats[mid].name||'–', stats: stats[mid], entries: {} };
+      Object.entries(membersObj).forEach(([mid, m]) => {
+        _memberTeamData[mid] = {
+          name:         m.name || '–',
+          phone:        m.phone || '',
+          email:        m.email || '',
+          referrer:     m.referrer || '',
+          registeredAt: m.registeredAt || '',
+          isLeader:     m.isLeader || false,
+          approved:     m.approved !== false,
+        };
       });
-
-      // Load journals
-      if (!memberIds.length) { renderMemberTeamList(); return; }
-      let loaded = 0;
-      memberIds.forEach(mid => {
-        db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value', jSnap => {
-          const journal = jSnap.val() || {};
-          if (_memberTeamData[mid]) _memberTeamData[mid].entries = journal;
-          loaded++;
-          if (loaded === memberIds.length) renderMemberTeamList();
-        });
-      });
-    });
+      // Cập nhật badge số thành viên
+      const badge = document.getElementById('mt-total-members-badge');
+      if (badge) badge.textContent = Object.keys(_memberTeamData).length;
+      renderMemberTeamList();
+    } catch(e) {
+      if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi: ' + e.message + '</p></div>';
+    }
   });
 }
 
-// Trang "Thành Viên Nhóm" — chỉ hiển thị tổng quan trạng thái, không có nhật ký chi tiết
+// Trang "Thành Viên Nhóm" — chỉ hiển thị thông tin đăng ký
 function renderMemberTeamList() {
   const list = document.getElementById('mt-member-list');
   if (!list) return;
   const search = (document.getElementById('mt-search')?.value||'').toLowerCase();
-  const filter = document.getElementById('mt-filter')?.value||'all';
-  const todayK = todayKey();
   const COLORS = ['#5b8a6e','#c9a84c','#c0606a','#4a7fa8','#7c5cbf','#d4872a'];
 
-  let members = Object.entries(_memberTeamData);
-  if (search) members = members.filter(([,m]) => m.name.toLowerCase().includes(search));
-  if (filter==='active')   members = members.filter(([,m]) => m.stats?.date === todayK);
-  if (filter==='inactive') members = members.filter(([,m]) => m.stats?.date !== todayK);
+  let members = Object.entries(_memberTeamData).sort((a,b) => a[1].name.localeCompare(b[1].name, 'vi'));
+  if (search) members = members.filter(([,m]) =>
+    m.name.toLowerCase().includes(search) ||
+    (m.phone||'').includes(search) ||
+    (m.email||'').toLowerCase().includes(search)
+  );
+
+  const badge = document.getElementById('mt-total-members-badge');
+  if (badge) badge.textContent = Object.keys(_memberTeamData).length;
 
   if (!members.length) {
     list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Chưa có thành viên nào.</p></div>';
@@ -6561,54 +6540,27 @@ function renderMemberTeamList() {
   }
 
   list.innerHTML = members.map(([mid, m], i) => {
-    const isActive = m.stats?.date === todayK;
-    const totalDays = Object.keys(m.entries||{}).length;
-    const nn = m.stats?.nn || [5,5,5,5,5];
-    const avgNN = (nn.reduce((a,b)=>a+b,0)/nn.length).toFixed(1);
     const color = COLORS[i % COLORS.length];
     const initials = m.name.trim().split(' ').pop().slice(0,2).toUpperCase();
-    const rituals = m.stats?.rituals || 0;
-    const pct = Math.round(rituals/9*100);
+    const regDate = m.registeredAt ? new Date(m.registeredAt).toLocaleDateString('vi', {day:'2-digit',month:'2-digit',year:'numeric'}) : '–';
 
-    // Tính số ngày chưa rèn luyện
-    let daysSince = '–';
-    if (m.stats?.date) {
-      const diff = Math.floor((Date.now() - new Date(m.stats.date).getTime()) / 86400000);
-      daysSince = diff === 0 ? 'Hôm nay' : diff + ' ngày trước';
-    }
-
-    return `<div style="padding:14px;background:var(--card);border-radius:12px;
-        border:1.5px solid ${isActive?'rgba(91,138,110,0.3)':'var(--border)'};
-        margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:42px;height:42px;border-radius:50%;background:${color};
-          display:flex;align-items:center;justify-content:center;
-          font-size:15px;font-weight:800;color:white;flex-shrink:0">${initials}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-            <div style="font-weight:800;font-size:14px;color:var(--ink)">${m.name}</div>
-            ${isActive
-              ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">✓ Hôm nay</span>'
-              : `<span style="background:rgba(192,96,106,0.08);color:var(--rose);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px">${daysSince}</span>`}
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11.5px;color:var(--ink-muted);margin-bottom:6px">
-            <span>📅 Tổng: <strong>${totalDays}</strong> ngày rèn luyện</span>
-            <span>✅ Hôm nay: <strong>${rituals}/9</strong> nghi thức</span>
-            <span>🏠 TB NL 5 NN: <strong>${avgNN}/10</strong></span>
-            <span>🕐 Hoạt động: <strong>${daysSince}</strong></span>
-          </div>
-          <div style="background:rgba(201,168,76,0.1);border-radius:4px;height:5px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width 0.4s"></div>
-          </div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
-            ${NN_LIST.map((nn_item,j) => `<span style="background:${nn_item.color}22;color:${nn_item.color};font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:6px">${nn_item.icon} ${(m.stats?.nn||[])[j]||5}</span>`).join('')}
-          </div>
+    return `<div style="padding:13px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;flex-shrink:0">${initials}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+          <div style="font-weight:800;font-size:13.5px;color:var(--ink)">${m.name}</div>
+          ${m.isLeader ? '<span style="background:rgba(201,168,76,0.15);color:var(--gold-dark);font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">👑 TN</span>' : ''}
+        </div>
+        <div style="font-size:11.5px;color:var(--ink-muted);line-height:1.9">
+          ${m.phone ? `📱 <strong>${m.phone}</strong>` : ''}
+          ${m.email ? ` &nbsp;·&nbsp; 📧 ${m.email}` : ''}
+          ${m.referrer ? `<br>👋 Người gieo duyên: <strong>${m.referrer}</strong>` : ''}
+          <br>🗓 Đăng ký: <strong>${regDate}</strong>
         </div>
       </div>
     </div>`;
   }).join('');
 }
-
 
 function initLeaderPage() {
   if (!isLeader()) { showPage('today', null); return; }
@@ -6919,7 +6871,7 @@ function openLeaderMemberDetail(mid) {
               <div style="display:flex;gap:4px;flex-wrap:wrap">${chips.join('')}</div>
               ${e.lesson?`<div style="font-size:11.5px;color:var(--ink-muted);margin-top:4px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">${e.lesson}</div>`:''}
             </div>
-            <button onclick="openHistoryDetail('${k}', _lmDetailEntries['${mid}']['${k}'], '${m.name.replace(/'/g,"\\'")}'); event.stopPropagation();"
+            <button onclick="openMemberDayDetail('${mid}','${k}'); event.stopPropagation();"
               style="padding:7px 12px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;border-radius:9px;font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;flex-shrink:0">
               📖 Chi tiết
             </button>
@@ -6933,8 +6885,20 @@ function openLeaderMemberDetail(mid) {
   document.body.style.overflow = 'hidden';
 }
 
-// Cache entries để openHistoryDetail truy cập được từ onclick string
+// Cache entries để openMemberDayDetail truy cập được
 window._lmDetailEntries = window._lmDetailEntries || {};
+window._lmCurrentMid = null;
+
+// Hàm wrapper: mở chi tiết 1 ngày của thành viên — tránh truyền object qua onclick string
+function openMemberDayDetail(mid, dateKey) {
+  const entries = window._lmDetailEntries && window._lmDetailEntries[mid];
+  if (!entries || !entries[dateKey]) {
+    showToast('⚠️ Không tìm thấy dữ liệu ngày này');
+    return;
+  }
+  const memberName = (leaderAllData[mid]?.name) || '–';
+  openHistoryDetail(dateKey, entries[dateKey], memberName);
+}
 
 function closeLeaderModal() {
   document.getElementById('leader-member-modal').style.display = 'none';
@@ -6994,11 +6958,18 @@ let adminAuthed = false;
 function checkAdminAccess() {
   const params = new URLSearchParams(window.location.search);
   const isAdminUrl = params.has('admin') || params.has('host');
-  const session = sessionStorage.getItem(ADMIN_KEY);
+  const stored = localStorage.getItem(ADMIN_KEY);
 
-  if (isAdminUrl || session === 'true') {
+  // Check userInfo.isAdmin từ Firebase member data
+  let isAdminUser = false;
+  try {
+    const u = userInfo || JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    if (u && u.isAdmin) isAdminUser = true;
+  } catch(e) {}
+
+  if (isAdminUrl || stored === 'true' || isAdminUser) {
     adminAuthed = true;
-    sessionStorage.setItem(ADMIN_KEY, 'true');
+    localStorage.setItem(ADMIN_KEY, 'true');
     showAdminButton();
   }
 }
@@ -7012,7 +6983,7 @@ function headerTripleClick() {
   if (headerClickCount >= 3) {
     headerClickCount = 0;
     adminAuthed = true;
-    sessionStorage.setItem(ADMIN_KEY, 'true');
+    localStorage.setItem(ADMIN_KEY, 'true');
     const navAdmin = document.getElementById('nav-admin');
     if (navAdmin) navAdmin.style.display = 'flex';
     showAdminButton();
@@ -7040,7 +7011,7 @@ async function verifyAdminPassword() {
 
   if (pw === correctPw) {
     adminAuthed = true;
-    sessionStorage.setItem(ADMIN_KEY, 'true');
+    localStorage.setItem(ADMIN_KEY, 'true');
     document.getElementById('admin-login-section').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
     loadAdminData();
