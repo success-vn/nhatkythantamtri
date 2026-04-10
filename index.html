@@ -610,18 +610,45 @@ textarea { min-height: 80px; }
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email</label>
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email *</label>
         <input type="email" id="reg-email" placeholder="VD: lanahn@gmail.com"
           style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Nhóm Rèn Luyện *</label>
-        <input type="text" id="reg-group" placeholder="VD: NHOM_TTT_2026"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:700;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;text-transform:uppercase;letter-spacing:1px;"
-          onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
-          oninput="this.value=this.value.toUpperCase()">
-        <div style="font-size:10.5px;color:var(--ink-muted);margin-top:4px">💡 Hỏi người hướng dẫn để lấy mã nhóm</div>
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Mật Khẩu * <span style="font-weight:400;text-transform:none">(tối thiểu 6 ký tự)</span></label>
+        <div style="position:relative">
+          <input type="password" id="reg-password" placeholder="Tạo mật khẩu đăng nhập..."
+            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
+          <button type="button" onclick="togglePwVis('reg-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Chọn Nhóm (Tên Trưởng Nhóm) *</label>
+        <!-- Ô gõ tìm tên trưởng nhóm -->
+        <div style="position:relative">
+          <input type="text" id="reg-group-search" placeholder="Gõ tên trưởng nhóm để tìm..."
+            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            onfocus="this.style.borderColor='#5b8a6e';loadLeaderList()"
+            onblur="setTimeout(()=>document.getElementById('leader-dropdown').style.display='none',200)"
+            oninput="filterLeaderList(this.value)">
+          <div id="leader-dropdown" style="
+            display:none;position:absolute;top:100%;left:0;right:0;z-index:1000;
+            background:white;border:2px solid var(--border);border-radius:11px;
+            margin-top:4px;max-height:200px;overflow-y:auto;
+            box-shadow:0 8px 24px rgba(0,0,0,0.12)">
+            <div id="leader-list-items" style="padding:4px 0">
+              <div style="padding:10px 14px;font-size:12px;color:var(--ink-muted)">⏳ Đang tải danh sách...</div>
+            </div>
+          </div>
+        </div>
+        <!-- Hidden field lưu groupCode thực sự -->
+        <input type="hidden" id="reg-group" value="">
+        <div id="reg-group-display" style="font-size:10.5px;color:var(--jade);margin-top:4px;font-weight:700;display:none">
+          ✓ Đã chọn nhóm: <span id="reg-group-name-show"></span>
+        </div>
+        <div style="font-size:10.5px;color:var(--ink-muted);margin-top:4px">💡 Gõ tên trưởng nhóm để tìm và chọn nhóm của bạn</div>
       </div>
       <div>
         <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Người Gieo Duyên</label>
@@ -675,27 +702,31 @@ textarea { min-height: 80px; }
     <div style="text-align:center;margin-bottom:24px">
       <div style="font-size:44px;margin-bottom:10px">🌿</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:25px;font-weight:600;color:var(--ink);margin-bottom:5px">Chào mừng trở lại!</div>
-      <div style="font-size:13px;color:var(--ink-muted)">Nhập thông tin để tiếp tục hành trình</div>
+      <div style="font-size:13px;color:var(--ink-muted)">Đăng nhập để tiếp tục hành trình rèn luyện</div>
     </div>
 
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Họ và Tên *</label>
-        <input type="text" id="login-name" placeholder="VD: Nguyễn Thị Lan Anh"
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email *</label>
+        <input type="email" id="login-email" placeholder="Email đã đăng ký"
           style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
-          onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
+          onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Mã Nhóm *</label>
-        <input type="text" id="login-group" placeholder="VD: NHOM_TTT_2026"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:700;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;text-transform:uppercase;letter-spacing:1px;"
-          onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
-          oninput="this.value=this.value.toUpperCase()"
-          onkeydown="if(event.key==='Enter')doLogin()">
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Mật Khẩu *</label>
+        <div style="position:relative">
+          <input type="password" id="login-password" placeholder="Mật khẩu của bạn"
+            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" onclick="togglePwVis('login-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
+        </div>
       </div>
     </div>
 
-    <div id="login-error" style="color:#c0606a;font-size:12px;font-weight:700;margin-bottom:10px;display:none">⚠️ Vui lòng nhập đầy đủ tên và mã nhóm.</div>
+    <div id="login-error" style="color:#c0606a;font-size:12px;font-weight:700;margin-bottom:10px;display:none">⚠️ Email hoặc mật khẩu không đúng.</div>
+    <div id="login-loading" style="color:#5b8a6e;font-size:12px;font-weight:700;margin-bottom:10px;display:none;text-align:center">⏳ Đang đăng nhập...</div>
 
     <button onclick="doLogin()" style="
       width:100%;padding:14px;
@@ -707,46 +738,89 @@ textarea { min-height: 80px; }
       Tiếp Tục Rèn Luyện →
     </button>
 
-    <div style="text-align:center;margin-top:13px">
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="doForgotPassword()" style="border:none;background:none;color:var(--ink-muted);font-size:12px;cursor:pointer;text-decoration:underline">
+        Quên mật khẩu?
+      </button>
+    </div>
+
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px">Đã đăng ký trước đây bằng tên + nhóm?</div>
+      <button onclick="showActivateStep()" style="border:none;background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:12px;font-weight:800;cursor:pointer;padding:8px 16px;border-radius:10px;border:1px solid rgba(201,168,76,0.3)">
+        🔑 Kích hoạt tài khoản cũ
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:10px">
       <button onclick="showRegisterStep()" style="border:none;background:none;color:#5b8a6e;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline">← Quay lại đăng ký</button>
     </div>
   </div>
-</div>
 
-<!-- Màn hình chờ duyệt thành viên -->
-<div id="pending-approval-screen" style="
-  display:none;position:fixed;inset:0;z-index:9998;
-  background:linear-gradient(160deg,#0e1a12 0%,#1a2818 50%,#1a1410 100%);
-  display:none;align-items:center;justify-content:center;padding:20px;
-">
-  <div style="background:var(--card);border-radius:24px;padding:32px 26px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.45);text-align:center">
-    <div style="font-size:52px;margin-bottom:12px">⏳</div>
-    <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:8px">Đang Chờ Được Duyệt</div>
-    <div style="font-size:13.5px;color:var(--ink-muted);line-height:1.8;margin-bottom:20px">
-      Yêu cầu tham gia của bạn đã được gửi đến<br>
-      <strong style="color:var(--ink)" id="pending-group-label">nhóm</strong>.<br>
-      Trưởng nhóm hoặc Admin sẽ duyệt sớm nhất có thể.
+  <!-- STEP 3: KÍCH HOẠT TÀI KHOẢN CŨ -->
+  <div id="step-activate" style="display:none;background:var(--card);border-radius:24px;padding:32px 26px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.45);">
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:44px;margin-bottom:10px">🔑</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:6px">Kích Hoạt Tài Khoản</div>
+      <div style="font-size:13px;color:var(--ink-muted);line-height:1.7">Dành cho thành viên đã đăng ký trước đây.<br>Nhập email bạn đã điền khi đăng ký để đặt mật khẩu.</div>
     </div>
-    <div style="background:rgba(201,168,76,0.1);border:1.5px solid rgba(201,168,76,0.3);border-radius:12px;padding:14px;margin-bottom:20px">
-      <div style="font-size:11px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Thông tin đăng ký</div>
-      <div id="pending-info" style="font-size:13px;color:var(--ink-soft);line-height:1.8"></div>
+
+    <!-- Bước 1: Tìm tài khoản qua email -->
+    <div id="activate-step1">
+      <div style="margin-bottom:12px">
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email đã đăng ký *</label>
+        <input type="email" id="activate-email" placeholder="Email bạn nhập khi đăng ký"
+          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
+          onkeydown="if(event.key==='Enter')findOldAccount()">
+      </div>
+      <div id="activate-step1-error" style="color:#c0606a;font-size:12px;font-weight:700;margin-bottom:10px;display:none"></div>
+      <div id="activate-step1-loading" style="color:#5b8a6e;font-size:12px;font-weight:700;margin-bottom:10px;display:none;text-align:center">⏳ Đang tìm tài khoản...</div>
+      <button onclick="findOldAccount()" style="
+        width:100%;padding:13px;
+        background:linear-gradient(135deg,var(--gold-dark),#6a4e1a);
+        color:white;border:none;border-radius:12px;
+        font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
+        Tìm Tài Khoản →
+      </button>
     </div>
-    <button onclick="checkMemberApprovalStatus()" style="
-      width:100%;padding:13px;margin-bottom:10px;
-      background:linear-gradient(135deg,var(--nn1),#3d6b54);
-      color:white;border:none;border-radius:13px;
-      font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer">
-      🔄 Kiểm Tra Trạng Thái
-    </button>
-    <button onclick="cancelPendingAndReRegister()" style="
-      width:100%;padding:11px;
-      background:none;border:1.5px solid rgba(192,96,106,0.3);border-radius:13px;
-      font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;
-      color:var(--rose);cursor:pointer">
-      ← Đăng ký lại với thông tin khác
-    </button>
+
+    <!-- Bước 2: Đặt mật khẩu sau khi tìm thấy -->
+    <div id="activate-step2" style="display:none">
+      <div id="activate-found-info" style="background:rgba(74,140,111,0.08);border:1.5px solid rgba(74,140,111,0.3);border-radius:11px;padding:12px 14px;margin-bottom:14px"></div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Đặt Mật Khẩu Mới *</label>
+        <div style="position:relative">
+          <input type="password" id="activate-password" placeholder="Tối thiểu 6 ký tự"
+            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
+            onkeydown="if(event.key==='Enter')document.getElementById('activate-password2').focus()">
+          <button type="button" onclick="togglePwVis('activate-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Xác Nhận Mật Khẩu *</label>
+        <input type="password" id="activate-password2" placeholder="Nhập lại mật khẩu"
+          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
+          onkeydown="if(event.key==='Enter')doActivateAccount()">
+      </div>
+      <div id="activate-step2-error" style="color:#c0606a;font-size:12px;font-weight:700;margin-bottom:10px;display:none"></div>
+      <div id="activate-step2-loading" style="color:#5b8a6e;font-size:12px;font-weight:700;margin-bottom:10px;display:none;text-align:center">⏳ Đang kích hoạt...</div>
+      <button onclick="doActivateAccount()" style="
+        width:100%;padding:13px;
+        background:linear-gradient(135deg,#1a2818,#2d4a2a);
+        color:white;border:none;border-radius:12px;
+        font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
+        ✅ Kích Hoạt & Đăng Nhập
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:14px">
+      <button onclick="showLoginStep()" style="border:none;background:none;color:#5b8a6e;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline">← Quay lại đăng nhập</button>
+    </div>
   </div>
 </div>
+<!-- Autosave indicator -->
 <div id="autosave-indicator" style="
   position:fixed;bottom:16px;right:16px;z-index:500;
   background:var(--jade);color:white;
@@ -761,20 +835,17 @@ textarea { min-height: 80px; }
   <!-- TOP: Logo left + Title right -->
   <div class="header-top" style="position:relative">
   <div style="position:absolute;top:10px;right:12px;display:flex;gap:8px;z-index:10">
+    <!-- Sync status badge -->
+    <div id="sync-status" style="
+      font-size:10.5px;font-weight:700;color:white;
+      background:rgba(74,140,111,0.85);border-radius:20px;
+      padding:5px 10px;display:flex;align-items:center;gap:4px;
+      transition:background 0.3s">☁️ –</div>
     <div id="user-badge" style="
       font-size:11px;font-weight:700;color:rgba(253,248,240,0.65);
       background:rgba(255,255,255,0.08);border-radius:20px;
       padding:5px 11px;display:flex;align-items:center;gap:5px">
       <span>👤</span><span id="header-username">–</span>
-    </div>
-    <!-- Cloud sync status -->
-    <div id="sync-status" title="Trạng thái đồng bộ dữ liệu" style="
-      font-size:11px;font-weight:700;
-      color:rgba(253,248,240,0.55);
-      background:rgba(255,255,255,0.06);border-radius:20px;
-      padding:5px 10px;display:flex;align-items:center;gap:4px;
-      cursor:default;transition:all 0.3s">
-      ☁️ <span id="sync-status-text">–</span>
     </div>
     <button id="header-admin-btn" onclick="openAdminFromHeader()" style="
       display:none;font-size:11px;font-weight:700;
@@ -876,6 +947,7 @@ textarea { min-height: 80px; }
   <button class="nav-tab" onclick="showPage('start',this)">🌱 Điểm Xuất Phát</button>
   <button class="nav-tab" onclick="showPage('milestones',this)">🏆 Đánh Giá Hành Trình</button>
   <button class="nav-tab" id="nav-leader" style="display:none;color:var(--gold-dark)" onclick="showPage('leader',this)">👑 Trưởng Nhóm</button>
+  <button class="nav-tab" id="nav-member-team" style="display:none;color:var(--jade)" onclick="showPage('member-team',this)">🧑‍🤝‍🧑 Thành Viên Nhóm</button>
   <button class="nav-tab" id="nav-admin" style="display:none;color:var(--rose)" onclick="showPage('admin',this)">🔐 Admin</button>
 </nav>
 
@@ -888,7 +960,10 @@ textarea { min-height: 80px; }
       <div class="date-label">Ngày thực hành</div>
       <div class="date-value" id="today-date"></div>
     </div>
-    <div class="day-badge" id="today-day-num">Ngày 1</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div id="today-saved-badge" style="display:none;font-size:10px;font-weight:700;background:rgba(74,140,111,0.12);color:var(--jade);border:1px solid rgba(74,140,111,0.25);border-radius:20px;padding:3px 10px">✅ Đã lưu hôm nay</div>
+      <div class="day-badge" id="today-day-num">Ngày 1</div>
+    </div>
   </div>
 
   <div class="section-card">
@@ -914,26 +989,70 @@ textarea { min-height: 80px; }
   </div>
 
 
-  <!-- 4 VIỆC QUAN TRỌNG -->
-  <div class="section-card">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(74,127,168,0.12)">📋</div>
-      4 Việc Quan Trọng Hôm Nay
+  <!-- 4 VIỆC QUAN TRỌNG — layout mới theo mẫu -->
+  <div class="section-card" style="padding:0;overflow:hidden">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--ink)">
+        4 Việc quan trọng trong ngày
+      </div>
+      <span style="background:rgba(224,176,210,0.35);color:#a04080;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;letter-spacing:0.3px">Ưu tiên cao nhất</span>
     </div>
-    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;line-height:1.6;font-style:italic">
-      Viết 4 việc quan trọng nhất cần làm hôm nay. Tick ✓ khi hoàn thành. Có thể thêm việc nếu cần.
+
+    <!-- 2x2 grid cho 4 việc chính -->
+    <div id="tasks-main-grid" style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)"></div>
+
+    <!-- Hàng thêm việc extra (nếu có) -->
+    <div id="tasks-extra-list" style="border-top:1px solid var(--border)"></div>
+
+    <!-- Nhóm phụ: Từ chối / Uỷ quyền / Thuê / Nhân bản -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1.5px solid var(--border)">
+      <!-- Từ chối -->
+      <div style="border-right:1px solid var(--border);padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Từ chối</div>
+          <span style="background:rgba(201,168,76,0.18);color:var(--gold-dark);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Loại bỏ</span>
+        </div>
+        <div id="tasks-reject-list"></div>
+      </div>
+      <!-- Ủy quyền -->
+      <div style="padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Ủy quyền</div>
+          <span style="background:rgba(74,127,168,0.15);color:var(--sky);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Giao người khác</span>
+        </div>
+        <div id="tasks-delegate-list"></div>
+      </div>
     </div>
-    <div id="tasks-progress" style="margin-bottom:12px"></div>
-    <div id="tasks-list"></div>
-    <button onclick="addExtraTask()" style="
-      width:100%;margin-top:10px;padding:9px;
-      background:rgba(74,127,168,0.08);border:1.5px dashed rgba(74,127,168,0.35);
-      border-radius:10px;color:var(--sky);font-size:13px;font-weight:700;
-      cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.2s"
-      onmouseover="this.style.background='rgba(74,127,168,0.14)'"
-      onmouseout="this.style.background='rgba(74,127,168,0.08)'">
-      + Thêm việc khác
-    </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)">
+      <!-- Thuê -->
+      <div style="border-right:1px solid var(--border);padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Thuê</div>
+          <span style="background:rgba(74,140,111,0.15);color:var(--jade);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Outsource</span>
+        </div>
+        <div id="tasks-outsource-list"></div>
+      </div>
+      <!-- Nhân bản -->
+      <div style="padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Nhân bản</div>
+          <span style="background:rgba(124,92,191,0.15);color:var(--violet);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Tự động hóa</span>
+        </div>
+        <div id="tasks-automate-list"></div>
+      </div>
+    </div>
+
+    <!-- Footer thêm việc -->
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="addExtraTask()" style="
+        flex:1;padding:8px;min-width:120px;
+        background:rgba(74,127,168,0.07);border:1.5px dashed rgba(74,127,168,0.3);
+        border-radius:9px;color:var(--sky);font-size:12px;font-weight:700;
+        cursor:pointer;font-family:'Nunito',sans-serif">
+        + Thêm việc ưu tiên
+      </button>
+    </div>
   </div>
 
   <!-- KAIZEN NGÀY -->
@@ -1115,26 +1234,79 @@ textarea { min-height: 80px; }
     <div class="money-row">
       <div class="money-box">
         <div class="money-box-label green">💚 Nhận tiền xanh</div>
-        <input type="number" id="receive-green" placeholder="0" min="0">
+        <input type="number" id="receive-green" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
       </div>
       <div class="money-box">
         <div class="money-box-label red">❤️ Nhận tiền đỏ</div>
-        <input type="number" id="receive-red" placeholder="0" min="0">
+        <input type="number" id="receive-red" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
       </div>
     </div>
     <div class="money-row">
       <div class="money-box">
         <div class="money-box-label green">💚 Chi tiền xanh</div>
-        <input type="number" id="spend-green" placeholder="0" min="0">
+        <input type="number" id="spend-green" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
       </div>
       <div class="money-box">
         <div class="money-box-label red">❤️ Chi tiền đỏ</div>
-        <input type="number" id="spend-red" placeholder="0" min="0">
+        <input type="number" id="spend-red" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
       </div>
     </div>
-    <div class="field-row">
-      <label class="field-label">Ghi chú tâm thức tiền</label>
-      <textarea id="finance-note" placeholder="Khi nhận/chi tiền, tôi cảm nhận..." rows="3"></textarea>
+
+    <!-- Tổng hợp hôm nay -->
+    <div id="finance-daily-summary" style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="background:rgba(74,140,111,0.08);border:1.5px solid rgba(74,140,111,0.2);border-radius:12px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:800;color:var(--jade);text-transform:uppercase;margin-bottom:5px">💚 Tổng Thu Hôm Nay</div>
+        <div id="daily-total-recv" style="font-size:18px;font-weight:800;color:var(--jade)">0</div>
+        <div id="daily-recv-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
+      </div>
+      <div style="background:rgba(192,96,106,0.07);border:1.5px solid rgba(192,96,106,0.2);border-radius:12px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:800;color:var(--rose);text-transform:uppercase;margin-bottom:5px">💸 Tổng Chi Hôm Nay</div>
+        <div id="daily-total-spend" style="font-size:18px;font-weight:800;color:var(--rose)">0</div>
+        <div id="daily-spend-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
+      </div>
+    </div>
+
+    <!-- Năng lượng tiền hôm nay (đổi từ "Tâm thức tiền") -->
+    <div id="money-color-assess" style="margin-top:12px;border-radius:12px;padding:14px 16px;border:2px solid var(--border);transition:all 0.3s">
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">⚡ Năng Lượng Tiền Hôm Nay</div>
+      <div id="money-color-result" style="font-size:14px;font-weight:700;color:var(--ink-muted)">
+        Điền số liệu thu/chi để xem đánh giá tự động ↑
+      </div>
+    </div>
+  </div>
+
+  <!-- Tổng kết tháng -->
+  <div class="section-card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--ink)">📅 Tổng Kết Tháng Này</div>
+      <div id="finance-month-label" style="font-size:12px;font-weight:700;color:var(--ink-muted)"></div>
+    </div>
+    <div style="padding:14px 18px">
+      <!-- Tổng thu tháng -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="background:rgba(74,140,111,0.08);border-radius:11px;padding:12px 14px">
+          <div style="font-size:10px;font-weight:800;color:var(--jade);text-transform:uppercase;margin-bottom:4px">💚 Thu Tháng</div>
+          <div id="month-total-recv" style="font-size:20px;font-weight:800;color:var(--jade)">0</div>
+          <div id="month-recv-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
+        </div>
+        <div style="background:rgba(192,96,106,0.07);border-radius:11px;padding:12px 14px">
+          <div style="font-size:10px;font-weight:800;color:var(--rose);text-transform:uppercase;margin-bottom:4px">💸 Chi Tháng</div>
+          <div id="month-total-spend" style="font-size:20px;font-weight:800;color:var(--rose)">0</div>
+          <div id="month-spend-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
+        </div>
+      </div>
+      <!-- Năng lượng tiền tháng -->
+      <div id="finance-month-energy" style="border-radius:11px;padding:12px 14px;border:1.5px solid var(--border)">
+        <div style="font-size:10px;font-weight:800;color:var(--ink-muted);text-transform:uppercase;margin-bottom:6px">⚡ Năng Lượng Tiền Cả Tháng</div>
+        <div id="finance-month-bar-wrap" style="margin-bottom:6px">
+          <div style="height:8px;border-radius:6px;background:rgba(245,237,224,0.8);overflow:hidden">
+            <div id="finance-month-bar" style="height:100%;width:0%;border-radius:6px;transition:width 0.5s;background:var(--jade)"></div>
+          </div>
+        </div>
+        <div id="finance-month-result" style="font-size:12.5px;font-weight:700;color:var(--ink-muted)">Chưa có dữ liệu tháng này</div>
+      </div>
+      <!-- Số ngày đã ghi -->
+      <div style="margin-top:10px;font-size:11.5px;color:var(--ink-muted);text-align:center" id="finance-month-days"></div>
     </div>
   </div>
 
@@ -1145,11 +1317,13 @@ textarea { min-height: 80px; }
     </div>
     <div class="field-row">
       <label class="field-label">Hạt giống nào về tiền trồi lên hôm nay?</label>
-      <textarea id="money-seed" placeholder="Tôi nhận ra hạt giống... về tiền..." rows="3"></textarea>
+      <textarea id="money-seed" placeholder="Tôi nhận ra hạt giống... về tiền..." rows="3" oninput="const r=document.getElementById('money-humble-reminder');if(r)r.style.display=this.value.trim()?'block':'none'"></textarea>
     </div>
-    <div class="field-row">
-      <label class="field-label">Tôi đã khiêm hạ và biết ơn như thế nào?</label>
-      <textarea id="money-humble" placeholder="Tôi đã khiêm hạ: xin lỗi, tha thứ, biết ơn..." rows="3"></textarea>
+    <!-- Nhắc nhở khiêm hạ — chỉ hiện khi có hạt giống -->
+    <div id="money-humble-reminder" style="display:none;border-radius:11px;padding:13px 16px;background:linear-gradient(135deg,rgba(201,168,76,0.1),rgba(91,138,110,0.08));border:1.5px solid rgba(201,168,76,0.3)">
+      <div style="font-size:13px;color:var(--gold-dark);font-weight:700;line-height:1.7">
+        🙏 Hãy thực hành <strong>khiêm hạ giải phóng hạt giống Tiền</strong> nhé — xin lỗi, tha thứ, biết ơn với chính mình và dòng tiền hôm nay.
+      </div>
     </div>
   </div>
 
@@ -1277,31 +1451,23 @@ textarea { min-height: 80px; }
   <div class="section-card" style="border:2px solid rgba(91,138,110,0.3)">
     <div class="section-title">
       <div class="section-icon" style="background:rgba(91,138,110,0.12)">✍️</div>
-      <div>Cập Nhật Của Tôi Hôm Nay
+      <div>Tình Trạng Của Tôi Hôm Nay
         <div style="font-size:11.5px;font-weight:400;color:var(--ink-muted);margin-top:1px" id="team-my-name-label"></div>
       </div>
     </div>
-    <div style="font-size:11.5px;color:var(--jade);font-weight:700;background:rgba(74,140,111,0.08);border-radius:9px;padding:8px 12px;margin-bottom:14px">
-      ✨ Dữ liệu được tự động lấy từ nhật ký hôm nay của bạn. Kéo thanh để điều chỉnh nếu cần.
+    <!-- Auto-sync indicator -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(91,138,110,0.08);border-radius:10px;margin-bottom:14px">
+      <span style="font-size:20px">🔄</span>
+      <div style="flex:1">
+        <div style="font-size:12.5px;font-weight:700;color:var(--jade)">Tự động đồng bộ lên nhóm</div>
+        <div id="my-last-sync" style="font-size:11px;color:var(--ink-muted);margin-top:2px">Đang kiểm tra...</div>
+      </div>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Số nghi thức hoàn thành hôm nay</div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <input type="range" id="my-rituals" min="0" max="9" value="0"
-        oninput="document.getElementById('my-rituals-val').textContent=this.value"
-        style="position:relative;opacity:1;flex:1;height:8px;cursor:pointer;accent-color:var(--jade)">
-      <span id="my-rituals-val" style="font-size:20px;font-weight:800;color:var(--jade);min-width:28px">0</span>
-      <span style="font-size:13px;color:var(--ink-muted)">/9</span>
-    </div>
-
-    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Điểm 5 Ngôi Nhà hôm nay</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+    <!-- Preview stats lấy từ nhật ký hôm nay -->
+    <div id="my-today-preview" style="font-size:12.5px;color:var(--ink-muted);line-height:2"></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px">
       <div id="my-nn-sliders"></div>
     </div>
-
-    <button onclick="saveMyTeamStats()" class="save-btn">
-      📤 Cập Nhật & Gửi Lên Nhóm
-    </button>
-    <div id="my-last-sync" style="font-size:11px;color:var(--ink-muted);text-align:center;margin-top:8px"></div>
   </div>
 
   <!-- Team overview -->
@@ -1520,12 +1686,6 @@ textarea { min-height: 80px; }
     "Biết mình đang ở đâu là bước đầu tiên để biết mình cần đi về đâu. Đây là bức tranh thật nhất về chính mình hôm nay."
   </div>
 
-  <!-- Banner nháp: đang làm dở, chưa lưu chính thức -->
-  <div id="sp-draft-banner" style="display:none;margin-bottom:14px;padding:11px 16px;background:rgba(201,168,76,0.12);border:1.5px dashed rgba(201,168,76,0.5);border-radius:11px;font-size:12.5px;color:var(--gold-dark);font-weight:700">
-    <span style="font-size:16px">📝</span>
-    Bạn đang làm dở — dữ liệu đã được lưu tạm. Hoàn thành và bấm <strong>Lưu Điểm Xuất Phát</strong> để chốt lại.
-  </div>
-
 
   <!-- KHÁM NHÀ -->
   <div class="section-card" style="border:2px solid rgba(201,168,76,0.3);background:linear-gradient(135deg,rgba(201,168,76,0.04),rgba(255,255,255,0))">
@@ -1641,7 +1801,7 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <button class="save-btn" id="sp-save-btn" style="background:linear-gradient(135deg,var(--nn1),#3d6b54)" onclick="saveStartingPoint()">
+  <button class="save-btn" style="background:linear-gradient(135deg,var(--nn1),#3d6b54)" onclick="saveStartingPoint()">
     🌱 LƯU ĐIỂM XUẤT PHÁT
   </button>
 
@@ -1865,35 +2025,49 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <!-- Duyệt thành viên mới (chỉ thấy nhóm mình) -->
+  <!-- ── MỤC 1: Duyệt thành viên mới ── -->
   <div class="section-card" style="border:2px solid rgba(74,127,168,0.3);margin-bottom:16px">
     <div class="section-title">
       <div class="section-icon" style="background:rgba(74,127,168,0.12)">👤</div>
-      <div>Duyệt Thành Viên Mới
-        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Chỉ thành viên đăng ký nhóm của bạn</div>
+      <div style="flex:1">
+        Duyệt Thành Viên Mới
+        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Thành viên đăng ký nhóm <span id="leader-pending-group"></span> đang chờ duyệt</div>
       </div>
+      <span id="leader-pending-badge" style="display:none;background:var(--rose);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:12px;margin-left:8px">0</span>
     </div>
     <div id="leader-member-requests-list">
-      <div class="empty-state" style="padding:12px 0"><div class="empty-icon" style="font-size:24px">✅</div><p style="font-size:12.5px">Không có thành viên nào chờ duyệt.</p></div>
+      <div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:10px 0">⏳ Đang tải...</div>
     </div>
     <button class="btn-outline" onclick="loadLeaderMemberRequests()" style="width:100%;margin-top:8px;font-size:12px">🔄 Làm mới</button>
   </div>
 
-  <!-- Lọc & tìm thành viên -->
-  <div style="display:flex;gap:8px;margin-bottom:14px">
-    <input type="text" id="leader-search" placeholder="🔍 Tìm thành viên..."
-      oninput="renderLeaderMemberList()"
-      style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;">
-    <select id="leader-filter" onchange="renderLeaderMemberList()"
-      style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:700;color:var(--ink-muted);outline:none;cursor:pointer">
-      <option value="all">Tất cả</option>
-      <option value="active">Hoạt động hôm nay</option>
-      <option value="inactive">Chưa hoạt động</option>
-    </select>
+  <!-- ── MỤC 2: Danh sách thành viên đã đăng ký ── -->
+  <div class="section-card" style="padding:0;overflow:hidden;margin-bottom:16px">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--ink);margin-bottom:2px">📋 Danh Sách Thành Viên</div>
+      <div style="font-size:11.5px;color:var(--ink-muted)">Click vào thành viên để xem chi tiết nhật ký rèn luyện</div>
+    </div>
+
+    <!-- Lọc & tìm -->
+    <div style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <input type="text" id="leader-search" placeholder="🔍 Tìm thành viên..."
+        oninput="renderLeaderMemberList()"
+        style="flex:1;background:rgba(245,237,224,0.5);border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;outline:none;">
+      <select id="leader-filter" onchange="renderLeaderMemberList()"
+        style="background:rgba(245,237,224,0.5);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;color:var(--ink-muted);outline:none;cursor:pointer">
+        <option value="all">Tất cả</option>
+        <option value="active">Hôm nay ✓</option>
+        <option value="inactive">Chưa hoạt động</option>
+      </select>
+    </div>
+
+    <!-- Danh sách -->
+    <div id="leader-member-list" style="padding:12px 16px"></div>
   </div>
 
-  <!-- Danh sách thành viên -->
-  <div id="leader-member-list"></div>
+  <div style="text-align:center;margin-bottom:8px">
+    <button class="btn-outline" onclick="loadLeaderData()" style="font-size:12px">🔄 Làm mới danh sách</button>
+  </div>
 
   <!-- Modal xem chi tiết thành viên -->
   <div id="leader-member-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);overflow-y:auto;padding:16px">
@@ -1943,30 +2117,26 @@ textarea { min-height: 80px; }
   <div id="admin-content" style="display:none">
 
     <!-- Tabs -->
-    <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0;overflow-x:auto;scrollbar-width:none">
+    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0">
       <button class="admin-tab active" id="atab-pending" onclick="switchAdminTab('pending')"
-        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--rose);border-bottom:3px solid var(--rose);cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
-        ⏳ Chờ TN <span id="pending-count-badge" style="background:var(--rose);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px">0</span>
-      </button>
-      <button class="admin-tab" id="atab-members" onclick="switchAdminTab('members')"
-        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
-        👤 Duyệt TV <span id="member-pending-badge" style="background:var(--sky);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px;display:none">0</span>
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--rose);border-bottom:3px solid var(--rose);cursor:pointer;font-family:'Nunito',sans-serif">
+        ⏳ Chờ Duyệt <span id="pending-count-badge" style="background:var(--rose);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px">0</span>
       </button>
       <button class="admin-tab" id="atab-leaders" onclick="switchAdminTab('leaders')"
-        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
         👑 Trưởng Nhóm
       </button>
       <button class="admin-tab" id="atab-groups" onclick="switchAdminTab('groups')"
-        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
         👥 Tất Cả Nhóm
       </button>
       <button class="admin-tab" id="atab-settings" onclick="switchAdminTab('settings')"
-        style="padding:10px 14px;border:none;background:none;font-size:12px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
         ⚙️ Cài Đặt
       </button>
     </div>
 
-    <!-- Tab: Chờ duyệt Trưởng Nhóm -->
+    <!-- Tab: Chờ duyệt -->
     <div id="admin-tab-pending">
       <div class="note-quote" style="margin-bottom:14px">
         Các thành viên đăng ký vai trò Trưởng Nhóm đang chờ bạn xét duyệt.
@@ -1975,21 +2145,6 @@ textarea { min-height: 80px; }
         <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
       </div>
       <button class="btn-outline" onclick="loadAdminData()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
-    </div>
-
-    <!-- Tab: Duyệt Thành Viên (Admin thấy tất cả nhóm) -->
-    <div id="admin-tab-members" style="display:none">
-      <div class="note-quote" style="margin-bottom:14px">
-        Thành viên đăng ký mới đang chờ được duyệt. Admin có thể duyệt tất cả nhóm.
-      </div>
-      <div id="admin-member-pending-list">
-        <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
-      </div>
-      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">Đã duyệt</div>
-        <div id="admin-member-approved-list"></div>
-      </div>
-      <button class="btn-outline" onclick="loadAdminMemberRequests()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
     </div>
 
     <!-- Tab: Trưởng nhóm đã duyệt -->
@@ -2035,6 +2190,52 @@ textarea { min-height: 80px; }
     </div>
 
   </div>
+</div>
+
+<!-- ══════ MEMBER TEAM — Thành Viên Nhóm (overview only) ══════ -->
+<div id="page-member-team" class="page">
+  <div class="date-bar">
+    <div>
+      <div class="date-label">Thành Viên Nhóm</div>
+      <div class="date-value" id="member-team-group-name">–</div>
+    </div>
+    <div class="day-badge" style="background:linear-gradient(135deg,var(--jade),#3d6b54)">🧑‍🤝‍🧑 Team</div>
+  </div>
+
+  <!-- Thống kê tổng quan -->
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="stat-box stat-gold">
+      <div class="stat-num" id="mt-total-members">0</div>
+      <div class="stat-label">Tổng thành viên</div>
+    </div>
+    <div class="stat-box stat-jade">
+      <div class="stat-num" id="mt-active-today">0</div>
+      <div class="stat-label">Hoạt động hôm nay</div>
+    </div>
+    <div class="stat-box stat-sky">
+      <div class="stat-num" id="mt-avg-ritual">0</div>
+      <div class="stat-label">TB nghi thức</div>
+    </div>
+  </div>
+
+  <!-- Lọc -->
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input type="text" id="mt-search" placeholder="🔍 Tìm thành viên..."
+      oninput="renderMemberTeamList()"
+      style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;">
+    <select id="mt-filter" onchange="renderMemberTeamList()"
+      style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:700;color:var(--ink-muted);outline:none;cursor:pointer">
+      <option value="all">Tất cả</option>
+      <option value="active">Hôm nay ✓</option>
+      <option value="inactive">Chưa hoạt động</option>
+    </select>
+  </div>
+
+  <div id="mt-member-list">
+    <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
+  </div>
+
+  <button class="btn-outline" onclick="initMemberTeamPage()" style="width:100%;margin-top:8px;font-size:12px">🔄 Làm mới</button>
 </div>
 
 <!-- ══════ KẾT QUẢ 3 THÁNG (giữ nguyên cho tương thích) ══════ -->
@@ -2180,33 +2381,12 @@ const STORAGE_KEY = 'nk5nn-main';
 const SP_KEY      = 'nk5nn-sp';
 const KZ_KEY      = 'nk5nn-kaizen';
 const USER_KEY    = 'nk5nn-user';
-const R3M_KEY     = 'nk5nn-r3m';
-const MS_KEY      = 'nk5nn-milestones';
 
-let data     = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-let spData   = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
-let kzData   = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
-let userInfo = JSON.parse(localStorage.getItem(USER_KEY)    || 'null');
-let r3mData  = JSON.parse(localStorage.getItem(R3M_KEY)     || '{}');
-let msData   = JSON.parse(localStorage.getItem(MS_KEY)      || '[]');
-let currentMsId = null;
+let data   = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+let spData = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
+let kzData = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
+let userInfo = JSON.parse(localStorage.getItem(USER_KEY)  || 'null');
 // userInfo = { name, groupCode, memberId }
-
-// ── Migration: nếu spData.saved=true nhưng chưa trả lời hết câu Khám Nhà
-// → tự động mở lại để làm tiếp (check sau khi KHAM_NHA_QUESTIONS được định nghĩa)
-function migrateSPLockIfNeeded() {
-  if (!spData.saved) return; // chưa lock → không cần
-  const totalQ    = KHAM_NHA_QUESTIONS.length;
-  const answeredQ = Object.keys(spData.khamNha || {}).length;
-  if (answeredQ < totalQ) {
-    // Chưa xong → unlock để làm tiếp
-    spData.saved  = false;
-    spData._draft = true;
-    delete spData.savedAt;
-    try { localStorage.setItem(SP_KEY, JSON.stringify(spData)); } catch(e) {}
-    console.log('SP migration: unlocked (answered ' + answeredQ + '/' + totalQ + ')');
-  }
-}
 
 const RITUALS = [
   { id:'r1', label:'1. Thức dậy bằng tiềm thức', sub:'Giao tiếp tâm thức khi thức dậy' },
@@ -2498,8 +2678,14 @@ const MEMBER_COLORS = ['#5b8a6e','#c9a84c','#c0606a','#4a7fa8','#7c5cbf','#d4872
 
 function save(key, obj) {
   try {
+    // Cập nhật _updatedAt cho daily entry khi lưu
+    if (key === STORAGE_KEY && obj && typeof obj === 'object') {
+      const k = todayKey();
+      if (obj[k]) obj[k]._updatedAt = Date.now();
+    }
     localStorage.setItem(key, JSON.stringify(obj));
-    scheduleSyncPush(key);
+    // Tự động đẩy lên Firebase sau khi lưu local
+    if (typeof scheduleSyncPush === 'function') scheduleSyncPush(key);
   } catch(e) {
     if (e.name === 'QuotaExceededError') {
       console.warn('localStorage quota exceeded for key:', key);
@@ -2510,8 +2696,46 @@ function save(key, obj) {
 function todayKey() { return new Date().toISOString().split('T')[0]; }
 function getTodayEntry() {
   const k = todayKey();
-  if (!data[k]) data[k] = { rituals:{}, dims:{} };
+  if (!data[k]) data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
   return data[k];
+}
+
+// ── Kiểm tra sang ngày mới: nếu chưa có entry hôm nay → đảm bảo 5 tab đầu trống ──
+function checkNewDay() {
+  const k = todayKey();
+  if (data[k]) return; // hôm nay đã có → không làm gì
+  // Hôm nay chưa có entry → tạo mới, UI sẽ hiển thị trống
+  data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
+  save(STORAGE_KEY, data);
+  // Clear 5 tab rèn luyện hàng ngày: Today, Energy, Gratitude, Finance, Wish
+  const DAILY_FIELDS = [
+    'lesson-text','seed-green','seed-red','daily-good','daily-improve',
+    'gratitude-1','gratitude-2','gratitude-3','self-letter','self-proud',
+    'receive-green','receive-red','spend-green','spend-red','finance-note','money-seed','money-humble',
+    'wish-content','wish-deadline','wish-received','wish-feeling',
+    'overall-energy'
+  ];
+  DAILY_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  // Reset energy slider về 5
+  const energyEl = document.getElementById('overall-energy');
+  if (energyEl) { energyEl.value = 5; updateSlider('overall-energy','overall-thumb','overall-val'); }
+  // Reset NN sliders về 5
+  NN_LIST.forEach(nn => {
+    const el = document.getElementById('nne-'+nn.key);
+    if (el) { el.value = 5; updateSlider('nne-'+nn.key,'nne-thumb-'+nn.key,'nne-val-'+nn.key); }
+  });
+  // FIX L2: Ẩn badge "Đã lưu" khi sang ngày mới
+  const savedBadge = document.getElementById('today-saved-badge');
+  if (savedBadge) savedBadge.style.display = 'none';
+  renderRituals();
+  renderTasksList();
+  // Thông báo nhẹ khi sang ngày mới (chỉ khi app đã boot xong, không phải lần đầu)
+  if (document.getElementById('toast')) {
+    setTimeout(() => showToast('🌅 Chào ngày mới! Trang nhật ký đã được làm mới.'), 500);
+  }
 }
 function formatDate(d) {
   const days=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
@@ -2537,263 +2761,324 @@ function showRegisterStep() {
 
 
 
-function doLogin() {
-  const name  = document.getElementById('login-name').value.trim();
-  const group = document.getElementById('login-group').value.trim().toUpperCase();
-  const errEl = document.getElementById('login-error');
-  if (!name || !group) { errEl.style.display='block'; return; }
-  errEl.style.display='none';
-  const memberId = 'u_' + btoa(encodeURIComponent(name+'|'+group)).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
+// ── Hiện/ẩn mật khẩu ──
+function togglePwVis(inputId, btn) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
+}
 
-  // Kiểm tra trạng thái duyệt trước khi vào app
-  loadFirebase().then(async database => {
-    if (!database) {
-      // Không có mạng → cho vào ngay (offline mode)
-      loginSuccess(name, group, memberId, false);
-      return;
-    }
-    try {
-      const snap = await database.ref('member_requests/' + memberId).once('value');
-      const req = snap.val();
-      if (!req) {
-        // Chưa có member_request → có thể là thành viên cũ đăng ký trước khi có tính năng này
-        // Kiểm tra xem đã có trong /members chưa
-        const memberSnap = await database.ref('members/' + memberId).once('value');
-        const member = memberSnap.val();
-        if (member) {
-          // Thành viên cũ → tự động tạo member_request approved và cho vào
-          await database.ref('member_requests/' + memberId).set({
-            memberId, name: member.name||name, phone: member.phone||'', email: member.email||'',
-            groupCode: member.groupCode||group, referrer: member.referrer||'',
-            status: 'approved', approvedAt: new Date().toISOString(),
-            autoApproved: true, requestedAt: member.registeredAt||new Date().toISOString()
-          });
-          loginSuccess(name, group, memberId, member.isLeader||false);
-        } else {
-          // Thực sự là người mới → gửi request pending
-          const pendingInfo = { name, phone:'', email:'', groupCode: group, referrer:'', memberId, isLeaderReg:false, requestedAt: new Date().toISOString() };
-          localStorage.setItem('nk5nn-pending', JSON.stringify(pendingInfo));
-          await database.ref('member_requests/' + memberId).set({
-            memberId, name, phone:'', email:'', groupCode: group,
-            status: 'pending', requestedAt: new Date().toISOString()
-          });
-          await database.ref('members/' + memberId).set({
-            name, phone:'', email:'', groupCode: group, referrer:'',
-            isLeader: false, approved: false,
-            registeredAt: new Date().toISOString(), memberId
-          });
-          showPendingScreen(pendingInfo);
+// ── Tải danh sách trưởng nhóm để autocomplete khi đăng ký ──
+let _leaderListCache = null;
+async function loadLeaderList() {
+  const dropdown = document.getElementById('leader-dropdown');
+  if (dropdown) dropdown.style.display = 'block';
+  if (_leaderListCache) { renderLeaderDropdown(_leaderListCache, ''); return; }
+  const database = await loadFirebase();
+  if (!database) {
+    document.getElementById('leader-list-items').innerHTML =
+      '<div style="padding:10px 14px;font-size:12px;color:var(--rose)">⚠️ Không kết nối được. Thử lại.</div>';
+    return;
+  }
+  try {
+    const snap = await database.ref('leader_requests').once('value');
+    const all = snap.val() || {};
+    _leaderListCache = Object.values(all).filter(r => r.status === 'approved');
+    renderLeaderDropdown(_leaderListCache, '');
+  } catch(e) {
+    document.getElementById('leader-list-items').innerHTML =
+      '<div style="padding:10px 14px;font-size:12px;color:var(--rose)">⚠️ Lỗi tải danh sách</div>';
+  }
+}
+function filterLeaderList(q) {
+  if (!_leaderListCache) return;
+  const dropdown = document.getElementById('leader-dropdown');
+  if (dropdown) dropdown.style.display = 'block';
+  renderLeaderDropdown(_leaderListCache, q);
+}
+function renderLeaderDropdown(list, q) {
+  const items = document.getElementById('leader-list-items');
+  if (!items) return;
+  const filtered = q ? list.filter(r => r.name.toLowerCase().includes(q.toLowerCase()) || (r.groupCode||'').toLowerCase().includes(q.toLowerCase())) : list;
+  if (!filtered.length) {
+    items.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--ink-muted)">Không tìm thấy trưởng nhóm</div>';
+    return;
+  }
+  items.innerHTML = filtered.map(r => `
+    <div onclick="selectLeaderGroup('${r.groupCode}','${r.name}')"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s"
+      onmouseover="this.style.background='rgba(91,138,110,0.08)'"
+      onmouseout="this.style.background='white'">
+      <div style="font-weight:700;font-size:13px;color:var(--ink)">👑 ${r.name}</div>
+      <div style="font-size:11px;color:var(--ink-muted)">Nhóm: ${r.groupCode}</div>
+    </div>`).join('');
+}
+function selectLeaderGroup(groupCode, leaderName) {
+  document.getElementById('reg-group').value = groupCode;
+  document.getElementById('reg-group-search').value = leaderName;
+  document.getElementById('reg-group-name-show').textContent = leaderName + ' (' + groupCode + ')';
+  document.getElementById('reg-group-display').style.display = 'block';
+  document.getElementById('leader-dropdown').style.display = 'none';
+}
+
+async function doLogin() {
+  const email    = document.getElementById('login-email')?.value?.trim();
+  const password = document.getElementById('login-password')?.value;
+  const errEl    = document.getElementById('login-error');
+  const loadEl   = document.getElementById('login-loading');
+
+  if (!email || !password) {
+    if (errEl) { errEl.textContent = '⚠️ Vui lòng nhập email và mật khẩu.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+  if (loadEl) loadEl.style.display = 'block';
+
+  try {
+    const database = await loadFirebase();
+    if (!auth) throw new Error('Firebase Auth chưa sẵn sàng');
+
+    const credential = await auth.signInWithEmailAndPassword(email, password);
+    const firebaseUid = credential.user.uid;
+    const displayName = credential.user.displayName || '';
+
+    if (loadEl) loadEl.style.display = 'none';
+
+    // Tìm memberId từ Firebase uid_to_member hoặc dùng local nếu có
+    let localUser = null;
+    try { localUser = JSON.parse(localStorage.getItem(USER_KEY)); } catch(e) {}
+
+    if (localUser && localUser.email === email) {
+      // Đã có local → dùng làm base, nhưng PHẢI sync lại isLeader từ Firebase
+      userInfo = localUser;
+      userInfo.firebaseUid = firebaseUid;
+      // FIX LỖI 3+4: Luôn kiểm tra lại isLeader từ Firebase sau mỗi lần đăng nhập
+      if (database) {
+        try {
+          const mSnap = await database.ref('members/' + localUser.memberId).once('value');
+          const mData = mSnap.val();
+          if (mData) {
+            userInfo.isLeader = mData.isLeader || false;
+            userInfo.name = mData.name || localUser.name;
+            userInfo.groupCode = mData.groupCode || localUser.groupCode;
+          }
+          // Cũng check /leaders/ path
+          if (!userInfo.isLeader) {
+            const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
+            if (lSnap.val()) userInfo.isLeader = true;
+          }
+        } catch(e) { console.warn('isLeader sync on login failed:', e.message); }
+      }
+    } else {
+      // Tra cứu memberId từ Firebase — dùng biến local database thay vì global db
+      if (!database) throw new Error('Không kết nối được Firebase');
+      const snap = await database.ref('uid_to_member/' + firebaseUid).once('value');
+      const mapping = snap.val();
+      if (mapping) {
+        // Load thông tin member đầy đủ
+        const mSnap = await database.ref('members/' + mapping.memberId).once('value');
+        const member = mSnap.val() || {};
+        // Cũng check /leaders/ path
+        let isApprovedLeader = member.isLeader || false;
+        if (!isApprovedLeader) {
+          const lSnap = await database.ref('leaders/' + (member.groupCode||mapping.groupCode) + '/' + mapping.memberId).once('value');
+          if (lSnap.val()) isApprovedLeader = true;
         }
+        userInfo = {
+          name: member.name || displayName,
+          groupCode: member.groupCode || mapping.groupCode,
+          memberId: mapping.memberId,
+          isLeader: isApprovedLeader,
+          email, firebaseUid
+        };
+      } else {
+        // Không tìm thấy mapping — tạo mới
+        userInfo = {
+          name: displayName || email.split('@')[0],
+          groupCode: '', memberId: 'u_' + firebaseUid.slice(0,16),
+          isLeader: false, email, firebaseUid
+        };
+      }
+    }
+    save(USER_KEY, userInfo);
+    document.getElementById('login-screen').style.display = 'none';
+    bootApp();
+  } catch(e) {
+    if (loadEl) loadEl.style.display = 'none';
+    let msg = '⚠️ Đăng nhập thất bại.';
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+      msg = '⚠️ Email hoặc mật khẩu không đúng.';
+    } else if (e.code === 'auth/invalid-email') {
+      msg = '⚠️ Email không hợp lệ.';
+    } else if (e.code === 'auth/too-many-requests') {
+      msg = '⚠️ Quá nhiều lần thử. Vui lòng thử lại sau.';
+    }
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    console.error('Login error:', e.code, e.message);
+  }
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('login-email')?.value?.trim();
+  if (!email) {
+    showToast('⚠️ Nhập email trước rồi bấm Quên mật khẩu');
+    return;
+  }
+  try {
+    await loadFirebase();
+    await auth.sendPasswordResetEmail(email);
+    showToast('📧 Đã gửi email đặt lại mật khẩu! Kiểm tra hộp thư nhé.');
+  } catch(e) {
+    let msg = '⚠️ Không thể gửi email.';
+    if (e.code === 'auth/user-not-found') msg = '⚠️ Email này chưa được đăng ký.';
+    showToast(msg);
+  }
+}
+
+function showActivateStep() {
+  document.getElementById('step-register').style.display = 'none';
+  document.getElementById('step-login').style.display = 'none';
+  document.getElementById('step-activate').style.display = 'block';
+  // Reset về bước 1
+  document.getElementById('activate-step1').style.display = 'block';
+  document.getElementById('activate-step2').style.display = 'none';
+  document.getElementById('activate-step1-error').style.display = 'none';
+}
+
+// Biến lưu thông tin tài khoản cũ tìm được
+let _activateMemberData = null;
+
+async function findOldAccount() {
+  const email = document.getElementById('activate-email')?.value?.trim().toLowerCase();
+  const errEl = document.getElementById('activate-step1-error');
+  const loadEl = document.getElementById('activate-step1-loading');
+
+  if (!email) {
+    errEl.textContent = '⚠️ Vui lòng nhập email.';
+    errEl.style.display = 'block'; return;
+  }
+  errEl.style.display = 'none';
+  if (loadEl) loadEl.style.display = 'block';
+
+  try {
+    const database = await loadFirebase();
+    if (!database) throw new Error('Không kết nối được Firebase');
+
+    // Tìm trong /members theo email
+    const snap = await database.ref('members').once('value');
+    const allMembers = snap.val() || {};
+    const found = Object.entries(allMembers).find(([, m]) =>
+      m.email && m.email.toLowerCase() === email
+    );
+
+    if (loadEl) loadEl.style.display = 'none';
+
+    if (!found) {
+      errEl.textContent = '⚠️ Không tìm thấy tài khoản với email này. Hãy kiểm tra lại email đã đăng ký.';
+      errEl.style.display = 'block'; return;
+    }
+
+    const [memberId, memberData] = found;
+    _activateMemberData = { memberId, ...memberData, email };
+
+    // Kiểm tra xem đã có Firebase Auth chưa
+    // Nếu đã có → hướng sang "Quên mật khẩu"
+    // Nếu chưa có → cho đặt mật khẩu mới
+
+    // Hiện bước 2 — đặt mật khẩu
+    document.getElementById('activate-step1').style.display = 'none';
+    document.getElementById('activate-step2').style.display = 'block';
+    const infoEl = document.getElementById('activate-found-info');
+    if (infoEl) {
+      infoEl.innerHTML = `
+        <div style="font-size:12px;font-weight:800;color:var(--jade);margin-bottom:5px">✅ Tìm thấy tài khoản!</div>
+        <div style="font-size:13px;font-weight:700;color:var(--ink)">${memberData.name}</div>
+        <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">
+          👥 Nhóm: <strong>${memberData.groupCode}</strong> &nbsp;·&nbsp;
+          📱 ${memberData.phone||'–'}
+        </div>`;
+    }
+  } catch(e) {
+    if (loadEl) loadEl.style.display = 'none';
+    errEl.textContent = '⚠️ Lỗi: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+async function doActivateAccount() {
+  const password  = document.getElementById('activate-password')?.value;
+  const password2 = document.getElementById('activate-password2')?.value;
+  const errEl  = document.getElementById('activate-step2-error');
+  const loadEl = document.getElementById('activate-step2-loading');
+
+  if (!password || password.length < 6) {
+    errEl.textContent = '⚠️ Mật khẩu tối thiểu 6 ký tự.';
+    errEl.style.display = 'block'; return;
+  }
+  if (password !== password2) {
+    errEl.textContent = '⚠️ Mật khẩu xác nhận không khớp.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!_activateMemberData) {
+    errEl.textContent = '⚠️ Không tìm thấy dữ liệu tài khoản. Vui lòng thử lại.';
+    errEl.style.display = 'block'; return;
+  }
+
+  errEl.style.display = 'none';
+  if (loadEl) loadEl.style.display = 'block';
+
+  try {
+    const database = await loadFirebase();
+    if (!auth) throw new Error('Firebase Auth chưa sẵn sàng');
+
+    const { memberId, name, groupCode, email, phone, referrer } = _activateMemberData;
+    let firebaseUid = null;
+
+    // Thử tạo Firebase Auth account mới
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      firebaseUid = cred.user.uid;
+      await cred.user.updateProfile({ displayName: name });
+    } catch(e) {
+      if (e.code === 'auth/email-already-in-use') {
+        // Đã có account → dùng signIn rồi đổi password không cần thiết
+        // Hướng dẫn dùng "Quên mật khẩu" thay thế
+        if (loadEl) loadEl.style.display = 'none';
+        errEl.textContent = '⚠️ Email này đã có tài khoản rồi. Hãy dùng chức năng "Quên mật khẩu" để đặt lại mật khẩu.';
+        errEl.style.display = 'block';
         return;
       }
-      if (req.status === 'approved') {
-        loginSuccess(name, group, memberId, req.isLeader || false);
-      } else if (req.status === 'rejected') {
-        errEl.textContent = '❌ Yêu cầu của bạn đã bị từ chối. Vui lòng liên hệ trưởng nhóm.';
-        errEl.style.display = 'block';
-      } else {
-        // pending → hiện màn hình chờ
-        showPendingScreen({ name, groupCode: group, memberId, phone: req.phone||'', email: req.email||'', requestedAt: req.requestedAt });
-      }
-    } catch(e) {
-      // Lỗi Firebase → cho vào (offline fallback)
-      loginSuccess(name, group, memberId, false);
+      throw e;
     }
-  });
-}
 
-function loginSuccess(name, group, memberId, isLeader) {
-  if (_pendingPollTimer) { clearInterval(_pendingPollTimer); _pendingPollTimer = null; }
-  userInfo = { name, groupCode: group, memberId, isLeader };
-  save(USER_KEY, userInfo);
-  document.getElementById('login-screen').style.display = 'none';
-  const pendingScreen = document.getElementById('pending-approval-screen');
-  if (pendingScreen) pendingScreen.style.display = 'none';
-  bootApp();
-}
-
-let _pendingPollTimer = null;
-function showPendingScreen(info) {
-  document.getElementById('login-screen').style.display = 'none';
-  const screen = document.getElementById('pending-approval-screen');
-  if (!screen) return;
-  screen.style.display = 'flex';
-  const groupLabel = document.getElementById('pending-group-label');
-  if (groupLabel) groupLabel.textContent = 'nhóm ' + info.groupCode;
-  const infoEl = document.getElementById('pending-info');
-  if (infoEl) infoEl.innerHTML =
-    `👤 <strong>${info.name}</strong><br>` +
-    (info.phone ? `📱 ${info.phone}<br>` : '') +
-    `👥 Nhóm: <strong>${info.groupCode}</strong><br>` +
-    `🕐 Gửi lúc: ${info.requestedAt ? new Date(info.requestedAt).toLocaleString('vi') : '–'}`;
-
-  // Auto-poll Firebase mỗi 15 giây, tự vào app khi được duyệt
-  if (_pendingPollTimer) clearInterval(_pendingPollTimer);
-  _pendingPollTimer = setInterval(async () => {
-    const pending = JSON.parse(localStorage.getItem('nk5nn-pending') || 'null');
-    if (!pending) { clearInterval(_pendingPollTimer); _pendingPollTimer = null; return; }
-    try {
-      const database = await loadFirebase();
-      if (!database) return;
-      const snap = await database.ref('member_requests/' + pending.memberId).once('value');
-      const req = snap.val();
-      if (req && req.status === 'approved') {
-        clearInterval(_pendingPollTimer); _pendingPollTimer = null;
-        localStorage.removeItem('nk5nn-pending');
-        showToast('✅ Bạn đã được duyệt! Đang vào app...');
-        setTimeout(() => loginSuccess(pending.name, pending.groupCode, pending.memberId, req.isLeader || false), 800);
-      }
-    } catch(e) { /* polling error, retry next interval */ }
-  }, 15000);
-}
-
-async function checkMemberApprovalStatus() {
-  const pending = JSON.parse(localStorage.getItem('nk5nn-pending') || 'null');
-  if (!pending) { location.reload(); return; }
-  const database = await loadFirebase();
-  if (!database) { showToast('⚠️ Không kết nối được. Thử lại sau.'); return; }
-  try {
-    const snap = await database.ref('member_requests/' + pending.memberId).once('value');
-    const req = snap.val();
-    if (!req || req.status === 'pending') {
-      showToast('⏳ Vẫn đang chờ duyệt. Trưởng nhóm sẽ duyệt sớm!');
-    } else if (req.status === 'approved') {
-      localStorage.removeItem('nk5nn-pending');
-      showToast('✅ Đã được duyệt! Đang vào app...');
-      setTimeout(() => loginSuccess(pending.name, pending.groupCode, pending.memberId, req.isLeader || false), 800);
-    } else if (req.status === 'rejected') {
-      showToast('❌ Yêu cầu bị từ chối. Liên hệ trưởng nhóm.');
+    // Lưu mapping uid → memberId (dùng biến local database, không phải global db)
+    if (firebaseUid && database) {
+      await database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode });
+      await database.ref('members/' + memberId).update({ firebaseUid });
     }
-  } catch(e) { showToast('⚠️ Lỗi kết nối: ' + e.message); }
-}
 
-function cancelPendingAndReRegister() {
-  if (_pendingPollTimer) { clearInterval(_pendingPollTimer); _pendingPollTimer = null; }
-  localStorage.removeItem('nk5nn-pending');
-  document.getElementById('pending-approval-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  showRegisterStep();
-}
+    // Cập nhật userInfo local và boot app
+    userInfo = {
+      name, groupCode, memberId,
+      isLeader: _activateMemberData.isLeader || false,
+      email, firebaseUid
+    };
+    save(USER_KEY, userInfo);
 
-// ── Leader: load member requests của nhóm mình ──────────────
-async function loadLeaderMemberRequests() {
-  if (!isLeader() || !userInfo) return;
-  const el = document.getElementById('leader-member-requests-list');
-  if (!el) return;
-  el.innerHTML = '<div style="text-align:center;padding:10px;font-size:12px;color:var(--ink-muted)">⏳ Đang tải...</div>';
-  const database = await loadFirebase();
-  if (!database) { el.innerHTML = '<div style="font-size:12px;color:var(--rose);padding:8px">Không kết nối Firebase</div>'; return; }
-  try {
-    const snap = await database.ref('member_requests').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value');
-    const all = snap.val() || {};
-    const pending  = Object.entries(all).filter(([,r]) => r.status === 'pending');
-    const approved = Object.entries(all).filter(([,r]) => r.status === 'approved');
-    if (!pending.length && !approved.length) {
-      el.innerHTML = '<div class="empty-state" style="padding:12px 0"><div class="empty-icon" style="font-size:24px">✅</div><p style="font-size:12.5px">Không có thành viên nào chờ duyệt.</p></div>';
-      return;
-    }
-    el.innerHTML = pending.map(([id, r]) => renderMemberRequestCard(id, r, 'leader')).join('') +
-      (approved.length ? `<div style="font-size:11px;font-weight:800;color:var(--jade);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 6px">✅ Đã duyệt (${approved.length})</div>` +
-        approved.map(([id, r]) => renderMemberApprovedCard(id, r, 'leader')).join('') : '');
-  } catch(e) { el.innerHTML = '<div style="font-size:12px;color:var(--rose);padding:8px">Lỗi: ' + e.message + '</div>'; }
-}
+    if (loadEl) loadEl.style.display = 'none';
+    document.getElementById('login-screen').style.display = 'none';
+    showToast('🎉 Kích hoạt thành công! Chào mừng ' + name + ' trở lại!');
+    bootApp();
+    _activateMemberData = null;
 
-// ── Admin: load ALL member requests ──────────────
-async function loadAdminMemberRequests() {
-  const elPending  = document.getElementById('admin-member-pending-list');
-  const elApproved = document.getElementById('admin-member-approved-list');
-  if (!elPending) return;
-  elPending.innerHTML = '<div style="text-align:center;padding:10px;font-size:12px;color:var(--ink-muted)">⏳ Đang tải...</div>';
-  const database = await loadFirebase();
-  if (!database) { elPending.innerHTML = '<div style="font-size:12px;color:var(--rose)">Không kết nối Firebase</div>'; return; }
-  try {
-    const snap = await database.ref('member_requests').once('value');
-    const all = snap.val() || {};
-    const pending  = Object.entries(all).filter(([,r]) => r.status === 'pending');
-    const approved = Object.entries(all).filter(([,r]) => r.status === 'approved');
-    // Update badge
-    const badge = document.getElementById('member-pending-badge');
-    if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'inline' : 'none'; }
-    elPending.innerHTML = pending.length
-      ? pending.map(([id,r]) => renderMemberRequestCard(id, r, 'admin')).join('')
-      : '<div class="empty-state" style="padding:10px 0"><div class="empty-icon" style="font-size:22px">✅</div><p style="font-size:12px">Không có yêu cầu nào chờ duyệt.</p></div>';
-    if (elApproved) elApproved.innerHTML = approved.length
-      ? approved.map(([id,r]) => renderMemberApprovedCard(id, r, 'admin')).join('')
-      : '<div style="font-size:12px;color:var(--ink-muted);padding:6px 0">Chưa có thành viên nào được duyệt.</div>';
-  } catch(e) { elPending.innerHTML = '<div style="font-size:12px;color:var(--rose)">Lỗi: ' + e.message + '</div>'; }
-}
-
-function renderMemberRequestCard(id, r, role) {
-  return `<div style="padding:12px 14px;background:var(--card);border:1.5px solid rgba(74,127,168,0.25);border-radius:12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-    <div style="flex:1;min-width:0">
-      <div style="font-weight:800;font-size:13.5px;color:var(--ink)">👤 ${r.name}</div>
-      <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">
-        📱 ${r.phone||'–'} &nbsp;·&nbsp; 👥 Nhóm: <strong>${r.groupCode}</strong>
-      </div>
-      ${r.email ? `<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">📧 ${r.email}</div>` : ''}
-      ${r.referrer ? `<div style="font-size:11px;color:var(--gold-dark);margin-top:1px">🌱 Gieo duyên: ${r.referrer}</div>` : ''}
-      <div style="font-size:10.5px;color:var(--ink-muted);margin-top:3px">🕐 ${r.requestedAt ? new Date(r.requestedAt).toLocaleString('vi') : '–'}</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-      <button type="button" onclick="approveMember('${id}','${role}')"
-        style="padding:7px 12px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
-        ✅ Duyệt
-      </button>
-      <button type="button" onclick="rejectMember('${id}','${role}')"
-        style="padding:7px 12px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
-        ❌ Từ chối
-      </button>
-    </div>
-  </div>`;
-}
-
-function renderMemberApprovedCard(id, r, role) {
-  return `<div style="padding:10px 14px;background:var(--card);border:1px solid rgba(74,140,111,0.2);border-radius:11px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-    <div>
-      <div style="font-weight:800;font-size:13px;color:var(--ink)">✅ ${r.name}</div>
-      <div style="font-size:11px;color:var(--ink-muted);margin-top:2px">👥 ${r.groupCode} &nbsp;·&nbsp; 📱 ${r.phone||'–'}</div>
-      <div style="font-size:10.5px;color:var(--jade);margin-top:2px">Duyệt: ${r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi') : '–'}</div>
-    </div>
-    <button type="button" onclick="revokeMember('${id}','${role}')"
-      style="padding:5px 10px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
-      Thu hồi
-    </button>
-  </div>`;
-}
-
-async function approveMember(memberId, role) {
-  const database = await loadFirebase();
-  if (!database) return;
-  try {
-    await database.ref('member_requests/' + memberId).update({ status:'approved', approvedAt: new Date().toISOString() });
-    await database.ref('members/' + memberId).update({ approved: true, approvedAt: new Date().toISOString() });
-    showToast('✅ Đã duyệt thành viên!');
-    role === 'leader' ? loadLeaderMemberRequests() : loadAdminMemberRequests();
-  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
-}
-
-async function rejectMember(memberId, role) {
-  if (!confirm('Từ chối thành viên này?')) return;
-  const database = await loadFirebase();
-  if (!database) return;
-  try {
-    await database.ref('member_requests/' + memberId).update({ status:'rejected', rejectedAt: new Date().toISOString() });
-    await database.ref('members/' + memberId).update({ approved: false });
-    showToast('❌ Đã từ chối yêu cầu.');
-    role === 'leader' ? loadLeaderMemberRequests() : loadAdminMemberRequests();
-  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
-}
-
-async function revokeMember(memberId, role) {
-  if (!confirm('Thu hồi quyền truy cập của thành viên này?')) return;
-  const database = await loadFirebase();
-  if (!database) return;
-  try {
-    await database.ref('member_requests/' + memberId).update({ status:'pending', revokedAt: new Date().toISOString() });
-    await database.ref('members/' + memberId).update({ approved: false });
-    showToast('🔄 Đã thu hồi quyền truy cập.');
-    role === 'leader' ? loadLeaderMemberRequests() : loadAdminMemberRequests();
-  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+  } catch(e) {
+    if (loadEl) loadEl.style.display = 'none';
+    let msg = '⚠️ Kích hoạt thất bại: ' + e.message;
+    if (e.code === 'auth/weak-password') msg = '⚠️ Mật khẩu quá yếu.';
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+  }
 }
 
 function changeGroup() {
@@ -2811,6 +3096,9 @@ function doLogout() {
 }
 
 function bootApp() {
+  // Kiểm tra sang ngày mới trước tiên
+  checkNewDay();
+
   // Show username in header area
   const grpBadge = document.getElementById('team-group-badge');
   if (grpBadge) grpBadge.textContent = userInfo.groupCode;
@@ -2843,16 +3131,21 @@ function bootApp() {
 
   // Check admin access
   checkAdminAccess();
-  // Check leader approval status từ Firebase
-  checkLeaderApproval();
-  // Init leader UI
+
+  // Init leader UI dựa trên local state trước (nhanh)
   initLeaderUI();
+
+  // Sau đó check Firebase để cập nhật nếu vừa được duyệt (async, không block UI)
+  checkLeaderApproval();
 
   // Setup autosave for all fields
   setupAutosave();
 
-  // Load Firebase và sync dữ liệu 2 chiều
-  setTimeout(initFirebaseBackground, 800);
+  // Kiểm tra sang ngày mới mỗi phút (thiết bị bật cả đêm)
+  setInterval(() => { checkNewDay(); }, 60000);
+
+  // Load Firebase trong nền sau khi app đã boot xong
+  setTimeout(initFirebaseBackground, 500);
 }
 
 // ══════════════════════════════════════
@@ -2904,9 +3197,9 @@ function toggleRitual(id) {
   item.classList.toggle('done',entry.rituals[id]);
   item.querySelector('.ritual-check').textContent=entry.rituals[id]?'✓':'';
   updateRitualProgress();
-  // Auto-sync thống kê nhóm khi thay đổi nghi thức
-  clearTimeout(toggleRitual._timer);
-  toggleRitual._timer = setTimeout(autoSyncMyTeamStats, 5000);
+  // Auto-sync thống kê nhóm sau 3 giây
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer = setTimeout(autoSyncMyTeamStats, 3000);
 }
 function updateRitualProgress() {
   const entry=getTodayEntry();
@@ -2984,8 +3277,9 @@ function saveEnergy() {
   e.savedEnergy=true;
   save(STORAGE_KEY,data);
   showToast('⚡ Đã lưu năng lượng!');
-  // Auto-sync thống kê nhóm sau khi lưu NL
-  setTimeout(autoSyncMyTeamStats, 2000);
+  // Auto-sync team sau 2 giây
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer = setTimeout(autoSyncMyTeamStats, 2000);
 }
 function saveGratitude() {
   const e=getTodayEntry();
@@ -3004,12 +3298,165 @@ function saveFinance() {
   e.recvRed=parseFloat(document.getElementById('receive-red').value)||0;
   e.spendGreen=parseFloat(document.getElementById('spend-green').value)||0;
   e.spendRed=parseFloat(document.getElementById('spend-red').value)||0;
-  e.finNote=document.getElementById('finance-note').value;
   e.moneySeed=document.getElementById('money-seed').value;
-  e.moneyHumble=document.getElementById('money-humble').value;
+  // Xóa field cũ không còn dùng
+  e.finNote = '';
+  e.moneyHumble = '';
   e.savedFinance=true;
   save(STORAGE_KEY,data);
+  updateMoneyColorAssess();
   showToast('💰 Đã lưu tài chính!');
+}
+
+// Format tiền VNĐ gọn
+function formatMoney(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + ' tỷ';
+  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'k';
+  return n.toLocaleString('vi');
+}
+
+// Tự động đánh giá năng lượng tiền theo màu dựa trên dòng tiền thu/chi
+function updateMoneyColorAssess() {
+  const recvGreen  = parseFloat(document.getElementById('receive-green')?.value)||0;
+  const recvRed    = parseFloat(document.getElementById('receive-red')?.value)||0;
+  const spendGreen = parseFloat(document.getElementById('spend-green')?.value)||0;
+  const spendRed   = parseFloat(document.getElementById('spend-red')?.value)||0;
+
+  const assessEl = document.getElementById('money-color-assess');
+  const resultEl = document.getElementById('money-color-result');
+
+  // ── Cập nhật tổng hôm nay ──
+  const totalRecv  = recvGreen + recvRed;
+  const totalSpend = spendGreen + spendRed;
+  const setText = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+  setText('daily-total-recv',  formatMoney(totalRecv));
+  setText('daily-total-spend', formatMoney(totalSpend));
+  setText('daily-recv-detail',
+    totalRecv > 0 ? `💚 ${formatMoney(recvGreen)}  ❤️ ${formatMoney(recvRed)}` : '');
+  setText('daily-spend-detail',
+    totalSpend > 0 ? `💚 ${formatMoney(spendGreen)}  ❤️ ${formatMoney(spendRed)}` : '');
+
+  if (!assessEl || !resultEl) return;
+
+  const totalGreen = recvGreen + spendGreen;
+  const totalRed   = recvRed   + spendRed;
+  const total      = totalGreen + totalRed;
+
+  if (total === 0) {
+    assessEl.style.borderColor = 'var(--border)';
+    assessEl.style.background  = 'transparent';
+    resultEl.innerHTML = '<span style="color:var(--ink-muted)">Điền số liệu thu/chi để xem đánh giá tự động ↑</span>';
+    renderFinanceMonthlySummary();
+    return;
+  }
+
+  const greenRatio = totalGreen / total;
+  let color, label, icon, bg, borderColor, advice;
+
+  if (greenRatio >= 0.75) {
+    color='var(--jade)'; icon='🟢'; label='XANH — Năng lượng tiền tích cực';
+    bg='rgba(74,140,111,0.07)'; borderColor='rgba(74,140,111,0.35)';
+    advice='Dòng tiền hôm nay chủ yếu xanh — tiếp tục vun đắp tâm thức biết ơn và cống hiến.';
+  } else if (greenRatio >= 0.4) {
+    color='var(--gold-dark)'; icon='🟡'; label='VÀNG — Năng lượng tiền cần chú ý';
+    bg='rgba(201,168,76,0.08)'; borderColor='rgba(201,168,76,0.4)';
+    advice='Dòng tiền có cả xanh và đỏ — hãy quan sát hạt giống đỏ và thực hành khiêm hạ với chúng.';
+  } else {
+    color='var(--rose)'; icon='🔴'; label='ĐỎ — Năng lượng tiền cần chuyển hóa';
+    bg='rgba(192,96,106,0.07)'; borderColor='rgba(192,96,106,0.35)';
+    advice='Dòng tiền chủ yếu đỏ hôm nay — đây là cơ hội để nhận diện hạt giống và thực hành khiêm hạ sâu hơn.';
+  }
+
+  assessEl.style.background  = bg;
+  assessEl.style.borderColor = borderColor;
+  resultEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:28px">${icon}</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:${color}">${label}</div>
+        <div style="font-size:11px;color:var(--ink-muted);margin-top:2px">
+          Xanh: <strong>${formatMoney(totalGreen)}</strong> &nbsp;·&nbsp;
+          Đỏ: <strong>${formatMoney(totalRed)}</strong> &nbsp;·&nbsp;
+          Tỉ lệ xanh: <strong>${Math.round(greenRatio*100)}%</strong>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;font-style:italic">${advice}</div>
+  `;
+
+  // Nhắc nhở khiêm hạ nếu có hạt giống
+  const seedEl = document.getElementById('money-seed');
+  const reminderEl = document.getElementById('money-humble-reminder');
+  if (reminderEl && seedEl) {
+    reminderEl.style.display = seedEl.value.trim() ? 'block' : 'none';
+  }
+
+  // Cập nhật tổng tháng
+  renderFinanceMonthlySummary();
+}
+
+// Tổng kết tháng: tính từ data[]
+function renderFinanceMonthlySummary() {
+  const now  = new Date();
+  const year = now.getFullYear();
+  const mon  = now.getMonth(); // 0-based
+  const monthPrefix = `${year}-${String(mon+1).padStart(2,'0')}`;
+
+  // Lọc các ngày trong tháng này
+  const monthEntries = Object.entries(data).filter(([k]) => k.startsWith(monthPrefix));
+
+  let mRecvGreen=0, mRecvRed=0, mSpendGreen=0, mSpendRed=0;
+  monthEntries.forEach(([,e]) => {
+    mRecvGreen  += e.recvGreen  || 0;
+    mRecvRed    += e.recvRed    || 0;
+    mSpendGreen += e.spendGreen || 0;
+    mSpendRed   += e.spendRed   || 0;
+  });
+
+  const mTotalRecv  = mRecvGreen + mRecvRed;
+  const mTotalSpend = mSpendGreen + mSpendRed;
+  const mTotalGreen = mRecvGreen + mSpendGreen;
+  const mTotalRed   = mRecvRed   + mSpendRed;
+  const mTotal      = mTotalGreen + mTotalRed;
+  const mGreenRatio = mTotal > 0 ? mTotalGreen / mTotal : 0;
+
+  const months = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+                  'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+  const setText = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  const setHTML = (id,v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
+
+  setText('finance-month-label', months[mon] + ' ' + year);
+  setText('month-total-recv',  formatMoney(mTotalRecv));
+  setText('month-total-spend', formatMoney(mTotalSpend));
+  setText('month-recv-detail',
+    mTotalRecv > 0 ? `💚 ${formatMoney(mRecvGreen)}  ❤️ ${formatMoney(mRecvRed)}` : '');
+  setText('month-spend-detail',
+    mTotalSpend > 0 ? `💚 ${formatMoney(mSpendGreen)}  ❤️ ${formatMoney(mSpendRed)}` : '');
+
+  // Thanh năng lượng tháng
+  const bar = document.getElementById('finance-month-bar');
+  if (bar) {
+    const pct = Math.round(mGreenRatio * 100);
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 75 ? 'var(--jade)' : pct >= 40 ? 'var(--gold)' : 'var(--rose)';
+  }
+
+  let monthResultHTML = 'Chưa có dữ liệu tháng này';
+  if (mTotal > 0) {
+    const pct = Math.round(mGreenRatio*100);
+    const icon = pct>=75?'🟢':pct>=40?'🟡':'🔴';
+    const lbl  = pct>=75?'Xanh':'pct>=40?\"Vàng\":\"Đỏ\"';
+    monthResultHTML = `${icon} Tỉ lệ xanh: <strong>${pct}%</strong>
+      &nbsp;·&nbsp; Xanh: <strong>${formatMoney(mTotalGreen)}</strong>
+      &nbsp;·&nbsp; Đỏ: <strong>${formatMoney(mTotalRed)}</strong>`;
+  }
+  setHTML('finance-month-result', monthResultHTML);
+  setText('finance-month-days',
+    monthEntries.length > 0
+      ? `Đã ghi ${monthEntries.length} ngày trong tháng`
+      : 'Chưa có dữ liệu tháng này');
 }
 function saveWish() {
   const e=getTodayEntry();
@@ -3037,9 +3484,8 @@ function loadTodayFields() {
   set('receive-red',e.recvRed||'');
   set('spend-green',e.spendGreen||'');
   set('spend-red',e.spendRed||'');
-  set('finance-note',e.finNote);
   set('money-seed',e.moneySeed);
-  set('money-humble',e.moneyHumble);
+  // money-humble và finance-note đã bỏ, giữ tương thích ngược
   set('wish-content',e.wishContent);
   set('wish-deadline',e.wishDeadline);
   set('wish-received',e.wishReceived);
@@ -3060,12 +3506,35 @@ function loadTodayFields() {
       }
     });
   }
+  // Cập nhật đánh giá tâm thức tiền sau khi load
+  setTimeout(updateMoneyColorAssess, 50);
+  // Hiện nhắc nhở nếu đã có hạt giống
+  const _seedEl = document.getElementById('money-seed');
+  const _reminderEl = document.getElementById('money-humble-reminder');
+  if (_seedEl && _reminderEl) _reminderEl.style.display = _seedEl.value.trim() ? 'block' : 'none';
+  // FIX L2: Hiển thị badge "Đã lưu hôm nay" nếu entry hôm nay đã tồn tại
+  const savedBadge = document.getElementById('today-saved-badge');
+  if (savedBadge) {
+    const hasSavedData = e.savedToday || e.savedEnergy || e.savedGratitude ||
+      Object.values(e.rituals||{}).some(Boolean) ||
+      e.lesson || e.seedGreen || e.seedRed || e.dailyGood;
+    if (hasSavedData) {
+      savedBadge.style.display = 'inline-block';
+      if (e._updatedAt) {
+        const t = new Date(e._updatedAt).toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});
+        savedBadge.textContent = '✅ Đã lưu lúc ' + t;
+      }
+    } else {
+      savedBadge.style.display = 'none';
+    }
+  }
 }
 
 // ══════════════════════════════════════
 // FIREBASE — lazy load sau khi app khởi động
 // ══════════════════════════════════════
 let db = null;
+let auth = null;
 const firebaseConfig = {
   apiKey: "AIzaSyD513v5OVwJQdoHn-cHzlaCIZN3lhHv0LM",
   authDomain: "nhat-ky-than-tam-tri.firebaseapp.com",
@@ -3076,179 +3545,280 @@ const firebaseConfig = {
   appId: "1:93665142564:web:718c27e06c1326f8cd75b1",
 };
 
-let _firebaseLoadPromise = null; // FIX: prevent race condition on parallel loadFirebase() calls
 function loadFirebase() {
-  if (db) return Promise.resolve(db);
-  if (_firebaseLoadPromise) return _firebaseLoadPromise; // FIX: reuse in-flight promise
-  _firebaseLoadPromise = new Promise((resolve) => {
+  return new Promise((resolve) => {
+    if (db) { resolve(db); return; }
     const s1 = document.createElement('script');
     s1.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
     s1.onload = () => {
-      const s2 = document.createElement('script');
-      s2.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js';
-      s2.onload = () => {
+      // Load Auth + Database song song
+      let authLoaded = false, dbLoaded = false;
+      const tryInit = () => {
+        if (!authLoaded || !dbLoaded) return;
         try {
           if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-          db = firebase.database();
-          console.log('Firebase connected ✅');
-        } catch(e) {
-          console.warn('Firebase init error:', e);
-        }
-        _firebaseLoadPromise = null;
+          db   = firebase.database();
+          auth = firebase.auth();
+          // Tắt persistence mặc định để dùng localStorage của mình
+          auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          console.log('Firebase Auth + DB connected ✅');
+        } catch(e) { console.warn('Firebase init error:', e); }
         resolve(db);
       };
-      s2.onerror = () => { _firebaseLoadPromise = null; resolve(null); };
+      const s2 = document.createElement('script');
+      s2.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js';
+      s2.onload = () => { authLoaded = true; tryInit(); };
+      s2.onerror = () => { authLoaded = true; tryInit(); };
       document.head.appendChild(s2);
+
+      const s3 = document.createElement('script');
+      s3.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js';
+      s3.onload = () => { dbLoaded = true; tryInit(); };
+      s3.onerror = () => resolve(null);
+      document.head.appendChild(s3);
     };
-    s1.onerror = () => { _firebaseLoadPromise = null; resolve(null); };
+    s1.onerror = () => resolve(null);
     document.head.appendChild(s1);
   });
-  return _firebaseLoadPromise;
 }
 
-// Load Firebase trong nền sau khi app đã khởi động
-function setSyncStatus(icon, text, color) {
-  const el = document.getElementById('sync-status-text');
-  const wrap = document.getElementById('sync-status');
-  if (el) el.textContent = text;
-  if (wrap) wrap.style.color = color || 'rgba(253,248,240,0.55)';
+// ══════════════════════════════════════
+// CROSS-DEVICE SYNC — lưu & khôi phục toàn bộ dữ liệu qua Firebase
+// Path: /users/{memberId}/journal  (chứa daily + sp + kz + r3m + ms)
+// ══════════════════════════════════════
+const SYNC_TS_KEY = 'nk5nn-sync-ts';
+
+function setSyncStatus(icon, msg, color) {
+  const el = document.getElementById('sync-status');
+  if (el) { el.innerHTML = `<span>${icon}</span> ${msg}`; el.style.background = color||'rgba(74,140,111,0.85)'; }
 }
 
-function initFirebaseBackground() {
-  setSyncStatus('⏳', 'Đang kết nối...', 'rgba(201,168,76,0.8)');
-  loadFirebase().then(database => {
-    if (!database) {
-      setSyncStatus('⚠️', 'Offline', 'rgba(192,96,106,0.7)');
-      return;
+// Load Firebase trong nền và sync 2 chiều
+async function initFirebaseBackground() {
+  setSyncStatus('⏳','Đang kết nối...','rgba(201,168,76,0.7)');
+  const database = await loadFirebase();
+  if (!database) { setSyncStatus('⚠️','Offline','rgba(192,96,106,0.6)'); return; }
+  db = database;
+
+  // Đảm bảo luôn có auth session (để Firebase Rules auth != null hoạt động)
+  // Người dùng cũ chưa kích hoạt → đăng nhập ẩn danh tự động
+  // Người dùng mới/đã kích hoạt → đã có email session từ trước
+  if (auth) {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        // Thử restore session từ persistence trước
+        await new Promise(resolve => {
+          const timer = setTimeout(resolve, 2000);
+          const unsub = auth.onAuthStateChanged(user => {
+            clearTimeout(timer);
+            unsub();
+            resolve(user);
+          });
+        });
+        // Nếu vẫn không có user → đăng nhập ẩn danh
+        if (!auth.currentUser) {
+          await auth.signInAnonymously();
+          console.log('Đăng nhập ẩn danh để bypass rules ✅');
+        }
+      }
+    } catch(e) {
+      console.warn('Anonymous auth failed:', e.message);
+      // Nếu anonymous bị tắt → dùng rules mở hoặc bật anonymous trong Firebase Console
     }
-    setSyncStatus('🔄', 'Đang đồng bộ...', 'rgba(201,168,76,0.8)');
-    console.log('Firebase ready — syncing user data...');
-    syncUserDataBothWays();
+  }
+
+  // Đảm bảo có valid auth token trước khi sync
+  if (auth && auth.currentUser) {
+    try { await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh:', e.message); }
+  }
+  await pullLocalFromFirebase();
+  await pushLocalToFirebase();
+}
+
+// Kiểm tra auth state Firebase khi app load (auto-login nếu còn session)
+async function checkFirebaseAuthState() {
+  const database = await loadFirebase();
+  if (!auth) return false;
+
+  return new Promise(resolve => {
+    // Timeout 3s nếu Firebase không phản hồi
+    const timer = setTimeout(() => resolve(false), 3000);
+    auth.onAuthStateChanged(user => {
+      clearTimeout(timer);
+      if (user) {
+        console.log('Firebase Auth: còn session của', user.email);
+        // Cập nhật firebaseUid vào userInfo nếu chưa có
+        if (userInfo && !userInfo.firebaseUid) {
+          userInfo.firebaseUid = user.uid;
+          save(USER_KEY, userInfo);
+        }
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    });
   });
 }
 
-// ══════════════════════════════════════
-// PERSONAL DATA SYNC — 2 chiều
-// Firebase path: /userdata/{memberId}/
-// Chứa: daily, sp, kz, r3m, ms
-// ══════════════════════════════════════
-const SYNC_TS_KEY = 'nk5nn-sync-ts'; // timestamp lần sync gần nhất
-
-async function syncUserDataBothWays() {
-  if (!userInfo || !db) return;
-  setSyncStatus('🔄', 'Đang đồng bộ...', 'rgba(201,168,76,0.8)');
-  const ref = db.ref('userdata/' + userInfo.memberId);
-  try {
-    const snap = await ref.once('value');
-    const remote = snap.val();
-
-    if (!remote) {
-      await pushLocalToFirebase();
-      return;
-    }
-
-    const localTs  = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
-    const remoteTs = remote.syncedAt || 0;
-
-    if (remoteTs > localTs) {
-      // Firebase mới hơn → kéo về (thiết bị mới / thiết bị khác)
-      await pullFirebaseToLocal(remote);
-      showToast('🔄 Đã đồng bộ dữ liệu từ thiết bị khác!');
-    } else {
-      // Local mới hơn hoặc bằng → push lên
-      await pushLocalToFirebase();
-    }
-  } catch(e) {
-    console.warn('Sync error:', e);
-    setSyncStatus('⚠️', 'Lỗi sync', 'rgba(192,96,106,0.7)');
-  }
-}
-
+// Đẩy dữ liệu lên Firebase
 async function pushLocalToFirebase() {
-  if (!userInfo || !db) return;
+  if (!db || !userInfo) return;
+  // Dùng firebaseUid làm key để khớp với Firebase Security Rules (auth.uid == key)
+  // Fallback về memberId nếu chưa có firebaseUid (user cũ chưa kích hoạt)
+  const uidKey = userInfo.firebaseUid || userInfo.memberId;
+  const base = 'users/' + uidKey;
   try {
-    const ts = Date.now();
-    const payload = {
-      syncedAt: ts,
-      memberId: userInfo.memberId,
-      daily:  data,
-      sp:     spData,
-      kz:     kzData,
-      r3m:    r3mData,
-      ms:     msData,
-    };
-    await db.ref('userdata/' + userInfo.memberId).set(payload);
-    localStorage.setItem(SYNC_TS_KEY, String(ts));
-    const timeStr = new Date(ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
+    // FIX L1: Đẩy toàn bộ daily (không giới hạn 7 ngày) + kz + r3m + ms
+    const dailyBatch = {};
+    Object.keys(data).sort().forEach(date => {
+      dailyBatch[date] = Object.assign({}, data[date], {
+        _updatedAt: data[date]._updatedAt || Date.now()
+      });
+    });
+
+    await db.ref(base).update({
+      daily:           dailyBatch,
+      sp:              spData,
+      kz:              kzData,
+      r3m:             r3mData,
+      ms:              msData,
+      'meta/syncedAt': Date.now(),
+      'meta/name':     userInfo.name,
+    });
+
+    const timeStr = new Date().toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
     setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
-    console.log('Pushed local data to Firebase ✅');
+    localStorage.setItem(SYNC_TS_KEY, String(Date.now()));
+    console.log('✅ Push OK');
   } catch(e) {
-    console.warn('Push failed:', e);
-    setSyncStatus('⚠️', 'Lỗi lưu cloud', 'rgba(192,96,106,0.7)');
+    // Log lỗi chi tiết để debug
+    console.error('🔴 Push failed — code:', e.code, '| msg:', e.message);
+
+    if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
+      setSyncStatus('🔒','Rules chặn','rgba(192,96,106,0.8)');
+      console.error('⚠️ Firebase PERMISSION_DENIED — thử re-auth...');
+      // Tự động thử đăng nhập lại ẩn danh nếu mất auth session
+      if (auth && !auth.currentUser) {
+        auth.signInAnonymously()
+          .then(() => { setTimeout(() => pushLocalToFirebase(), 2000); })
+          .catch(e2 => console.warn('Re-auth failed:', e2.message));
+      } else if (auth && auth.currentUser) {
+        // Đã có session nhưng vẫn bị chặn → thử refresh token
+        auth.currentUser.getIdToken(true)
+          .then(() => { setTimeout(() => pushLocalToFirebase(), 2000); })
+          .catch(e2 => console.warn('Token refresh failed:', e2.message));
+      }
+    } else if (e.message?.includes('network') || e.message?.includes('fetch')) {
+      setSyncStatus('📶','Mất mạng','rgba(201,168,76,0.7)');
+    } else {
+      setSyncStatus('⚠️','Lỗi sync','rgba(192,96,106,0.7)');
+    }
+    // Thử lại sau 20s
+    setTimeout(() => { if(db && userInfo) pushLocalToFirebase(); }, 20000);
   }
 }
 
-async function pullFirebaseToLocal(remote) {
+// Kéo dữ liệu từ Firebase về local (merge: giữ dữ liệu từ cả 2 thiết bị)
+async function pullLocalFromFirebase() {
+  if (!db || !userInfo) return;
   try {
+    const uidKey = userInfo.firebaseUid || userInfo.memberId;
+    const snap = await db.ref('users/' + uidKey).once('value');
+    const remote = snap.val();
+    if (!remote) { console.log('No remote data yet'); return; }
+
+    // ── Daily: merge theo timestamp _updatedAt ────
     if (remote.daily && typeof remote.daily === 'object') {
-      // Merge by date: keep the entry with more fields (safer than full overwrite)
       Object.entries(remote.daily).forEach(([date, remoteEntry]) => {
         const localEntry = data[date];
         if (!localEntry) {
           data[date] = remoteEntry;
         } else {
-          // Merge fields: remote wins for fields not in local
-          data[date] = Object.assign({}, remoteEntry, localEntry);
+          const rTs = remoteEntry._updatedAt || 0;
+          const lTs = localEntry._updatedAt   || 0;
+          // Merge: OR rituals (giữ tick nào đã check), field nào mới hơn thắng
+          const base = rTs > lTs ? Object.assign({}, localEntry, remoteEntry) : Object.assign({}, remoteEntry, localEntry);
+          base.rituals = mergeRituals(localEntry.rituals||{}, remoteEntry.rituals||{});
+          data[date] = base;
         }
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
+
+    // ── SP ────────────────────────────────────────
     if (remote.sp && typeof remote.sp === 'object') {
-      Object.assign(spData, remote.sp);
-      localStorage.setItem(SP_KEY, JSON.stringify(spData));
-      migrateSPLockIfNeeded();
+      if (!spData.saved && remote.sp.saved) {
+        Object.assign(spData, remote.sp);
+        localStorage.setItem(SP_KEY, JSON.stringify(spData));
+      } else if (!spData.saved) {
+        Object.entries(remote.sp).forEach(([k,v]) => { if (spData[k] == null) spData[k] = v; });
+        localStorage.setItem(SP_KEY, JSON.stringify(spData));
+      }
     }
+
+    // ── Kaizen (merge by week) ────────────────────
     if (Array.isArray(remote.kz)) {
-      kzData.splice(0, kzData.length, ...remote.kz);
+      remote.kz.forEach(rKz => {
+        if (!kzData.find(k => k.week === rKz.week)) kzData.push(rKz);
+      });
+      kzData.sort((a,b)=>(b.week||'').localeCompare(a.week||''));
       localStorage.setItem(KZ_KEY, JSON.stringify(kzData));
     }
+
+    // ── R3M ──────────────────────────────────────
     if (remote.r3m && typeof remote.r3m === 'object') {
-      Object.assign(r3mData, remote.r3m);
+      Object.entries(remote.r3m).forEach(([k,v]) => { if (r3mData[k]==null) r3mData[k]=v; });
       localStorage.setItem(R3M_KEY, JSON.stringify(r3mData));
     }
+
+    // ── Milestones (merge by id) ──────────────────
     if (Array.isArray(remote.ms)) {
-      msData.splice(0, msData.length, ...remote.ms);
+      remote.ms.forEach(rMs => {
+        if (!msData.find(m => m.id === rMs.id)) msData.unshift(rMs);
+      });
       localStorage.setItem(MS_KEY, JSON.stringify(msData));
     }
-    const ts = remote.syncedAt || Date.now();
-    localStorage.setItem(SYNC_TS_KEY, String(ts));
-    const timeStr = new Date(ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
-    setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
-    // Reload UI với dữ liệu mới — FIX: thêm đầy đủ các hàm render bị thiếu
-    setDateBars();
-    renderRituals();
-    renderNNEnergySliders();
-    loadTodayFields();
-    renderTasksList();
-    // FIX: Reload các trang khác nếu đang active
-    const activePage = document.querySelector('.page.active');
-    if (activePage) {
-      const pageId = activePage.id.replace('page-', '');
-      if (pageId === 'dashboard')  renderDashboard();
-      if (pageId === 'history')    renderHistory();
-      if (pageId === 'team')       { renderMyNNSliders(); renderTeam(); }
-      if (pageId === 'start')      initStartPage();
-      if (pageId === 'milestones') initMilestonesPage();
-      if (pageId === 'result3m')   initResult3mPage();
+
+    const syncedAt = remote.meta?.syncedAt || 0;
+    if (syncedAt) {
+      const t = new Date(syncedAt).toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});
+      setSyncStatus('✅', t, 'rgba(74,140,111,0.85)');
+      localStorage.setItem(SYNC_TS_KEY, String(syncedAt));
     }
-    console.log('Pulled Firebase data to local ✅');
+
+    setDateBars(); renderRituals(); renderNNEnergySliders();
+    loadTodayFields(); renderTasksList();
+    // FIX L6: Destroy charts trước khi re-render để tránh "Canvas already in use"
+    const ap = document.querySelector('.page.active');
+    if (ap) {
+      const pid = ap.id.replace('page-','');
+      if (pid==='dashboard') {
+        Object.keys(chartInstances).forEach(k => { if(k.startsWith('dash')) destroyChart(k); });
+        renderDashboard();
+      }
+      if (pid==='history')    renderHistory();
+      if (pid==='team')       { renderMyNNSliders(); renderTeam(); }
+      if (pid==='start')      initStartPage();
+      if (pid==='milestones') initMilestonesPage();
+      if (pid==='finance')    { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
+    }
+    console.log('✅ Pull OK — ' + Object.keys(remote.daily||{}).length + ' ngày từ cloud');
   } catch(e) {
-    console.warn('Pull failed:', e);
-    setSyncStatus('⚠️', 'Lỗi tải cloud', 'rgba(192,96,106,0.7)');
+    console.warn('Pull failed:', e.message);
+    setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');
   }
 }
 
-// Auto-push to Firebase after each local save — debounced 3 giây
+// Merge rituals: tick nào đã check ở bất kỳ thiết bị nào → giữ (OR logic)
+function mergeRituals(local={}, remote={}) {
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  const merged = {};
+  keys.forEach(k => { merged[k] = !!(local[k] || remote[k]); });
+  return merged;
+}
+
+// Debounced push: mỗi lần lưu local sẽ tự push lên Firebase sau 3 giây
 let _syncDebounceTimer = null;
 function scheduleSyncPush(key) {
   const syncKeys = [STORAGE_KEY, SP_KEY, KZ_KEY, R3M_KEY, MS_KEY];
@@ -3279,46 +3849,44 @@ function renderMyNNSliders() {
   const wrap = document.getElementById('my-nn-sliders');
   if (!wrap) return;
 
-  // Ưu tiên: lấy từ nhật ký hôm nay (đã điền ở các tab khác)
+  // Lấy dữ liệu thực từ nhật ký hôm nay
   const todayEntry = getTodayEntry();
-  const savedStats = getMyLocalStats(); // stats đã gửi lên nhóm hôm nay
-
-  // Số nghi thức: lấy từ rituals của hôm nay
   const ritualsDone = Object.values(todayEntry.rituals || {}).filter(Boolean).length;
-  // NL 5 Ngôi Nhà: lấy từ nnEnergy hôm nay
   const nnFromEntry = NN_LIST.map(nn => todayEntry.nnEnergy?.[nn.key] || 5);
+  const saved = getMyLocalStats();
 
-  // Dùng dữ liệu hôm nay nếu có, ngược lại dùng stats đã lưu
-  const rituals = ritualsDone > 0 ? ritualsDone : (savedStats?.rituals || 0);
-  const nn = nnFromEntry.some(v => v !== 5) ? nnFromEntry : (savedStats?.nn || [5,5,5,5,5]);
+  const nn = nnFromEntry.some(v=>v!==5) ? nnFromEntry : (saved?.nn || [5,5,5,5,5]);
 
-  const ritualEl = document.getElementById('my-rituals');
-  const ritualValEl = document.getElementById('my-rituals-val');
-  if (ritualEl) { ritualEl.value = rituals; }
-  if (ritualValEl) { ritualValEl.textContent = rituals; }
+  // Update preview text
+  const preview = document.getElementById('my-today-preview');
+  if (preview) {
+    preview.innerHTML = `
+      ✅ <strong>${ritualsDone}/9</strong> nghi thức hoàn thành &nbsp;·&nbsp;
+      ⚡ NL tổng: <strong>${todayEntry.energy||5}/10</strong>
+      ${todayEntry.lesson ? '<br>📝 Có ghi bài học hôm nay' : ''}
+      ${todayEntry.seedGreen ? ' · 🌱 Có hạt giống xanh' : ''}
+    `;
+  }
 
   wrap.style.gridColumn = '1/-1';
   wrap.parentElement.style.gridTemplateColumns = 'repeat(5,1fr)';
-  wrap.innerHTML = NN_LIST.map((n,i) => `
+  wrap.innerHTML = NN_LIST.map((n,i)=>`
     <div style="text-align:center">
       <div style="font-size:18px">${n.icon}</div>
       <div style="font-size:9.5px;font-weight:800;color:${n.color};margin:2px 0">${n.label.split('·')[0]}</div>
-      <input type="range" id="my-nn-${i}" min="1" max="10" value="${nn[i]||5}"
-        oninput="document.getElementById('my-nn-val-${i}').textContent=this.value"
-        style="position:relative;opacity:1;width:100%;height:5px;cursor:pointer;accent-color:${n.color}">
-      <div id="my-nn-val-${i}" style="font-size:14px;font-weight:800;color:${n.color};margin-top:2px">${nn[i]||5}</div>
+      <div style="font-size:18px;font-weight:800;color:${n.color};margin-top:4px">${nn[i]||5}</div>
     </div>`).join('');
 
-  // Auto-sync lên Firebase nếu có dữ liệu hôm nay và chưa sync hôm nay
-  const alreadySyncedToday = savedStats?.date === todayKey();
-  const hasNewData = ritualsDone > 0 || nnFromEntry.some(v => v !== 5);
-  if (hasNewData && !alreadySyncedToday) {
-    // Auto-sync trong nền
-    setTimeout(autoSyncMyTeamStats, 1000);
+  // Auto-sync nếu có dữ liệu hôm nay mà chưa sync
+  const alreadySyncedToday = saved?.date === todayKey();
+  const hasData = ritualsDone > 0 || nnFromEntry.some(v=>v!==5);
+  if (hasData && !alreadySyncedToday) {
+    setTimeout(autoSyncMyTeamStats, 1500);
   }
 }
 
-// Tự động sync thống kê từ dữ liệu đã có — không cần bấm nút
+// Tự động sync thống kê nhóm từ nhật ký hôm nay — không cần bấm nút
+let _autoSyncTimer = null;
 async function autoSyncMyTeamStats() {
   const k = todayKey();
   const todayEntry = getTodayEntry();
@@ -3330,17 +3898,21 @@ async function autoSyncMyTeamStats() {
   const myStats = { name: userInfo.name, date: k, rituals, nn, ts: Date.now(), autoSynced: true };
   localStorage.setItem('my-team-stats-' + userInfo.memberId, JSON.stringify(myStats));
 
-  const database = await loadFirebase();
-  if (!database) return;
-  db = database;
+  if (!db) {
+    const database = await loadFirebase();
+    if (!database) return;
+    db = database;
+  }
   try {
     await fbMemberRef().set(myStats);
     loadMyLastSync();
     console.log('Auto-synced team stats ✅');
   } catch(e) {
-    console.warn('Auto-sync failed:', e);
+    console.warn('Auto-sync team failed:', e);
   }
 }
+
+
 
 // Save my stats to localStorage cache (for slider reload)
 function getMyLocalStats() {
@@ -3355,31 +3927,23 @@ function getMyLocalStats() {
 
 async function saveMyTeamStats() {
   const k = todayKey();
-  const nn = NN_LIST.map((_,i)=>+(document.getElementById('my-nn-'+i)?.value||5));
-  const rituals = +(document.getElementById('my-rituals')?.value||0);
+  // Lấy từ nhật ký hôm nay thay vì UI slider đã bị xóa
+  const todayEntry = getTodayEntry();
+  const rituals = Object.values(todayEntry.rituals||{}).filter(Boolean).length;
+  const nn = NN_LIST.map(n => todayEntry.nnEnergy?.[n.key] || 5);
 
   const myStats = { name: userInfo.name, date: k, rituals, nn, ts: Date.now() };
-
-  // Cache locally for slider reload
   localStorage.setItem('my-team-stats-' + userInfo.memberId, JSON.stringify(myStats));
 
-  // Push to Firebase — only stats, NO journal content
-  const syncEl = document.getElementById('my-last-sync');
-  const database = await loadFirebase();
-  if (!database) {
-    if (syncEl) syncEl.textContent = '⚠️ Không kết nối được Firebase';
-    showToast('⚠️ Không kết nối được, thử lại sau');
-    return;
+  if (!db) {
+    const database = await loadFirebase();
+    if (!database) return;
+    db = database;
   }
-  db = database;
   try {
     await fbMemberRef().set(myStats);
-    if (syncEl) syncEl.textContent = '✅ Đã gửi lúc ' + new Date().toLocaleTimeString('vi');
-    showToast('📤 Đã gửi thống kê lên nhóm!');
   } catch(err) {
-    if (syncEl) syncEl.textContent = '⚠️ Lỗi kết nối, thử lại';
-    showToast('⚠️ Không thể kết nối Firebase');
-    console.error(err);
+    console.error('saveMyTeamStats failed:', err);
   }
 }
 
@@ -3388,12 +3952,11 @@ function loadMyLastSync() {
   const syncEl = document.getElementById('my-last-sync');
   if (!syncEl) return;
   if (!saved) {
-    syncEl.textContent = '⏳ Chưa đồng bộ hôm nay';
+    syncEl.textContent = '⏳ Chưa đồng bộ hôm nay — sẽ tự động khi có dữ liệu';
     return;
   }
   const timeStr = new Date(saved.ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
-  const autoLabel = saved.autoSynced ? ' (tự động)' : '';
-  syncEl.innerHTML = `✅ Đã gửi lúc ${timeStr}${autoLabel} · ${saved.rituals}/9 nghi thức`;
+  syncEl.innerHTML = `✅ Đã đồng bộ lúc ${timeStr} · ${saved.rituals}/9 nghi thức`;
 }
 
 async function refreshTeam() {
@@ -3889,11 +4452,16 @@ function initStartPage() {
   // Tính điểm từ kết quả khám nhà (không cần slider tự chấm)
   const khamNhaAnswers = spData.khamNha || {};
   const nnScores = calcKhamNhaScore(khamNhaAnswers);
-  NN_LIST.forEach((nn, i) => { spData[nn.key] = nnScores[i+1] || 5; });
+  // Lưu điểm vào spData
+  NN_LIST.forEach((nn, i) => {
+    spData[nn.key] = nnScores[i+1] || 5;
+  });
 
   // Render score cards
   const scoreCards = document.getElementById('sp-nn-score-cards');
   if (scoreCards) {
+    const totalAnswered = Object.keys(khamNhaAnswers).length;
+    const totalQ = KHAM_NHA_QUESTIONS.length;
     scoreCards.innerHTML = NN_LIST.map((nn, i) => {
       const score = nnScores[i+1] || 5;
       const nnQs = KHAM_NHA_QUESTIONS.filter(q=>q.nn===(i+1));
@@ -3910,8 +4478,16 @@ function initStartPage() {
     }).join('');
   }
 
-  // Set text fields — khôi phục dữ liệu đang làm dở (nháp hoặc đã lưu)
-  const setF=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};
+  // Render wheel questionnaire
+  renderWheelQuestions('sp-wheel-questions', 'sp', spData.wheelAnswers || {});
+  // If answers exist, recalc scores
+  if (spData.wheelAnswers && Object.keys(spData.wheelAnswers).length > 0) {
+    const scores = calcWheelScore(spData.wheelAnswers);
+    WHEEL_DIMS.forEach(d => { spData['w_'+d.id] = scores[d.id]; });
+  }
+
+  // Set text fields
+  const setF=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   setF('sp-holes',spData.holes);
   setF('sp-assets',spData.assets);
   setF('sp-debt',spData.debt);
@@ -3919,67 +4495,13 @@ function initStartPage() {
   setF('sp-money-mind',spData.moneyMind);
   setF('sp-seeds',spData.seeds);
   setF('sp-intent',spData.intent);
-  document.getElementById('sp-start-day').value = spData.startDay || formatDate(new Date());
-  if (spData.finScore) { document.getElementById('sp-fin-score').value=spData.finScore; updateSlider('sp-fin-score','sp-fin-thumb','sp-fin-val'); }
-  if (spData.energy)   { document.getElementById('sp-energy').value=spData.energy;     updateSlider('sp-energy','sp-energy-thumb','sp-energy-val'); }
+  document.getElementById('sp-start-day').value=spData.startDay||formatDate(new Date());
+  if(spData.finScore){ document.getElementById('sp-fin-score').value=spData.finScore; updateSlider('sp-fin-score','sp-fin-thumb','sp-fin-val'); }
+  if(spData.energy){ document.getElementById('sp-energy').value=spData.energy; updateSlider('sp-energy','sp-energy-thumb','sp-energy-val'); }
 
-  // Hook autosave nháp vào tất cả text fields của SP (chỉ khi chưa lưu chính thức)
-  if (!spData.saved) {
-    ['sp-holes','sp-assets','sp-debt','sp-income','sp-money-mind','sp-seeds','sp-intent'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el || el._spAutoHooked) return;
-      el._spAutoHooked = true;
-      let t;
-      el.addEventListener('input', () => {
-        clearTimeout(t);
-        t = setTimeout(autosaveSPDraft, 600);
-      });
-    });
+  setTimeout(()=>{ updateSPRadar(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); },100);
 
-    // Hiển thị banner "đang làm dở" nếu có nháp
-    if (spData._draft) {
-      const draftBanner = document.getElementById('sp-draft-banner');
-      if (draftBanner) draftBanner.style.display = 'block';
-    }
-  }
-
-  setTimeout(()=>{ updateSPRadar(); renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{}); }, 100);
-
-  // Cập nhật label nút lưu theo tiến độ
-  const _spBtn = document.getElementById('sp-save-btn');
-  if (_spBtn) {
-    const _done2 = Object.keys(spData.khamNha || {}).length;
-    const _total2 = KHAM_NHA_QUESTIONS.length;
-    if (_done2 >= _total2) {
-      _spBtn.innerHTML = '🌱 LƯU ĐIỂM XUẤT PHÁT';
-      _spBtn.style.background = 'linear-gradient(135deg,var(--nn1),#3d6b54)';
-    } else {
-      _spBtn.innerHTML = '💾 Lưu tạm (' + _done2 + '/' + _total2 + ' câu) — làm tiếp sau';
-      _spBtn.style.background = 'linear-gradient(135deg,var(--gold-dark),#6b4a10)';
-    }
-  }
-
-  // Nếu đã saved nhưng chưa hoàn thành hết câu hỏi → bỏ lock, cho làm tiếp
-  const _totalQ    = KHAM_NHA_QUESTIONS.length;
-  const _answeredQ = Object.keys(spData.khamNha || {}).length;
-  if (spData.saved && _answeredQ < _totalQ) {
-    // Reset về trạng thái nháp để người dùng làm tiếp
-    spData.saved  = false;
-    spData._draft = true;
-    save(SP_KEY, spData);
-  }
-
-  if (spData.saved) {
-    showSPSaved(); // Đã hoàn thành → hiện kết quả + lock
-  } else if (spData._draft || _answeredQ > 0) {
-    // Đang làm dở → hiện banner
-    const banner = document.getElementById('sp-draft-banner');
-    if (banner) {
-      banner.style.display = 'block';
-      const rem = _totalQ - _answeredQ;
-      banner.innerHTML = '<span style="font-size:16px">📝</span> Đã lưu tạm — còn <strong>' + rem + ' câu</strong> Khám Nhà chưa trả lời. Tiếp tục bên dưới!';
-    }
-  }
+  if(spData.saved) { showSPSaved(); }
 }
 
 function updateSPRadar() {
@@ -4026,111 +4548,68 @@ function updateSPWheel() {
   });
 }
 
-// ── Autosave nháp Điểm Xuất Phát (lưu liên tục khi đang làm, chưa bấm Lưu chính thức) ──
-function autosaveSPDraft() {
-  // Chỉ autosave khi chưa lưu chính thức
-  if (spData.saved) return;
-  if (spData.khamNha && Object.keys(spData.khamNha).length > 0) {
-    const scores = calcKhamNhaScore(spData.khamNha);
-    NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
-  }
-  const get = id => document.getElementById(id)?.value || '';
-  spData.finScore = +(document.getElementById('sp-fin-score')?.value || 5);
-  spData.energy   = +(document.getElementById('sp-energy')?.value   || 5);
-  spData.holes     = get('sp-holes');
-  spData.assets    = get('sp-assets');
-  spData.debt      = get('sp-debt');
-  spData.income    = get('sp-income');
-  spData.moneyMind = get('sp-money-mind');
-  spData.seeds     = get('sp-seeds');
-  spData.intent    = get('sp-intent');
-  spData._draft    = true; // đánh dấu đang là nháp
-  save(SP_KEY, spData);
-  showAutosaveIndicator();
-}
-
 function saveStartingPoint() {
-  // Thu thập dữ liệu hiện tại từ form
+  // Đã lưu rồi thì không cho lưu lại
+  if (spData.saved) {
+    showToast('⚠️ Điểm xuất phát đã được lưu vĩnh viễn. Không thể thay đổi!');
+    return;
+  }
+  // NN scores từ khamNha
   if (spData.khamNha && Object.keys(spData.khamNha).length > 0) {
     const scores = calcKhamNhaScore(spData.khamNha);
     NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
   }
-  const get = id => document.getElementById(id)?.value || '';
-  spData.finScore  = +(document.getElementById('sp-fin-score')?.value || 5);
-  spData.energy    = +(document.getElementById('sp-energy')?.value   || 5);
-  spData.holes     = get('sp-holes');
-  spData.assets    = get('sp-assets');
-  spData.debt      = get('sp-debt');
-  spData.income    = get('sp-income');
-  spData.moneyMind = get('sp-money-mind');
-  spData.seeds     = get('sp-seeds');
-  spData.intent    = get('sp-intent');
-  if (!spData.startDay) spData.startDay = formatDate(new Date());
-
-  // Kiểm tra đã trả lời hết tất cả câu Khám Nhà chưa
-  const totalQ    = KHAM_NHA_QUESTIONS.length;
-  const answeredQ = Object.keys(spData.khamNha || {}).length;
-  const allDone   = answeredQ >= totalQ;
-
-  if (allDone) {
-    // Hoàn thành hết → lock vĩnh viễn
-    spData.saved   = true;
-    spData.savedAt = new Date().toISOString();
-    delete spData._draft;
-    save(SP_KEY, spData);
-    showSPSaved();
-    showToast('🌱 Điểm xuất phát đã được lưu vĩnh viễn!');
-  } else {
-    // Chưa xong → lưu nháp, vẫn làm tiếp được
-    spData._draft = true;
-    save(SP_KEY, spData);
-    const remaining = totalQ - answeredQ;
-    showToast('💾 Đã lưu tạm! Còn ' + remaining + ' câu Khám Nhà — mở lại làm tiếp được.');
-    const banner = document.getElementById('sp-draft-banner');
-    if (banner) {
-      banner.style.display = 'block';
-      banner.innerHTML = '<span style="font-size:16px">📝</span> Đã lưu tạm — còn <strong>' + remaining + ' câu</strong> Khám Nhà chưa trả lời. Mở lại bất kỳ lúc nào để làm tiếp.';
-    }
-  }
+  spData.finScore=+(document.getElementById('sp-fin-score')?.value||5);
+  spData.energy=+(document.getElementById('sp-energy')?.value||5);
+  spData.holes=document.getElementById('sp-holes')?.value||'';
+  spData.assets=document.getElementById('sp-assets')?.value||'';
+  spData.debt=document.getElementById('sp-debt')?.value||'';
+  spData.income=document.getElementById('sp-income')?.value||'';
+  spData.moneyMind=document.getElementById('sp-money-mind')?.value||'';
+  spData.seeds=document.getElementById('sp-seeds')?.value||'';
+  spData.intent=document.getElementById('sp-intent')?.value||'';
+  spData.startDay=formatDate(new Date());
+  spData.saved=true;
+  spData.savedAt=new Date().toISOString();
+  save(SP_KEY,spData);
+  showSPSaved();
+  showToast('🌱 Điểm xuất phát đã được lưu vĩnh viễn!');
 }
 
 function showSPSaved() {
-  const view = document.getElementById('sp-saved-view');
-  const txt  = document.getElementById('sp-saved-text');
-  if (!view || !txt) return;
-  view.style.display = 'block';
-  const totalQ    = KHAM_NHA_QUESTIONS.length;
-  const answeredQ = Object.keys(spData.khamNha || {}).length;
-  const allDone   = spData.saved && answeredQ >= totalQ;
-  txt.innerHTML = `
-    <strong>📅 Ngày bắt đầu:</strong> ${spData.startDay || '–'}<br>
+  const view=document.getElementById('sp-saved-view');
+  const txt=document.getElementById('sp-saved-text');
+  if(!view||!txt) return;
+  view.style.display='block';
+  txt.innerHTML=`
+    <strong>📅 Ngày bắt đầu:</strong> ${spData.startDay||'–'}<br>
     <strong>🏠 NL 5 Ngôi Nhà:</strong> ${NN_LIST.map(n=>`${n.icon}${spData[n.key]||5}`).join(' · ')}<br>
     <strong>⚡ NL tổng thể:</strong> ${spData.energy||5}/10 &nbsp;|&nbsp; <strong>💰 Tài chính:</strong> ${spData.finScore||5}/10<br>
-    ${spData.intent ? `<strong>🎯 Mong muốn:</strong> ${spData.intent.slice(0,120)}${spData.intent.length>120?'...':''}` : ''}
+    ${spData.intent?`<strong>🎯 Mong muốn:</strong> ${spData.intent.slice(0,100)}...`:''}
   `;
-  // Chỉ lock khi thực sự hoàn thành hết tất cả câu hỏi
-  if (allDone) lockSPForm();
+  // Lock the form permanently — hide save button, disable all inputs
+  lockSPForm();
 }
 
 function lockSPForm() {
-  // Ẩn nút lưu chính thức
+  // Ẩn nút lưu
   const saveBtn = document.querySelector('#page-start .save-btn');
   if (saveBtn) saveBtn.style.display = 'none';
-  // Disable toàn bộ input/textarea/button trong trang Điểm Xuất Phát
+  // Disable tất cả inputs/textareas/buttons trong form khám nhà và tài chính
   document.querySelectorAll('#page-start input, #page-start textarea, #page-start select').forEach(el => {
     el.disabled = true;
-    el.style.opacity = '0.65';
-    el.style.cursor  = 'not-allowed';
-    el.style.pointerEvents = 'none';
+    el.style.opacity = '0.7';
+    el.style.cursor = 'not-allowed';
   });
-  document.querySelectorAll('#kham-nha-form-sp button, #sp-wheel-questions button').forEach(btn => {
+  // Disable tất cả buttons trong kham nha form
+  document.querySelectorAll('#kham-nha-form-sp button').forEach(btn => {
     btn.disabled = true;
     btn.style.cursor = 'not-allowed';
-    btn.style.pointerEvents = 'none';
   });
 }
 
-// Không cho phép chỉnh sửa điểm xuất phát sau khi đã lưu chính thức
+// Không cho phép chỉnh sửa điểm xuất phát sau khi đã lưu
+// editStartingPoint đã bị xóa để giữ tính bất biến của dữ liệu xuất phát
 
 function exportData() {
   const exportObj = {
@@ -4368,9 +4847,6 @@ const KN_LEVELS = [
 
 const NN_NAMES = ['','NN1 · Cội Nguồn','NN2 · Cha Mẹ','NN3 · Gia Đình','NN4 · Hồn Thiêng','NN5 · Mẹ Trái Đất'];
 
-// Chạy migration ngay sau khi KHAM_NHA_QUESTIONS được định nghĩa
-migrateSPLockIfNeeded();
-
 function renderKhamNha(containerId, prefix, savedAnswers={}) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -4428,7 +4904,7 @@ function renderKhamNha(containerId, prefix, savedAnswers={}) {
       </div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
         ${KN_LEVELS.map(lv=>`
-          <button type="button" onclick="setKhamNha('${prefix}','${q.id}',${lv.val})"
+          <button onclick="setKhamNha('${prefix}','${q.id}',${lv.val})"
             id="${prefix}_${q.id}_${lv.val}"
             style="flex:1;min-width:72px;padding:7px 4px;border-radius:9px;
               border:2px solid ${saved===lv.val?lv.color:'var(--border)'};
@@ -4436,7 +4912,7 @@ function renderKhamNha(containerId, prefix, savedAnswers={}) {
               color:${saved===lv.val?lv.color:'var(--ink-muted)'};
               font-size:10.5px;font-weight:${saved===lv.val?'800':'600'};
               cursor:pointer;transition:all 0.15s;white-space:nowrap;line-height:1.3;
-              text-align:center;font-family:'Nunito',sans-serif">
+              text-align:center">
             ${lv.label}
           </button>`).join('')}
       </div>
@@ -4482,20 +4958,11 @@ function setKhamNha(prefix, qid, val) {
 
   // Save to spData or r3mData
   if (prefix === 'sp') {
-    // Nếu đã hoàn thành toàn bộ và lock → không cho thay đổi
-    if (spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length) return;
     if (!spData.khamNha) spData.khamNha = {};
     spData.khamNha[qid] = val;
     // Recalculate NN scores và cập nhật cards + radar ngay
     const scores = calcKhamNhaScore(spData.khamNha);
     NN_LIST.forEach((nn, i) => { spData[nn.key] = scores[i+1] || 5; });
-    // Autosave nháp nếu chưa lưu chính thức
-    if (!spData.saved) {
-      spData._draft = true;
-      const banner = document.getElementById('sp-draft-banner');
-      if (banner) banner.style.display = 'block';
-      showAutosaveIndicator();
-    }
     save(SP_KEY, spData);
     // Update score cards
     const scoreCards = document.getElementById('sp-nn-score-cards');
@@ -4531,19 +4998,6 @@ function setKhamNha(prefix, qid, val) {
     updateSPRadar();
     // Update hole breakdown live
     renderHoleBreakdown('sp-hole-breakdown', spData.khamNha||{});
-    // Update save button label với tiến độ
-    const _spBtn2 = document.getElementById('sp-save-btn');
-    if (_spBtn2) {
-      const _d = Object.keys(spData.khamNha||{}).length;
-      const _t = KHAM_NHA_QUESTIONS.length;
-      if (_d >= _t) {
-        _spBtn2.innerHTML = '🌱 LƯU ĐIỂM XUẤT PHÁT';
-        _spBtn2.style.background = 'linear-gradient(135deg,var(--nn1),#3d6b54)';
-      } else {
-        _spBtn2.innerHTML = '💾 Lưu tạm (' + _d + '/' + _t + ' câu) — làm tiếp sau';
-        _spBtn2.style.background = 'linear-gradient(135deg,var(--gold-dark),#6b4a10)';
-      }
-    }
   } else {
     if (!r3mData.khamNha) r3mData.khamNha = {};
     r3mData.khamNha[qid] = val;
@@ -4574,11 +5028,16 @@ function calcKhamNhaScore(answers) {
 // ══════════════════════════════════════
 // 3-MONTH RESULT DATA
 // ══════════════════════════════════════
-// NOTE: R3M_KEY, MS_KEY, r3mData, msData, currentMsId declared at top of script
+const R3M_KEY = 'nk5nn-r3m';
+let r3mData = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
 
 // ══════════════════════════════════════
 // MILESTONES SYSTEM — đánh giá liên tục
 // ══════════════════════════════════════
+const MS_KEY = 'nk5nn-milestones';
+let msData = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
+// msData = [{ id, name, note, createdAt, khamNha, wheelAnswers, nn{}, rw_{}, finScore, energy, assets, debt, income, moneyMind, seedsChanged, proud, commit, savedAt }]
+let currentMsId = null;
 
 function createMilestone() {
   const name = document.getElementById('new-milestone-name').value.trim();
@@ -5225,118 +5684,170 @@ function saveResult3m() {
 
 
 // ══════════════════════════════════════
-// 4 VIỆC QUAN TRỌNG
+// 4 VIỆC QUAN TRỌNG — layout mới
 // ══════════════════════════════════════
 const DEFAULT_TASKS = 4;
 
-function renderTasksList() {
+// Cấu trúc tasks: { main:[4], reject:[3], delegate:[3], outsource:[2], automate:[2], extra:[] }
+function getTasksStruct() {
   const entry = getTodayEntry();
-  if (!entry.tasks) entry.tasks = Array.from({length:DEFAULT_TASKS}, (_,i) => ({ text:'', done:false, id:'t'+(i+1) }));
-  const wrap = document.getElementById('tasks-list');
-  if (!wrap) return;
-  wrap.innerHTML = entry.tasks.map((t, i) => `
-    <div class="task-item ${t.done?'task-done':''}" id="task-row-${i}" style="
-      display:flex;align-items:flex-start;gap:10px;
-      padding:10px 12px;margin-bottom:8px;
-      background:${t.done?'rgba(74,140,111,0.06)':'rgba(245,237,224,0.4)'};
-      border:1.5px solid ${t.done?'rgba(74,140,111,0.25)':'var(--border)'};
-      border-radius:11px;transition:all 0.2s">
-      <button onclick="toggleTask(${i})" style="
-        width:24px;height:24px;min-width:24px;border-radius:50%;
-        border:2px solid ${t.done?'var(--jade)':'var(--border)'};
-        background:${t.done?'var(--jade)':'white'};
-        color:white;font-size:13px;font-weight:800;cursor:pointer;
-        display:flex;align-items:center;justify-content:center;
-        margin-top:2px;transition:all 0.2s;flex-shrink:0">
-        ${t.done?'✓':''}
-      </button>
-      <div style="flex:1">
-        ${i < DEFAULT_TASKS ?
-          `<div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Việc ${i+1}</div>` :
-          `<div style="font-size:10px;font-weight:800;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Việc thêm</div>`}
-        <textarea
-          id="task-text-${i}"
-          placeholder="${i < DEFAULT_TASKS ? 'Việc quan trọng số '+(i+1)+'...' : 'Việc thêm...'}"
-          rows="1"
-          oninput="saveTaskText(${i},this.value);autoResizeTextarea(this)"
-          style="
-            width:100%;border:none;background:transparent;
-            font-family:'Nunito',sans-serif;font-size:13.5px;
-            color:${t.done?'var(--ink-muted)':'var(--ink)'};
-            text-decoration:${t.done?'line-through':'none'};
-            resize:none;outline:none;padding:0;min-height:22px;
-            line-height:1.5;overflow:hidden"
-        >${t.text}</textarea>
-      </div>
-      ${i >= DEFAULT_TASKS ? `
-        <button onclick="removeTask(${i})" style="
-          border:none;background:none;color:var(--rose);font-size:16px;
-          cursor:pointer;padding:0;line-height:1;margin-top:2px;opacity:0.6"
-          onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>` : ''}
-    </div>`).join('');
-
-  // Auto-resize all textareas
-  wrap.querySelectorAll('textarea').forEach(autoResizeTextarea);
-
-  // Update progress bar
-  const done = entry.tasks.filter(t=>t.done).length;
-  const total = entry.tasks.length;
-  const pct = total ? Math.round(done/total*100) : 0;
-  const progEl = document.getElementById('tasks-progress');
-  if (progEl) {
-    progEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">
-        <span>Tiến độ hôm nay</span>
-        <span style="color:${done===total&&total>0?'var(--jade)':'var(--sky)'}">${done}/${total} việc hoàn thành</span>
-      </div>
-      <div style="background:rgba(74,127,168,0.12);border-radius:6px;height:8px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${done===total&&total>0?'var(--jade)':'var(--sky)'};border-radius:6px;transition:width 0.4s"></div>
-      </div>`;
+  if (!entry.tasksV2) {
+    // Migrate từ tasks cũ nếu có
+    const old = entry.tasks || [];
+    entry.tasksV2 = {
+      main: Array.from({length:4}, (_,i) => ({ text: old[i]?.text||'', done: old[i]?.done||false })),
+      reject:   Array.from({length:3}, () => ({ text:'', done:false })),
+      delegate: Array.from({length:3}, () => ({ text:'', done:false })),
+      outsource:Array.from({length:2}, () => ({ text:'', done:false })),
+      automate: Array.from({length:2}, () => ({ text:'', done:false })),
+      extra: old.slice(4).map(t=>({text:t.text||'',done:t.done||false}))
+    };
+    save(STORAGE_KEY, data);
   }
+  return entry.tasksV2;
 }
+
+function renderTasksList() {
+  const ts = getTasksStruct();
+  // 2×2 grid cho 4 main tasks
+  const mainGrid = document.getElementById('tasks-main-grid');
+  if (mainGrid) {
+    const labels = ['1 — Quan trọng nhất','2 —','3 —','4 —'];
+    mainGrid.innerHTML = ts.main.map((t,i) => `
+      <div style="padding:14px 16px;border-right:${i%2===0?'1px solid var(--border)':'none'};border-bottom:${i<2?'1px solid var(--border)':'none'}">
+        <div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">${labels[i]}</div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <button onclick="toggleTaskSection('main',${i})" style="
+            width:18px;height:18px;min-width:18px;border-radius:4px;
+            border:1.5px solid ${t.done?'var(--sky)':'var(--border)'};
+            background:${t.done?'var(--sky)':'white'};
+            color:white;font-size:10px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            margin-top:1px;flex-shrink:0">${t.done?'✓':''}</button>
+          <textarea id="task-main-${i}" placeholder="Nhập việc..."
+            rows="2"
+            oninput="saveTaskSection('main',${i},this.value);autoResizeTextarea(this)"
+            style="width:100%;border:none;background:transparent;
+              font-family:'Nunito',sans-serif;font-size:13px;
+              color:${t.done?'var(--ink-muted)':'var(--ink)'};
+              text-decoration:${t.done?'line-through':'none'};
+              resize:none;outline:none;padding:0;min-height:40px;
+              line-height:1.5;overflow:hidden">${t.text}</textarea>
+        </div>
+      </div>`).join('');
+    mainGrid.querySelectorAll('textarea').forEach(autoResizeTextarea);
+  }
+
+  // Extra tasks
+  const extraList = document.getElementById('tasks-extra-list');
+  if (extraList && ts.extra.length > 0) {
+    extraList.innerHTML = ts.extra.map((t,i) => `
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
+        <button onclick="toggleTaskSection('extra',${i})" style="
+          width:18px;height:18px;min-width:18px;border-radius:4px;
+          border:1.5px solid ${t.done?'var(--jade)':'var(--border)'};
+          background:${t.done?'var(--jade)':'white'};
+          color:white;font-size:10px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;
+          margin-top:2px;flex-shrink:0">${t.done?'✓':''}</button>
+        <div style="flex:1">
+          <div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:3px">Thêm</div>
+          <textarea id="task-extra-${i}" placeholder="Việc thêm..."
+            rows="1"
+            oninput="saveTaskSection('extra',${i},this.value);autoResizeTextarea(this)"
+            style="width:100%;border:none;background:transparent;
+              font-family:'Nunito',sans-serif;font-size:13px;
+              color:${t.done?'var(--ink-muted)':'var(--ink)'};
+              text-decoration:${t.done?'line-through':'none'};
+              resize:none;outline:none;padding:0;min-height:22px;
+              line-height:1.5;overflow:hidden">${t.text}</textarea>
+        </div>
+        <button onclick="removeExtraTask(${i})" style="border:none;background:none;color:var(--rose);font-size:16px;cursor:pointer;padding:0;margin-top:2px;opacity:0.6">✕</button>
+      </div>`).join('');
+    extraList.querySelectorAll('textarea').forEach(autoResizeTextarea);
+  } else if (extraList) {
+    extraList.innerHTML = '';
+  }
+
+  // Sub-lists: reject, delegate, outsource, automate
+  renderSubTaskList('reject',   'tasks-reject-list',   'Việc cần từ chối...');
+  renderSubTaskList('delegate', 'tasks-delegate-list', 'Việc cần giao cho ai...');
+  renderSubTaskList('outsource','tasks-outsource-list','Dịch vụ thuê ngoài...');
+  renderSubTaskList('automate', 'tasks-automate-list', 'Quy trình tự động hóa...');
+}
+
+function renderSubTaskList(section, containerId, placeholder) {
+  const ts = getTasksStruct();
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = (ts[section]||[]).map((t,i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(201,168,76,0.1)">
+      <button onclick="toggleTaskSection('${section}',${i})" style="
+        width:16px;height:16px;min-width:16px;border-radius:3px;
+        border:1.5px solid ${t.done?'rgba(74,127,168,0.5)':'rgba(201,168,76,0.3)'};
+        background:${t.done?'rgba(74,127,168,0.15)':'white'};
+        color:var(--sky);font-size:9px;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        ${t.done?'✓':''}</button>
+      <input type="text" id="task-${section}-${i}" value="${t.text}"
+        placeholder="${placeholder}"
+        onchange="saveTaskSection('${section}',${i},this.value)"
+        style="flex:1;border:none;background:transparent;font-family:'Nunito',sans-serif;
+          font-size:12.5px;color:${t.done?'var(--ink-muted)':'var(--ink-soft)'};
+          text-decoration:${t.done?'line-through':'none'};
+          outline:none;padding:0">
+    </div>`).join('');
+}
+
+function toggleTaskSection(section, idx) {
+  const ts = getTasksStruct();
+  if (!ts[section] || !ts[section][idx]) return;
+  ts[section][idx].done = !ts[section][idx].done;
+  save(STORAGE_KEY, data);
+  renderTasksList();
+  showAutosaveIndicator();
+}
+
+function saveTaskSection(section, idx, text) {
+  const ts = getTasksStruct();
+  if (!ts[section] || ts[section][idx] === undefined) return;
+  ts[section][idx].text = text;
+  save(STORAGE_KEY, data);
+  showAutosaveIndicator();
+}
+
+function addExtraTask() {
+  const ts = getTasksStruct();
+  ts.extra.push({ text:'', done:false });
+  save(STORAGE_KEY, data);
+  renderTasksList();
+  setTimeout(() => {
+    const idx = ts.extra.length - 1;
+    document.getElementById('task-extra-'+idx)?.focus();
+  }, 50);
+}
+
+function removeExtraTask(idx) {
+  const ts = getTasksStruct();
+  ts.extra.splice(idx, 1);
+  save(STORAGE_KEY, data);
+  renderTasksList();
+}
+
+// Legacy support for old task functions
+// Legacy aliases - delegate to new task system
+function toggleTask(idx) { toggleTaskSection('main', idx); }
+function saveTaskText(idx, text) { saveTaskSection('main', idx, text); }
+function removeTask(idx) { removeExtraTask(idx - DEFAULT_TASKS); }
+
+
 
 function autoResizeTextarea(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
 }
 
-function toggleTask(idx) {
-  const entry = getTodayEntry();
-  if (!entry.tasks || !entry.tasks[idx]) return;
-  entry.tasks[idx].done = !entry.tasks[idx].done;
-  save(STORAGE_KEY, data);
-  renderTasksList();
-  showAutosaveIndicator();
-}
-
-function saveTaskText(idx, text) {
-  const entry = getTodayEntry();
-  if (!entry.tasks || !entry.tasks[idx]) return;
-  entry.tasks[idx].text = text;
-  save(STORAGE_KEY, data);
-  showAutosaveIndicator();
-}
-
-function addExtraTask() {
-  const entry = getTodayEntry();
-  if (!entry.tasks) entry.tasks = [];
-  entry.tasks.push({ text:'', done:false, id:'t_extra_'+Date.now() });
-  save(STORAGE_KEY, data);
-  renderTasksList();
-  // Focus new textarea
-  setTimeout(() => {
-    const newIdx = entry.tasks.length - 1;
-    document.getElementById('task-text-'+newIdx)?.focus();
-  }, 50);
-}
-
-function removeTask(idx) {
-  const entry = getTodayEntry();
-  if (!entry.tasks) return;
-  entry.tasks.splice(idx, 1);
-  save(STORAGE_KEY, data);
-  renderTasksList();
-}
+// (duplicate toggleTask/saveTaskText/addExtraTask/removeTask removed — using versions above)
 
 // ══════════════════════════════════════
 // KAIZEN NGÀY
@@ -5365,9 +5876,7 @@ const AUTOSAVE_MAP = {
   'receive-red':   { store:'daily', key:'recvRed' },
   'spend-green':   { store:'daily', key:'spendGreen' },
   'spend-red':     { store:'daily', key:'spendRed' },
-  'finance-note':  { store:'daily', key:'finNote' },
   'money-seed':    { store:'daily', key:'moneySeed' },
-  'money-humble':  { store:'daily', key:'moneyHumble' },
   'wish-content':  { store:'daily', key:'wishContent' },
   'wish-deadline': { store:'daily', key:'wishDeadline' },
   'wish-received': { store:'daily', key:'wishReceived' },
@@ -5400,12 +5909,7 @@ const AUTOSAVE_MAP = {
 
 function getAutoSaveObj(store) {
   if (store==='daily')  return { obj: getTodayEntry(), storageKey: STORAGE_KEY, rootObj: data };
-  if (store==='sp') {
-    // Khi SP đã lock hoàn toàn (saved + đủ câu hỏi) → không autosave nữa
-    const _spComplete = spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length;
-    if (_spComplete) return null;
-    return { obj: spData, storageKey: SP_KEY, rootObj: spData };
-  }
+  if (store==='sp')     return { obj: spData,          storageKey: SP_KEY,      rootObj: spData };
   if (store==='r3m')    return { obj: r3mData,         storageKey: R3M_KEY,     rootObj: r3mData };
   if (store==='kz') {
     const w = getWeekKey();
@@ -5441,7 +5945,6 @@ function setupAutosave() {
   });
 
   // NN energy sliders
-  let _nnSyncTimer = null;
   NN_LIST.forEach(nn => {
     const el = document.getElementById('nne-'+nn.key);
     if (!el) return;
@@ -5450,21 +5953,17 @@ function setupAutosave() {
       if (!entry.nnEnergy) entry.nnEnergy = {};
       entry.nnEnergy[nn.key] = +el.value;
       save(STORAGE_KEY, data);
-      // Auto-sync team stats sau 5 giây idle
-      clearTimeout(_nnSyncTimer);
-      _nnSyncTimer = setTimeout(autoSyncMyTeamStats, 5000);
     });
   });
 
-  // SP sliders — autosave nháp (chưa lưu chính thức)
+  // SP sliders
   ['sp-fin-score','sp-energy'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', () => {
       if (id==='sp-fin-score') spData.finScore = +el.value;
       if (id==='sp-energy')    spData.energy   = +el.value;
-      const _spDone = spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length;
-      if (!_spDone) { spData._draft = true; save(SP_KEY, spData); showAutosaveIndicator(); }
+      save(SP_KEY, spData);
     });
   });
 
@@ -5510,6 +6009,8 @@ function setupAutosave() {
   setInterval(forceSaveAll, 30000);
   // Sync journal every 5 min if firebase connected
   setInterval(() => { if(db) syncJournalToFirebase(); }, 300000);
+  // FIX L6: Pull từ Firebase mỗi 5 phút để tự cập nhật lịch sử, biểu đồ, thống kê
+  setInterval(() => { if(db && userInfo) pullLocalFromFirebase(); }, 300000);
 }
 
 function forceSaveAll() {
@@ -5532,21 +6033,17 @@ function forceSaveAll() {
   });
   save(STORAGE_KEY, data);
 
-  // SP — chỉ autosave khi chưa lock hoàn toàn (saved + đủ câu hỏi)
-  const _spLocked = spData.saved && Object.keys(spData.khamNha||{}).length >= KHAM_NHA_QUESTIONS.length;
-  if (!_spLocked) {
-    Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
-      if (cfg.store !== 'sp') return;
-      const el = document.getElementById(id);
-      if (el) spData[cfg.key] = el.value;
-    });
-    const spFinEl = document.getElementById('sp-fin-score');
-    const spEngEl = document.getElementById('sp-energy');
-    if (spFinEl) spData.finScore = +spFinEl.value;
-    if (spEngEl) spData.energy   = +spEngEl.value;
-    spData._draft = true;
-    save(SP_KEY, spData);
-  }
+  // SP
+  Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
+    if (cfg.store !== 'sp') return;
+    const el = document.getElementById(id);
+    if (el) spData[cfg.key] = el.value;
+  });
+  const spFinEl = document.getElementById('sp-fin-score');
+  const spEngEl = document.getElementById('sp-energy');
+  if (spFinEl) spData.finScore = +spFinEl.value;
+  if (spEngEl) spData.energy   = +spEngEl.value;
+  save(SP_KEY, spData);
 
   // R3M
   Object.entries(AUTOSAVE_MAP).forEach(([id, cfg]) => {
@@ -5630,9 +6127,14 @@ function isLeader() {
 
 
 function initAdminPage() {
-  // Restore session nếu đã auth trước đó
-  const session = sessionStorage.getItem(ADMIN_KEY);
-  if (session === 'true') {
+  // Nếu vào link ?admin → tự động admin, bỏ qua màn hình nhập mật khẩu
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('admin') || params.has('host')) {
+    adminAuthed = true;
+    sessionStorage.setItem(ADMIN_KEY, 'true');
+  }
+
+  if (adminAuthed || sessionStorage.getItem(ADMIN_KEY) === 'true') {
     adminAuthed = true;
     document.getElementById('admin-login-section').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
@@ -5645,26 +6147,41 @@ function initAdminPage() {
 
 async function checkLeaderApproval() {
   if (!userInfo) return;
-  // Nếu đã là leader rồi thì không cần check
-  if (userInfo.isLeader) return;
-  // Kiểm tra trong Firebase /leaders/{groupCode}/{memberId}
+  // FIX L3: Luon check Firebase (khong short-circuit) de dong bo da thiet bi
   const database = await loadFirebase();
-  if (!database) return;
+  if (!database) { initLeaderUI(); return; }
+
   try {
-    const snap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
-    if (snap.val()) {
-      // Được duyệt! Cập nhật local
-      userInfo.isLeader = true;
+    const [leadersSnap, memberSnap] = await Promise.all([
+      database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value'),
+      database.ref('members/' + userInfo.memberId).once('value'),
+    ]);
+    const isApprovedAsLeader =
+      leadersSnap.val() !== null ||
+      memberSnap.val()?.isLeader === true;
+    const wasLeaderBefore = userInfo.isLeader;
+    if (isApprovedAsLeader !== userInfo.isLeader) {
+      userInfo.isLeader = isApprovedAsLeader;
       save(USER_KEY, userInfo);
-      initLeaderUI();
+    }
+    initLeaderUI();
+    if (isApprovedAsLeader && !wasLeaderBefore && !userInfo._leaderNotified) {
+      userInfo._leaderNotified = true;
+      save(USER_KEY, userInfo);
       showToast('👑 Bạn đã được duyệt làm Trưởng Nhóm!');
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('checkLeaderApproval failed:', e.message);
+    initLeaderUI();
+    setTimeout(() => { if(userInfo && !userInfo.isLeader) checkLeaderApproval(); }, 10000);
+  }
 }
 
 function initLeaderUI() {
   const navLeader = document.getElementById('nav-leader');
+  const navMemberTeam = document.getElementById('nav-member-team');
   if (navLeader) navLeader.style.display = isLeader() ? 'flex' : 'none';
+  if (navMemberTeam) navMemberTeam.style.display = isLeader() ? 'flex' : 'none';
 
   // Show leader badge in team section if leader
   if (isLeader()) {
@@ -5689,59 +6206,85 @@ function showAdminButton() {
 }
 
 // Override doRegister to handle leader code
-function doRegister() {
+async function doRegister() {
   const name       = document.getElementById('reg-name').value.trim();
   const phone      = document.getElementById('reg-phone').value.trim();
   const email      = document.getElementById('reg-email').value.trim();
+  const password   = document.getElementById('reg-password').value;
   const group      = document.getElementById('reg-group').value.trim().toUpperCase();
   const referrer   = document.getElementById('reg-referrer').value.trim();
-  const leaderCode = (document.getElementById('reg-leader-code')?.value||'').trim().toUpperCase();
   const errEl      = document.getElementById('reg-error');
+  const loadEl     = document.getElementById('reg-loading');
 
-  if (!name || !phone || !group) {
-    errEl.textContent = '⚠️ Vui lòng nhập đầy đủ họ tên, SĐT và mã nhóm.';
-    errEl.style.display='block'; return;
+  // Validate
+  if (!name || !phone || !email || !password || !group) {
+    errEl.textContent = '⚠️ Vui lòng nhập đầy đủ họ tên, SĐT, email, mật khẩu và chọn nhóm.';
+    errEl.style.display = 'block'; return;
   }
-  errEl.style.display='none';
+  if (password.length < 6) {
+    errEl.textContent = '⚠️ Mật khẩu tối thiểu 6 ký tự.';
+    errEl.style.display = 'block'; return;
+  }
+  errEl.style.display = 'none';
+  if (loadEl) loadEl.style.display = 'block';
 
   const leaderWrap = document.getElementById('leader-request-wrap');
   const isLeaderReg = leaderWrap && leaderWrap.style.display !== 'none';
-
   const memberId = 'u_' + btoa(encodeURIComponent(name+'|'+group)).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
 
-  // Lưu thông tin pending tạm vào localStorage để kiểm tra sau
-  const pendingInfo = { name, phone, email, groupCode: group, referrer, memberId, isLeaderReg, requestedAt: new Date().toISOString() };
-  localStorage.setItem('nk5nn-pending', JSON.stringify(pendingInfo));
+  try {
+    // 1. Tạo Firebase Auth account
+    const database = await loadFirebase();
+    if (!auth) throw new Error('Firebase Auth chưa sẵn sàng');
 
-  loadFirebase().then(database => {
+    const credential = await auth.createUserWithEmailAndPassword(email, password);
+    const firebaseUid = credential.user.uid;
+
+    // 2. Cập nhật display name
+    await credential.user.updateProfile({ displayName: name });
+
+    // 3. Lưu userInfo local
+    userInfo = { name, groupCode: group, memberId, isLeader: false, email, firebaseUid };
+    save(USER_KEY, userInfo);
+    if (loadEl) loadEl.style.display = 'none';
+    document.getElementById('login-screen').style.display = 'none';
+    bootApp();
+
+    // 4. Ghi dữ liệu lên Firebase
     if (database) {
-      // Ghi vào /members trước
-      const memberData = { name, phone, email, groupCode: group, referrer,
-        isLeader: false, approved: false,
+      const memberBase = { name, phone, email, groupCode: group, referrer,
+        isLeader: isLeaderReg, firebaseUid,
         registeredAt: new Date().toISOString(), memberId };
-      database.ref('members/' + memberId).set(memberData).catch(e => console.warn('Firebase register failed:', e));
 
-      // Gửi member_requests chờ duyệt
-      database.ref('member_requests/' + memberId).set({
-        memberId, name, phone, email, groupCode: group, referrer,
-        status: 'pending',
-        requestedAt: new Date().toISOString()
-      }).catch(e => console.warn('Member request failed:', e));
+      // Liên kết firebaseUid → memberId để sau này tra cứu
+      database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode: group });
+      database.ref('members/' + memberId).set(
+        Object.assign(memberBase, { isLeader: false, isLeaderPending: isLeaderReg })
+      );
 
-      // Nếu là trưởng nhóm → gửi thêm leader_request
       if (isLeaderReg) {
         const requestId = 'req_' + memberId + '_' + Date.now();
         database.ref('leader_requests/' + requestId).set({
           memberId, name, phone, email, groupCode: group,
-          status: 'pending',
-          requestedAt: new Date().toISOString()
-        }).catch(e => console.warn('Leader request failed:', e));
+          status: 'pending', requestedAt: new Date().toISOString()
+        }).then(() => showToast('👑 Đã gửi yêu cầu Trưởng Nhóm!'));
+      } else {
+        database.ref('member_requests/' + memberId).set({
+          memberId, name, phone, email, groupCode: group, referrer,
+          status: 'pending', requestedAt: new Date().toISOString()
+        });
       }
     }
-  });
-
-  // Hiện màn hình chờ duyệt
-  showPendingScreen(pendingInfo);
+  } catch(e) {
+    if (loadEl) loadEl.style.display = 'none';
+    let msg = '⚠️ Đăng ký thất bại. Vui lòng thử lại.';
+    if (e.code === 'auth/email-already-in-use') msg = '⚠️ Email này đã được đăng ký. Hãy đăng nhập.';
+    else if (e.code === 'auth/invalid-email')   msg = '⚠️ Email không hợp lệ.';
+    else if (e.code === 'auth/weak-password')   msg = '⚠️ Mật khẩu quá yếu (tối thiểu 6 ký tự).';
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+    console.error('Register error:', e.code, e.message);
+  }
 }
 
 // Override showPage for leader
@@ -5750,70 +6293,332 @@ function showPage(name, btn) {
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name)?.classList.add('active');
   if (btn) btn.classList.add('active');
-  if (name==='dashboard')   renderDashboard();
+  // FIX L6: Destroy charts trước khi render trang mới, tránh "Canvas already in use"
+  if (name==='dashboard') {
+    Object.keys(chartInstances).forEach(k => destroyChart(k));
+    renderDashboard();
+  }
   if (name==='history')     renderHistory();
   if (name==='team')        { renderMyNNSliders(); loadMyLastSync(); renderTeam(); }
-  if (name==='start')       initStartPage();
-  if (name==='milestones')  initMilestonesPage();
-  if (name==='result3m')    initResult3mPage();
+  if (name==='finance')     { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
+  if (name==='start')       { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('sp')||k.startsWith('r3m')) destroyChart(k); }); initStartPage(); }
+  if (name==='milestones')  { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('ms')) destroyChart(k); }); initMilestonesPage(); }
+  if (name==='result3m')    { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('r3m')) destroyChart(k); }); initResult3mPage(); }
   if (name==='leader')      initLeaderPage();
+  if (name==='member-team') initMemberTeamPage();
   if (name==='admin')       initAdminPage();
 }
+
+// ══════════════════════════════════════
+// MEMBER TEAM PAGE — dành cho trưởng nhóm
+// ══════════════════════════════════════
+let _memberTeamData = {}; // { memberId: { name, stats, entries } }
+
+function initMemberTeamPage() {
+  if (!isLeader()) { showPage('today', null); return; }
+  const groupNameEl = document.getElementById('member-team-group-name');
+  if (groupNameEl) groupNameEl.textContent = userInfo.groupCode;
+  loadMemberTeamData();
+}
+
+function loadMemberTeamData() {
+  const list = document.getElementById('mt-member-list');
+  if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải dữ liệu nhóm...</p></div>';
+
+  loadFirebase().then(db_ => {
+    if (!db_) {
+      if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase</p></div>';
+      return;
+    }
+    db = db_;
+    // Real-time listener cho nhóm
+    db.ref('groups/' + userInfo.groupCode).on('value', snap => {
+      const stats = snap.val() || {};
+      const memberIds = Object.keys(stats);
+      const todayK = todayKey();
+      const activeToday = Object.values(stats).filter(m => m.date === todayK).length;
+      const totalRituals = Object.values(stats).filter(m=>m.date===todayK).reduce((s,m)=>s+(m.rituals||0),0);
+      const avgRitual = activeToday ? Math.round(totalRituals/activeToday) : 0;
+
+      document.getElementById('mt-total-members').textContent = memberIds.length;
+      document.getElementById('mt-active-today').textContent = activeToday;
+      document.getElementById('mt-avg-ritual').textContent = avgRitual;
+
+      _memberTeamData = {};
+      memberIds.forEach(mid => {
+        _memberTeamData[mid] = { name: stats[mid].name||'–', stats: stats[mid], entries: {} };
+      });
+
+      // Load journals
+      if (!memberIds.length) { renderMemberTeamList(); return; }
+      let loaded = 0;
+      memberIds.forEach(mid => {
+        db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value', jSnap => {
+          const journal = jSnap.val() || {};
+          if (_memberTeamData[mid]) _memberTeamData[mid].entries = journal;
+          loaded++;
+          if (loaded === memberIds.length) renderMemberTeamList();
+        });
+      });
+    });
+  });
+}
+
+// Trang "Thành Viên Nhóm" — chỉ hiển thị tổng quan trạng thái, không có nhật ký chi tiết
+function renderMemberTeamList() {
+  const list = document.getElementById('mt-member-list');
+  if (!list) return;
+  const search = (document.getElementById('mt-search')?.value||'').toLowerCase();
+  const filter = document.getElementById('mt-filter')?.value||'all';
+  const todayK = todayKey();
+  const COLORS = ['#5b8a6e','#c9a84c','#c0606a','#4a7fa8','#7c5cbf','#d4872a'];
+
+  let members = Object.entries(_memberTeamData);
+  if (search) members = members.filter(([,m]) => m.name.toLowerCase().includes(search));
+  if (filter==='active')   members = members.filter(([,m]) => m.stats?.date === todayK);
+  if (filter==='inactive') members = members.filter(([,m]) => m.stats?.date !== todayK);
+
+  if (!members.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Chưa có thành viên nào.</p></div>';
+    return;
+  }
+
+  list.innerHTML = members.map(([mid, m], i) => {
+    const isActive = m.stats?.date === todayK;
+    const totalDays = Object.keys(m.entries||{}).length;
+    const nn = m.stats?.nn || [5,5,5,5,5];
+    const avgNN = (nn.reduce((a,b)=>a+b,0)/nn.length).toFixed(1);
+    const color = COLORS[i % COLORS.length];
+    const initials = m.name.trim().split(' ').pop().slice(0,2).toUpperCase();
+    const rituals = m.stats?.rituals || 0;
+    const pct = Math.round(rituals/9*100);
+
+    // Tính số ngày chưa rèn luyện
+    let daysSince = '–';
+    if (m.stats?.date) {
+      const diff = Math.floor((Date.now() - new Date(m.stats.date).getTime()) / 86400000);
+      daysSince = diff === 0 ? 'Hôm nay' : diff + ' ngày trước';
+    }
+
+    return `<div style="padding:14px;background:var(--card);border-radius:12px;
+        border:1.5px solid ${isActive?'rgba(91,138,110,0.3)':'var(--border)'};
+        margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:${color};
+          display:flex;align-items:center;justify-content:center;
+          font-size:15px;font-weight:800;color:white;flex-shrink:0">${initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+            <div style="font-weight:800;font-size:14px;color:var(--ink)">${m.name}</div>
+            ${isActive
+              ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">✓ Hôm nay</span>'
+              : `<span style="background:rgba(192,96,106,0.08);color:var(--rose);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px">${daysSince}</span>`}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11.5px;color:var(--ink-muted);margin-bottom:6px">
+            <span>📅 Tổng: <strong>${totalDays}</strong> ngày rèn luyện</span>
+            <span>✅ Hôm nay: <strong>${rituals}/9</strong> nghi thức</span>
+            <span>🏠 TB NL 5 NN: <strong>${avgNN}/10</strong></span>
+            <span>🕐 Hoạt động: <strong>${daysSince}</strong></span>
+          </div>
+          <div style="background:rgba(201,168,76,0.1);border-radius:4px;height:5px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width 0.4s"></div>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+            ${NN_LIST.map((nn_item,j) => `<span style="background:${nn_item.color}22;color:${nn_item.color};font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:6px">${nn_item.icon} ${(m.stats?.nn||[])[j]||5}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 
 function initLeaderPage() {
   if (!isLeader()) { showPage('today', null); return; }
   document.getElementById('leader-group-name').textContent = userInfo.groupCode;
+  const pgEl = document.getElementById('leader-pending-group');
+  if (pgEl) pgEl.textContent = userInfo.groupCode;
   loadLeaderMemberRequests();
   loadLeaderData();
 }
 
-let leaderAllData = {}; // { memberId: { name, entries: {...} } }
+// Load danh sách thành viên chờ duyệt (chỉ nhóm của trưởng nhóm)
+async function loadLeaderMemberRequests() {
+  const listEl = document.getElementById('leader-member-requests-list');
+  const badgeEl = document.getElementById('leader-pending-badge');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:8px">⏳ Đang tải...</div>';
 
-function loadLeaderData() {
-  const list = document.getElementById('leader-member-list');
-  if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải dữ liệu nhóm...</p></div>';
+  const database = await loadFirebase();
+  if (!database) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--rose);text-align:center;padding:8px">⚠️ Không kết nối được</div>';
+    return;
+  }
 
-  loadFirebase().then(db => {
-    if (!db) {
-      if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase</p></div>';
+  try {
+    const snap = await database.ref('member_requests').once('value');
+    const all = snap.val() || {};
+    // Lọc chỉ nhóm của trưởng nhóm và đang pending
+    const pending = Object.entries(all).filter(([, r]) =>
+      r.groupCode === userInfo.groupCode && r.status === 'pending'
+    );
+
+    if (badgeEl) {
+      badgeEl.style.display = pending.length ? 'inline-block' : 'none';
+      badgeEl.textContent = pending.length;
+    }
+
+    if (!pending.length) {
+      listEl.innerHTML = '<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:10px 0">✅ Không có thành viên nào đang chờ duyệt.</div>';
       return;
     }
 
-    // Load member list
-    db.ref('groups/' + userInfo.groupCode).once('value', snap => {
+    listEl.innerHTML = pending.map(([memberId, r]) => `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+        padding:12px 14px;background:rgba(74,127,168,0.05);border:1px solid rgba(74,127,168,0.2);
+        border-radius:11px;margin-bottom:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:13.5px;color:var(--ink)">${r.name}</div>
+          <div style="font-size:11.5px;color:var(--ink-muted);margin-top:3px">
+            📱 ${r.phone||'–'}
+            ${r.email ? ` &nbsp;·&nbsp; 📧 ${r.email}` : ''}
+            ${r.referrer ? `<br>👋 Người gieo duyên: ${r.referrer}` : ''}
+          </div>
+          <div style="font-size:10.5px;color:var(--ink-muted);margin-top:3px">
+            🕐 ${r.requestedAt ? new Date(r.requestedAt).toLocaleString('vi') : '–'}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button onclick="approveLeaderMember('${memberId}')"
+            style="padding:8px 14px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;
+              border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+            ✅ Duyệt
+          </button>
+          <button onclick="rejectLeaderMember('${memberId}')"
+            style="padding:8px 14px;background:rgba(192,96,106,0.1);color:var(--rose);
+              border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+            ❌ Từ chối
+          </button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--rose);text-align:center;padding:8px">⚠️ Lỗi: ${e.message}</div>`;
+  }
+}
+
+async function approveLeaderMember(memberId) {
+  const database = await loadFirebase();
+  if (!database) return;
+  try {
+    await database.ref('member_requests/' + memberId).update({
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: userInfo.name
+    });
+    await database.ref('members/' + memberId).update({ approved: true });
+    showToast('✅ Đã duyệt thành viên!');
+    loadLeaderMemberRequests();
+    loadLeaderData();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
+async function rejectLeaderMember(memberId) {
+  if (!confirm('Từ chối thành viên này?')) return;
+  const database = await loadFirebase();
+  if (!database) return;
+  try {
+    await database.ref('member_requests/' + memberId).update({
+      status: 'rejected',
+      rejectedAt: new Date().toISOString()
+    });
+    showToast('❌ Đã từ chối');
+    loadLeaderMemberRequests();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
+
+
+let leaderAllData = {}; // { memberId: { name, stats, entries } }
+let _leaderGroupListener = null;
+
+function loadLeaderData() {
+  const list = document.getElementById('leader-member-list');
+  if (list) list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--ink-muted)"><div style="font-size:28px;margin-bottom:8px">⏳</div><p>Đang tải...</p></div>';
+
+  loadFirebase().then(database => {
+    if (!database) {
+      if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase</p></div>';
+      return;
+    }
+    db = database;
+
+    // Realtime listener — tự cập nhật khi có thay đổi
+    if (_leaderGroupListener) { _leaderGroupListener.off(); }
+    _leaderGroupListener = db.ref('groups/' + userInfo.groupCode);
+    _leaderGroupListener.on('value', async snap => {
       const stats = snap.val() || {};
       const memberIds = Object.keys(stats);
-
-      document.getElementById('leader-total-members').textContent = memberIds.length;
-      const todayK = new Date().toISOString().split('T')[0];
+      const todayK = todayKey();
       const activeToday = Object.values(stats).filter(m => m.date === todayK).length;
-      document.getElementById('leader-active-today').textContent = activeToday;
 
-      // Load full journal for each member (they consented)
+      // Cập nhật stats
+      const totalEl = document.getElementById('leader-total-members');
+      const activeEl = document.getElementById('leader-active-today');
+      if (totalEl) totalEl.textContent = memberIds.length;
+      if (activeEl) activeEl.textContent = activeToday;
+
       leaderAllData = {};
-      let loaded = 0;
-      if (!memberIds.length) { renderLeaderMemberList(); return; }
+      if (!memberIds.length) {
+        if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm chưa có thành viên nào.</p></div>';
+        document.getElementById('leader-avg-streak').textContent = '0';
+        return;
+      }
 
+      // Load thông tin đăng ký từ /members để trưởng nhóm xem được
+      db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value', membersSnap => {
+        const membersData = membersSnap.val() || {};
+
+      // Load journal từ đúng path: /users/{memberId}/daily
+      let loaded = 0;
       memberIds.forEach(mid => {
         const mStat = stats[mid];
-        leaderAllData[mid] = { name: mStat.name||'–', stats: mStat, entries: {} };
+        // Tìm thông tin đăng ký đầy đủ từ /members
+        const memberInfo = Object.values(membersData).find(m => m.memberId === mid) || {};
+        leaderAllData[mid] = {
+          name: mStat.name||memberInfo.name||'–',
+          stats: mStat,
+          entries: {},
+          // Thông tin đăng ký
+          phone:       memberInfo.phone || '',
+          email:       memberInfo.email || '',
+          referrer:    memberInfo.referrer || '',
+          registeredAt: memberInfo.registeredAt || '',
+        };
 
-        db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value', jSnap => {
-          const journal = jSnap.val() || {};
-          leaderAllData[mid].entries = journal;
-          loaded++;
-          if (loaded === memberIds.length) {
-            // Calculate avg streak
-            let totalStreak = 0;
-            Object.values(leaderAllData).forEach(m => {
-              totalStreak += Object.keys(m.entries).length;
-            });
-            const avgStreak = memberIds.length ? Math.round(totalStreak/memberIds.length) : 0;
-            document.getElementById('leader-avg-streak').textContent = avgStreak;
-            renderLeaderMemberList();
+        // Thử đọc từ /users/{mid}/daily (path mới) trước
+        db.ref('users/' + mid + '/daily').once('value', dailySnap => {
+          const daily = dailySnap.val() || {};
+          if (Object.keys(daily).length > 0) {
+            leaderAllData[mid].entries = daily;
           }
+          // Fallback: cũng đọc /journals/{groupCode}/{mid} (path cũ)
+          db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value', jSnap => {
+            const oldJournal = jSnap.val() || {};
+            // Merge cả 2 nguồn
+            leaderAllData[mid].entries = Object.assign({}, oldJournal, leaderAllData[mid].entries);
+            loaded++;
+            if (loaded === memberIds.length) {
+              let totalDays = 0;
+              Object.values(leaderAllData).forEach(m => { totalDays += Object.keys(m.entries).length; });
+              const avgStreak = memberIds.length ? Math.round(totalDays/memberIds.length) : 0;
+              const avgEl = document.getElementById('leader-avg-streak');
+              if (avgEl) avgEl.textContent = avgStreak;
+              renderLeaderMemberList();
+            }
+          });
         });
       });
+      }); // end membersSnap
     });
   });
 }
@@ -5861,7 +6666,12 @@ function renderLeaderMemberList() {
             <div style="font-weight:800;font-size:14px;color:var(--ink)">${m.name}</div>
             ${isActive ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">Hôm nay ✓</span>' : '<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px">'+(m.stats?.date||'Chưa có')+'</span>'}
           </div>
-          <div style="font-size:11.5px;color:var(--ink-muted)">
+          <div style="font-size:11px;color:var(--ink-muted);line-height:1.8;margin-top:2px">
+            📱 ${m.phone||'–'} &nbsp;·&nbsp; 📧 ${m.email||'–'}
+            ${m.registeredAt ? `<br>🕐 Đăng ký: ${new Date(m.registeredAt).toLocaleDateString('vi')}` : ''}
+            ${m.referrer ? `&nbsp;·&nbsp; 👋 Người gieo duyên: ${m.referrer}` : ''}
+          </div>
+          <div style="font-size:11.5px;color:var(--ink-muted);margin-top:4px">
             📅 ${totalDays} ngày · ✅ ${rituals}/9 nghi thức · 🏠 TB NL: ${avgNN}/10
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
@@ -5879,9 +6689,11 @@ function openLeaderMemberDetail(mid) {
   if (!m) return;
   const modal = document.getElementById('leader-member-modal');
   const mc = document.getElementById('leader-modal-content');
+  if (!modal || !mc) return;
 
   const entries = m.entries;
   const keys = Object.keys(entries).sort().reverse();
+  const todayK = todayKey();
 
   const section = (icon, title, content, color='var(--gold)') => content ? `
     <div style="margin-bottom:12px">
@@ -5900,9 +6712,19 @@ function openLeaderMemberDetail(mid) {
         const d = new Date(k);
         const days=['CN','T2','T3','T4','T5','T6','T7'];
         const dateStr = days[d.getDay()] + ', ' + d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear();
-        return `<details style="margin-bottom:10px;border:1px solid var(--border);border-radius:11px;overflow:hidden">
-          <summary style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:rgba(245,237,224,0.3);list-style:none;font-weight:700">
-            <span style="font-size:13.5px;color:var(--ink)">${dateStr}</span>
+        const isToday = k === todayK;
+
+        // Lấy tasks từ cả tasksV2 (mới) và tasks (cũ)
+        const mainTasks = e.tasksV2?.main || e.tasks || [];
+        const rejectTasks = e.tasksV2?.reject || [];
+        const delegateTasks = e.tasksV2?.delegate || [];
+
+        return `<details style="margin-bottom:10px;border:1.5px solid ${isToday?'rgba(91,138,110,0.4)':'var(--border)'};border-radius:12px;overflow:hidden" ${isToday?'open':''}>
+          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:${isToday?'rgba(91,138,110,0.08)':'rgba(245,237,224,0.3)'};list-style:none;font-weight:700">
+            <div>
+              <span style="font-size:13.5px;color:var(--ink)">${dateStr}</span>
+              ${isToday?'<span style="margin-left:6px;background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px">Hôm nay</span>':''}
+            </div>
             <div style="display:flex;gap:6px;align-items:center">
               ${done>0?`<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px">✅ ${done}/9</span>`:''}
               ${e.energy?`<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px">⚡ ${e.energy}/10</span>`:''}
@@ -5910,15 +6732,42 @@ function openLeaderMemberDetail(mid) {
             </div>
           </summary>
           <div style="padding:14px">
-            ${e.tasks && e.tasks.some(t=>t.text) ? `<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;margin-bottom:6px">📋 4 Việc QT</div>${e.tasks.filter(t=>t.text).map(t=>`<div style="font-size:12.5px;color:${t.done?'var(--jade)':'var(--ink-soft)'};padding:3px 0">
-              ${t.done?'✅':'⬜'} ${t.text}</div>`).join('')}</div>` : ''}
+            <!-- 9 Nghi Thức -->
+            ${done>0 ? `<div style="margin-bottom:12px">
+              <div style="font-size:10px;font-weight:800;color:var(--jade);text-transform:uppercase;margin-bottom:6px">🌅 9 Nghi Thức (${done}/9)</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px">
+                ${RITUALS.map(r=>`<span style="background:${e.rituals?.[r.id]?'var(--jade-light)':'rgba(201,168,76,0.08)'};color:${e.rituals?.[r.id]?'var(--jade)':'var(--ink-muted)'};font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700">${e.rituals?.[r.id]?'✓':''} ${r.label.split('.')[0]}</span>`).join('')}
+              </div>
+            </div>` : ''}
+            <!-- 4 Việc QT -->
+            ${mainTasks.some(t=>t.text) ? `<div style="margin-bottom:12px">
+              <div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;margin-bottom:6px">📋 4 Việc Quan Trọng</div>
+              ${mainTasks.filter(t=>t.text).map(t=>`<div style="font-size:12.5px;color:${t.done?'var(--jade)':'var(--ink-soft)'};padding:4px 0;display:flex;gap:6px;align-items:flex-start"><span>${t.done?'✅':'⬜'}</span><span>${t.text}</span></div>`).join('')}
+              ${rejectTasks.some(t=>t.text)?`<div style="margin-top:6px;font-size:11px;color:var(--gold-dark)">🚫 Từ chối: ${rejectTasks.filter(t=>t.text).map(t=>t.text).join(', ')}</div>`:''}
+              ${delegateTasks.some(t=>t.text)?`<div style="font-size:11px;color:var(--sky)">👥 Ủy quyền: ${delegateTasks.filter(t=>t.text).map(t=>t.text).join(', ')}</div>`:''}
+            </div>` : ''}
+            <!-- Kaizen -->
+            ${(e.dailyGood||e.dailyImprove)?`<div style="margin-bottom:12px">
+              <div style="font-size:10px;font-weight:800;color:var(--violet);text-transform:uppercase;margin-bottom:6px">🔄 Kaizen Ngày</div>
+              ${e.dailyGood?`<div style="font-size:12.5px;color:var(--jade);padding:3px 0">✅ ${e.dailyGood}</div>`:''}
+              ${e.dailyImprove?`<div style="font-size:12.5px;color:var(--rose);padding:3px 0">🔧 ${e.dailyImprove}</div>`:''}
+            </div>` : ''}
             ${section('📝','Bài học', e.lesson)}
             ${section('🌱','Hạt giống xanh', e.seedGreen, 'var(--jade)')}
             ${section('🔴','Hạt giống đỏ', e.seedRed, 'var(--rose)')}
-            ${(e.gratitude1||e.gratitude2||e.gratitude3)?`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;margin-bottom:5px">🙏 Biết Ơn</div>${[e.gratitude1,e.gratitude2,e.gratitude3].filter(Boolean).map(g=>`<div style="font-size:13px;color:var(--ink-soft);padding:4px 0;border-bottom:1px solid var(--border)">• ${g}</div>`).join('')}</div>`:''}
-            ${section('✍️','Thư bản thân', e.selfLetter)}
-            ${section('🔄','Kaizen ngày', [e.dailyGood?'✅ '+e.dailyGood:'', e.dailyImprove?'🔧 '+e.dailyImprove:''].filter(Boolean).join('\n'), 'var(--violet)')}
+            ${(e.gratitude1||e.gratitude2||e.gratitude3)?`<div style="margin-bottom:12px">
+              <div style="font-size:10px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;margin-bottom:5px">🙏 Biết Ơn</div>
+              ${[e.gratitude1,e.gratitude2,e.gratitude3].filter(Boolean).map(g=>`<div style="font-size:13px;color:var(--ink-soft);padding:4px 0;border-bottom:1px solid var(--border)">• ${g}</div>`).join('')}
+            </div>`:''}
+            ${section('✍️','Thư & Tự hào', [e.selfLetter,e.selfProud].filter(Boolean).join('\n'))}
             ${e.wishContent?section('✨','Xin Quà Vũ Trụ', e.wishContent):''}
+            <!-- NN Energy -->
+            ${e.nnEnergy && Object.values(e.nnEnergy).some(v=>v&&v!==5) ? `<div style="margin-top:8px">
+              <div style="font-size:10px;font-weight:800;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">🏠 NL 5 Ngôi Nhà</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                ${NN_LIST.map(nn=>`<span style="background:${nn.color}22;color:${nn.color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px">${nn.icon} ${e.nnEnergy?.[nn.key]||5}</span>`).join('')}
+              </div>
+            </div>` : ''}
           </div>
         </details>`;
       }).join('')
@@ -5935,16 +6784,15 @@ function closeLeaderModal() {
   document.body.style.overflow = '';
 }
 
-// Sync journal lên Firebase khi là thành viên đã opt-in
-// Journals path: /journals/{groupCode}/{memberId}/{date}
+// Sync journal lên Firebase để trưởng nhóm xem được
+// Path: /journals/{groupCode}/{memberId}/{date} (trưởng nhóm đọc)
+// Path: /users/{memberId}/daily/{date} (cá nhân đồng bộ đa thiết bị)
 function syncJournalToFirebase() {
   if (!userInfo || !db) return;
-  const todayK = new Date().toISOString().split('T')[0];
+  const todayK = todayKey();
   const entry = data[todayK];
   if (!entry) return;
 
-  // Sync entry của hôm nay lên Firebase
-  const journalRef = db.ref('journals/' + userInfo.groupCode + '/' + userInfo.memberId + '/' + todayK);
   const safeEntry = {
     rituals: entry.rituals||{},
     energy: entry.energy||5,
@@ -5960,11 +6808,25 @@ function syncJournalToFirebase() {
     dailyImprove: entry.dailyImprove||'',
     wishContent: entry.wishContent||'',
     tasks: (entry.tasks||[]).filter(t=>t.text),
+    tasksV2: entry.tasksV2 || null,
     nnEnergy: entry.nnEnergy||{},
+    recvGreen: entry.recvGreen||0,
+    recvRed: entry.recvRed||0,
+    spendGreen: entry.spendGreen||0,
+    spendRed: entry.spendRed||0,
+    moneySeed: entry.moneySeed||'',
+    _updatedAt: entry._updatedAt || Date.now(),
     syncedAt: Date.now()
   };
 
-  journalRef.set(safeEntry).catch(e => console.warn('Journal sync failed:', e));
+  // FIX L1+L6: Ghi vào cả 2 path đồng thời
+  db.ref('journals/' + userInfo.groupCode + '/' + userInfo.memberId + '/' + todayK)
+    .set(safeEntry).catch(e => console.warn('Journal sync (leader path) failed:', e));
+  // Cũng đồng bộ vào /users/ path để đa thiết bị có thể pull về
+  // Dùng firebaseUid để khớp Security Rules
+  const _uidKey = userInfo.firebaseUid || userInfo.memberId;
+  db.ref('users/' + _uidKey + '/daily/' + todayK)
+    .set(safeEntry).catch(e => console.warn('Journal sync (user path) failed:', e));
 }
 
 
@@ -5972,22 +6834,19 @@ function syncJournalToFirebase() {
 // ADMIN SYSTEM
 // ══════════════════════════════════════
 const ADMIN_KEY = 'nk5nn-admin-auth';
-const ADMIN_PW_KEY = 'nk5nn-admin-pw'; // hash lưu local (fallback)
-// Mật khẩu host mặc định lưu trên Firebase /admin/password
-// Nếu chưa set → dùng default
+const ADMIN_PW_KEY = 'nk5nn-admin-pw';
 
 let adminAuthed = false;
 
-// ── Truy cập admin bằng URL secret: ?admin hoặc triple-click logo ──
+// Ai vào link ?admin → tự động là admin không cần mật khẩu
 function checkAdminAccess() {
   const params = new URLSearchParams(window.location.search);
   const isAdminUrl = params.has('admin') || params.has('host');
-  // Restore auth session
   const session = sessionStorage.getItem(ADMIN_KEY);
-  if (session === 'true') {
+
+  if (isAdminUrl || session === 'true') {
     adminAuthed = true;
-    showAdminButton();
-  } else if (isAdminUrl) {
+    sessionStorage.setItem(ADMIN_KEY, 'true');
     showAdminButton();
   }
 }
@@ -6000,8 +6859,11 @@ function headerTripleClick() {
   headerClickTimer = setTimeout(() => { headerClickCount = 0; }, 600);
   if (headerClickCount >= 3) {
     headerClickCount = 0;
+    adminAuthed = true;
+    sessionStorage.setItem(ADMIN_KEY, 'true');
     const navAdmin = document.getElementById('nav-admin');
     if (navAdmin) navAdmin.style.display = 'flex';
+    showAdminButton();
     showPage('admin', null);
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     navAdmin.classList.add('active');
@@ -6058,7 +6920,7 @@ async function changeAdminPassword() {
 }
 
 function switchAdminTab(tab) {
-  ['pending','members','leaders','groups','settings'].forEach(t => {
+  ['pending','leaders','groups','settings'].forEach(t => {
     const tabEl = document.getElementById('admin-tab-' + t);
     const btnEl = document.getElementById('atab-' + t);
     if (tabEl) tabEl.style.display = t === tab ? 'block' : 'none';
@@ -6067,8 +6929,7 @@ function switchAdminTab(tab) {
       btnEl.style.borderBottom = t === tab ? '3px solid var(--rose)' : '3px solid transparent';
     }
   });
-  if (tab === 'members')  loadAdminMemberRequests();
-  if (tab === 'groups')   loadAdminGroups();
+  if (tab === 'groups') loadAdminGroups();
   if (tab === 'settings') loadAdminStats();
 }
 
@@ -6087,16 +6948,17 @@ async function loadAdminData() {
     const requests = snap.val() || {};
     const pending = Object.entries(requests).filter(([,r]) => r.status === 'pending');
     const approved = Object.entries(requests).filter(([,r]) => r.status === 'approved');
+
+    // Update badge
     const badge = document.getElementById('pending-count-badge');
     if (badge) badge.textContent = pending.length;
+
+    // Render pending
     renderAdminPending(pending);
     renderAdminLeaders(approved);
   } catch(e) {
     console.error('Admin load error:', e);
   }
-
-  // Also load member requests count for badge
-  loadAdminMemberRequests();
 }
 
 function renderAdminPending(pending) {
@@ -6140,18 +7002,92 @@ function renderAdminLeaders(approved) {
   }
   el.innerHTML = `<div style="font-size:11px;color:var(--ink-muted);margin-bottom:10px">${approved.length} trưởng nhóm đã được duyệt</div>` +
     approved.map(([id, r]) => `
-    <div style="padding:12px 14px;background:var(--card);border:1.5px solid rgba(91,138,110,0.25);border-radius:12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-weight:800;font-size:13.5px;color:var(--ink)">👑 ${r.name}</div>
-        <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">👥 Nhóm: <strong>${r.groupCode}</strong> &nbsp;·&nbsp; 📱 ${r.phone||'–'}</div>
-        <div style="font-size:11px;color:var(--jade);margin-top:2px">✅ Duyệt: ${r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi') : '–'}</div>
+    <div style="padding:12px 14px;background:var(--card);border:1.5px solid rgba(91,138,110,0.25);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-weight:800;font-size:13.5px;color:var(--ink)">👑 ${r.name}</div>
+          <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">👥 Mã nhóm: <strong>${r.groupCode}</strong> &nbsp;·&nbsp; 📱 ${r.phone||'–'}</div>
+          ${r.email ? `<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">📧 ${r.email}</div>` : ''}
+          <div style="font-size:11px;color:var(--jade);margin-top:2px">✅ Duyệt: ${r.approvedAt ? new Date(r.approvedAt).toLocaleString('vi') : '–'}</div>
+        </div>
+        <button onclick="revokeLeader('${id}')"
+          style="padding:6px 12px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+          Thu hồi
+        </button>
       </div>
-      <button onclick="revokeLeader('${id}')"
-        style="padding:6px 12px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
-        Thu hồi
-      </button>
+      <!-- Danh sách thành viên nhóm này -->
+      <div id="admin-group-members-${r.groupCode}" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">👤 Thành viên nhóm</div>
+        <div id="admin-group-members-list-${r.groupCode}" style="font-size:11.5px;color:var(--ink-muted)">
+          <button onclick="loadGroupMembers('${r.groupCode}')" style="font-size:11px;font-weight:700;color:var(--sky);background:none;border:none;cursor:pointer;text-decoration:underline">Tải danh sách →</button>
+        </div>
+      </div>
     </div>`).join('');
 }
+
+async function loadGroupMembers(groupCode) {
+  const el = document.getElementById('admin-group-members-list-' + groupCode);
+  if (!el) return;
+  el.innerHTML = '<span style="font-size:11px;color:var(--ink-muted)">⏳ Đang tải...</span>';
+  const database = await loadFirebase();
+  if (!database) { el.innerHTML = '⚠️ Không kết nối được'; return; }
+  try {
+    const [membersSnap, groupSnap] = await Promise.all([
+      database.ref('members').orderByChild('groupCode').equalTo(groupCode).once('value'),
+      database.ref('groups/' + groupCode).once('value')
+    ]);
+    const members = membersSnap.val() || {};
+    const todayStats = groupSnap.val() || {};
+    const todayK = new Date().toISOString().split('T')[0];
+    const memberList = Object.values(members);
+    if (!memberList.length) { el.innerHTML = '<span style="font-size:11px;color:var(--ink-muted)">Chưa có thành viên</span>'; return; }
+    el.innerHTML = memberList.map(m => {
+      const stats = Object.entries(todayStats).find(([id]) => id === m.memberId);
+      const isActive = stats && stats[1].date === todayK;
+      const rituals = stats ? stats[1].rituals||0 : '–';
+      return `<div style="padding:10px 12px;background:rgba(245,237,224,0.4);border-radius:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:3px">${m.name}</div>
+            <div style="font-size:11px;color:var(--ink-muted);line-height:1.8">
+              📱 <strong>${m.phone||'–'}</strong><br>
+              📧 <strong>${m.email||'–'}</strong><br>
+              🕐 Đăng ký: ${m.registeredAt ? new Date(m.registeredAt).toLocaleDateString('vi') : '–'}
+              ${m.referrer ? `<br>👋 Người gieo duyên: ${m.referrer}` : ''}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:10.5px;font-weight:700;margin-bottom:4px;${isActive?'color:var(--jade)':'color:var(--ink-muted)'}">
+              ${isActive ? '✅ Hoạt động hôm nay' : 'Chưa hoạt động hôm nay'}
+            </div>
+            <div style="font-size:10px;color:var(--sky);font-weight:700">✅ ${rituals}/9 nghi thức</div>
+            <button onclick="adminChangeMemberGroup('${m.memberId}','${m.name}','${groupCode}')"
+              style="margin-top:6px;padding:4px 8px;background:rgba(74,127,168,0.1);color:var(--sky);border:1px solid rgba(74,127,168,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+              Đổi nhóm
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = '⚠️ Lỗi: ' + e.message; }
+}
+
+async function adminChangeMemberGroup(memberId, memberName, currentGroup) {
+  const newGroup = prompt(`Đổi nhóm cho ${memberName}.\nNhóm hiện tại: ${currentGroup}\nNhập mã nhóm mới:`);
+  if (!newGroup || newGroup.trim() === currentGroup) return;
+  const confirmMsg = `Đổi ${memberName} từ nhóm ${currentGroup} sang nhóm ${newGroup.trim().toUpperCase()}?`;
+  if (!confirm(confirmMsg)) return;
+  const database = await loadFirebase();
+  if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
+  try {
+    const newGroupCode = newGroup.trim().toUpperCase();
+    await database.ref('members/' + memberId).update({ groupCode: newGroupCode });
+    showToast('✅ Đã đổi nhóm cho ' + memberName + ' → ' + newGroupCode);
+    // Reload
+    loadAdminData();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
 
 async function approveLeader(requestId) {
   const database = await loadFirebase();
@@ -6160,14 +7096,20 @@ async function approveLeader(requestId) {
     const snap = await database.ref('leader_requests/' + requestId).once('value');
     const r = snap.val();
     if (!r) return;
+    // 1. Cập nhật leader_requests → approved
     await database.ref('leader_requests/' + requestId).update({
       status: 'approved',
       approvedAt: new Date().toISOString()
     });
-    // Ghi vào /leaders/{groupCode} để thành viên đó biết họ được duyệt
+    // 2. Ghi vào /leaders/{groupCode}/{memberId} để member tự biết được duyệt
     await database.ref('leaders/' + r.groupCode + '/' + r.memberId).set({
       name: r.name, approvedAt: new Date().toISOString(), memberId: r.memberId
     });
+    // 3. Cập nhật /members/{memberId} thành isLeader = true
+    await database.ref('members/' + r.memberId).update({ isLeader: true, isLeaderPending: false });
+    // 4. Xóa khỏi member_requests nếu có (trưởng nhóm không cần duyệt thành viên riêng)
+    await database.ref('member_requests/' + r.memberId).remove().catch(() => {});
+
     showToast('✅ Đã duyệt ' + r.name + ' làm trưởng nhóm ' + r.groupCode + '!');
     loadAdminData();
   } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
@@ -6274,13 +7216,6 @@ async function loadAdminStats() {
 // INIT
 // ══════════════════════════════════════
 function init() {
-  // Check if there's a pending approval state (đã đăng ký nhưng chưa được duyệt)
-  const pendingRaw = localStorage.getItem('nk5nn-pending');
-  if (pendingRaw && !userInfo) {
-    const pending = JSON.parse(pendingRaw);
-    showPendingScreen(pending);
-    return;
-  }
   // Check if already logged in
   if (userInfo) {
     document.getElementById('login-screen').style.display = 'none';
