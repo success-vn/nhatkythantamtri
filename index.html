@@ -13,23 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-<!-- Fallback: nếu Google Fonts bị block, dùng font hệ thống tương tự -->
-<style>
-  @font-face {
-    font-family: 'Cormorant Garamond';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: local('Georgia'), local('Times New Roman');
-  }
-  @font-face {
-    font-family: 'Nunito';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: local('Helvetica Neue'), local('Arial'), local('sans-serif');
-  }
-</style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- Firebase loaded dynamically -->
 <style>
@@ -66,7 +49,7 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Nunito', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   background: var(--bg);
   color: var(--ink);
   min-height: 100vh;
@@ -522,7 +505,7 @@ textarea { min-height: 80px; }
 .team-add-row { display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:4px; }
 .btn-sm {
   padding:10px 16px; border-radius:10px;
-  border:none; font-family:'Nunito',sans-serif;
+  border:none; font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
   font-size:12px; font-weight:700; cursor:pointer;
   background:linear-gradient(135deg,var(--gold),var(--gold-dark));
   color:white; white-space:nowrap;
@@ -530,7 +513,7 @@ textarea { min-height: 80px; }
 }
 .btn-outline {
   padding:9px 16px; border:1.5px solid var(--border);
-  border-radius:10px; font-family:'Nunito',sans-serif;
+  border-radius:10px; font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
   font-size:12px; font-weight:700; cursor:pointer;
   background:transparent; color:var(--ink-muted);
   transition:all 0.2s;
@@ -597,7 +580,7 @@ textarea { min-height: 80px; }
   background:linear-gradient(160deg,#0e1a12 0%,#1a2818 50%,#1a1410 100%);
   display:flex;align-items:center;justify-content:center;
   padding:20px; overflow-y:auto;
-  font-family:'Nunito',Helvetica,Arial,sans-serif;
+  font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
 ">
   <!-- STEP 1: REGISTER -->
   <div id="step-register" style="background:var(--card);border-radius:24px;padding:32px 26px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.45);">
@@ -718,7 +701,7 @@ textarea { min-height: 80px; }
       width:100%;padding:14px;margin-top:16px;
       background:linear-gradient(135deg,#1a2818,#2d4a2a);
       color:white;border:none;border-radius:13px;
-      font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:800;
       cursor:pointer;box-shadow:0 6px 20px rgba(14,26,18,0.35);transition:opacity 0.2s;
     " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
       Bắt Đầu Rèn Luyện 🌿
@@ -765,27 +748,27 @@ textarea { min-height: 80px; }
       width:100%;padding:14px;
       background:linear-gradient(135deg,#1a2818,#2d4a2a);
       color:white;border:none;border-radius:13px;
-      font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:800;
       cursor:pointer;box-shadow:0 6px 20px rgba(14,26,18,0.35);transition:opacity 0.2s;
     " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
       Tiếp Tục Rèn Luyện →
     </button>
 
     <div style="text-align:center;margin-top:12px">
-      <button onclick="doForgotPassword()" style="border:none;background:none;color:var(--ink-muted);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Nunito',sans-serif">
+      <button onclick="doForgotPassword()" style="border:none;background:none;color:var(--ink-muted);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         Quên mật khẩu?
       </button>
     </div>
 
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px;font-family:'Nunito',sans-serif">Đã đăng ký trước đây bằng tên + nhóm?</div>
-      <button onclick="showActivateStep()" style="border:none;background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:12px;font-weight:800;cursor:pointer;padding:8px 16px;border-radius:10px;border:1px solid rgba(201,168,76,0.3);font-family:'Nunito',sans-serif">
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">Đã đăng ký trước đây bằng tên + nhóm?</div>
+      <button onclick="showActivateStep()" style="border:none;background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:12px;font-weight:800;cursor:pointer;padding:8px 16px;border-radius:10px;border:1px solid rgba(201,168,76,0.3);font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         🔑 Kích hoạt tài khoản cũ
       </button>
     </div>
 
     <div style="text-align:center;margin-top:10px">
-      <button onclick="showRegisterStep()" style="border:none;background:none;color:#5b8a6e;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline;font-family:'Nunito',sans-serif">← Quay lại đăng ký</button>
+      <button onclick="showRegisterStep()" style="border:none;background:none;color:#5b8a6e;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">← Quay lại đăng ký</button>
     </div>
   </div>
 
@@ -812,7 +795,7 @@ textarea { min-height: 80px; }
         width:100%;padding:13px;
         background:linear-gradient(135deg,var(--gold-dark),#6a4e1a);
         color:white;border:none;border-radius:12px;
-        font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
+        font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
         Tìm Tài Khoản →
       </button>
     </div>
@@ -843,7 +826,7 @@ textarea { min-height: 80px; }
         width:100%;padding:13px;
         background:linear-gradient(135deg,#1a2818,#2d4a2a);
         color:white;border:none;border-radius:12px;
-        font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
+        font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
         ✅ Kích Hoạt & Đăng Nhập
       </button>
     </div>
@@ -886,7 +869,7 @@ textarea { min-height: 80px; }
       background:rgba(201,168,76,0.12);
       border:1px solid rgba(201,168,76,0.25);
       border-radius:20px;padding:5px 11px;cursor:pointer;
-      font-family:'Nunito',sans-serif;transition:all 0.2s"
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;transition:all 0.2s"
       onmouseover="this.style.background='rgba(201,168,76,0.25)';this.style.color='white'"
       onmouseout="this.style.background='rgba(201,168,76,0.12)';this.style.color='rgba(201,168,76,0.9)'">
       🔐 Admin
@@ -897,7 +880,7 @@ textarea { min-height: 80px; }
       background:rgba(255,255,255,0.08);
       border:1px solid rgba(255,255,255,0.12);
       border-radius:20px;padding:5px 11px;cursor:pointer;
-      font-family:'Nunito',sans-serif;transition:all 0.2s"
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;transition:all 0.2s"
       onmouseover="this.style.background='rgba(192,96,106,0.3)';this.style.color='white'"
       onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(253,248,240,0.65)'">
       ↩ Đăng xuất
@@ -970,6 +953,7 @@ textarea { min-height: 80px; }
 
 <nav class="nav">
   <button class="nav-tab active" onclick="showPage('today',this)">📖 Hôm Nay</button>
+  <button class="nav-tab" onclick="showPage('seeds',this)">😔 Hạt Giống</button>
   <button class="nav-tab" onclick="showPage('energy',this)">⚡ Năng Lượng</button>
   <button class="nav-tab" onclick="showPage('gratitude',this)">🙏 Biết Ơn</button>
   <button class="nav-tab" onclick="showPage('finance',this)">💰 Tài Chính</button>
@@ -1082,7 +1066,7 @@ textarea { min-height: 80px; }
         flex:1;padding:8px;min-width:120px;
         background:rgba(74,127,168,0.07);border:1.5px dashed rgba(74,127,168,0.3);
         border-radius:9px;color:var(--sky);font-size:12px;font-weight:700;
-        cursor:pointer;font-family:'Nunito',sans-serif">
+        cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         + Thêm việc ưu tiên
       </button>
     </div>
@@ -1139,11 +1123,130 @@ textarea { min-height: 80px; }
         </label>
         <textarea id="seed-red" placeholder="Tình huống → Hạt giống đỏ là... (thuộc NN...) → Tôi đã khiêm hạ / chưa khiêm hạ bằng cách..." rows="3"
           style="background:rgba(255,255,255,0.7);border-color:rgba(192,96,106,0.3)"></textarea>
+        <button onclick="quickAddFromSeedRed()"
+          style="margin-top:8px;width:100%;padding:8px;border-radius:10px;
+          background:rgba(192,96,106,0.08);border:1.5px solid rgba(192,96,106,0.3);
+          color:var(--rose);font-size:12px;font-weight:800;cursor:pointer;
+          font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px">
+          📌 Thêm vào danh sách Theo Dõi Hạt Giống Đỏ
+        </button>
       </div>
     </div>
   </div>
 
   <button class="save-btn" onclick="saveToday()">💾 LƯU NHẬT KÝ HÔM NAY</button>
+</div>
+
+<!-- ══════ HẠT GIỐNG ĐỎ ══════ -->
+<div id="page-seeds" class="page">
+  <div class="date-bar">
+    <div>
+      <div class="date-label">Hạt Giống Đang Giải Phóng</div>
+      <div class="date-value" id="seeds-date"></div>
+    </div>
+    <div class="day-badge" style="background:linear-gradient(135deg,#c0606a,#8a2a2a)">😔 Đang Giải Phóng</div>
+  </div>
+
+  <div class="note-quote">
+    "Mỗi hạt giống được nhận diện là một bước tiến — theo dõi đến khi nó chuyển hóa hoàn toàn."
+  </div>
+
+  <!-- Thêm hạt giống mới -->
+  <div class="section-card" style="border:2px solid rgba(192,96,106,0.3)">
+    <div class="section-title">
+      <div class="section-icon" style="background:rgba(192,96,106,0.12)">😔</div>
+      Nhận Diện Hạt Giống Đang Giải Phóng
+    </div>
+    <div style="font-size:12.5px;color:var(--ink-muted);margin-bottom:14px;line-height:1.7">
+      Đặt tên ngắn gọn cho hạt giống, ghi lại tình huống xảy ra và chọn Ngôi Nhà liên quan.
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">Tên hạt giống <span style="color:var(--rose)">*</span></label>
+      <input type="text" id="ns-name" placeholder="VD: Nổi cáu khi bị ngắt lời, Hay so sánh bản thân..."
+        style="margin-bottom:0">
+    </div>
+
+    <div class="field-row" style="margin-top:12px">
+      <label class="field-label">Thuộc Ngôi Nhà nào?</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="ns-nn-picker">
+        <button class="ns-nn-btn" data-nn="nn1" onclick="pickSeedNN(this)"
+          style="padding:6px 12px;border-radius:20px;border:1.5px solid rgba(91,138,110,0.4);background:rgba(91,138,110,0.08);color:#5b8a6e;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">🌱 NN1 Bản Thân</button>
+        <button class="ns-nn-btn" data-nn="nn2" onclick="pickSeedNN(this)"
+          style="padding:6px 12px;border-radius:20px;border:1.5px solid rgba(201,168,76,0.4);background:rgba(201,168,76,0.08);color:#c9a84c;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">👨‍👩‍👧 NN2 Cha Mẹ</button>
+        <button class="ns-nn-btn" data-nn="nn3" onclick="pickSeedNN(this)"
+          style="padding:6px 12px;border-radius:20px;border:1.5px solid rgba(192,96,106,0.4);background:rgba(192,96,106,0.08);color:#c0606a;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">💑 NN3 Vợ/Chồng</button>
+        <button class="ns-nn-btn" data-nn="nn4" onclick="pickSeedNN(this)"
+          style="padding:6px 12px;border-radius:20px;border:1.5px solid rgba(74,127,168,0.4);background:rgba(74,127,168,0.08);color:#4a7fa8;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">🏔️ NN4 Hồn Thiêng</button>
+        <button class="ns-nn-btn" data-nn="nn5" onclick="pickSeedNN(this)"
+          style="padding:6px 12px;border-radius:20px;border:1.5px solid rgba(124,92,191,0.4);background:rgba(124,92,191,0.08);color:#7c5cbf;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">🌍 NN5 Mẹ Thiên Nhiên</button>
+      </div>
+      <input type="hidden" id="ns-nn-val" value="">
+    </div>
+
+    <div class="field-row" style="margin-top:12px">
+      <label class="field-label">Tình huống / Bối cảnh / Biểu hiện</label>
+      <textarea id="ns-situation" placeholder="Khi... xảy ra, tôi cảm thấy... và phản ứng bằng cách..." rows="3"></textarea>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">Cam kết chuyển hóa (hành động cụ thể)</label>
+      <textarea id="ns-commit" placeholder="Lần tới khi hạt giống này xuất hiện, tôi sẽ..." rows="2"></textarea>
+    </div>
+
+    <button class="save-btn" style="background:linear-gradient(135deg,#c0606a,#8a2a2a);margin-top:4px" onclick="addNewSeed()">
+      😔 THÊM VÀO DANH SÁCH THEO DÕI
+    </button>
+  </div>
+
+  <!-- Danh sách đang theo dõi -->
+  <div class="section-card">
+    <div class="section-title">
+      <div class="section-icon" style="background:rgba(192,96,106,0.1)">📋</div>
+      <div style="flex:1">
+        Danh Sách Đang Giải Phóng
+        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Ghi nhận mỗi ngày hạt giống có xuất hiện không — chỉ cần 10 giây</div>
+      </div>
+      <span id="seeds-active-count" style="background:rgba(192,96,106,0.15);color:var(--rose);font-size:11px;font-weight:800;padding:3px 10px;border-radius:12px">0 hạt</span>
+    </div>
+    <div id="seeds-active-list">
+      <div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px">
+        Chưa có hạt giống nào đang theo dõi.<br>
+        <span style="font-size:12px">Thêm từ phần bên trên hoặc từ tab Hôm Nay.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Đã chuyển hóa -->
+  <div class="section-card" style="opacity:0.85">
+    <div class="section-title">
+      <div class="section-icon" style="background:rgba(74,140,111,0.12)">✅</div>
+      <div style="flex:1">
+        Đã Chuyển Hóa
+        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Hạt giống không tái phát 7+ ngày liên tiếp</div>
+      </div>
+      <span id="seeds-done-count" style="background:rgba(74,140,111,0.12);color:var(--jade);font-size:11px;font-weight:800;padding:3px 10px;border-radius:12px">0 hạt</span>
+    </div>
+    <div id="seeds-done-list">
+      <div style="text-align:center;padding:12px;color:var(--ink-muted);font-size:12px">Chưa có — hãy tiếp tục rèn luyện!</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal check-in hàng ngày cho 1 hạt giống -->
+<div id="seed-checkin-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);overflow-y:auto;padding:20px">
+  <div style="background:var(--card);border-radius:20px;max-width:480px;margin:20px auto;padding:24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.35)">
+    <button onclick="closeSeedCheckin()" style="position:absolute;top:14px;right:14px;border:none;background:rgba(192,96,106,0.1);color:var(--ink-muted);width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;font-weight:700">✕</button>
+    <div id="seed-checkin-content"></div>
+  </div>
+</div>
+
+<!-- Modal xem chi tiết / đổi tên / xóa -->
+<div id="seed-detail-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);overflow-y:auto;padding:20px">
+  <div style="background:var(--card);border-radius:20px;max-width:520px;margin:20px auto;padding:24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.35)">
+    <button onclick="closeSeedDetail()" style="position:absolute;top:14px;right:14px;border:none;background:rgba(192,96,106,0.1);color:var(--ink-muted);width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;font-weight:700">✕</button>
+    <div id="seed-detail-content"></div>
+  </div>
 </div>
 
 <!-- ══════ ENERGY ══════ -->
@@ -1423,7 +1526,7 @@ textarea { min-height: 80px; }
       <button onclick="togglePrayer()" id="prayer-toggle-btn" style="
         background:rgba(201,168,76,0.15);
         border:1px solid rgba(201,168,76,0.35);
-        color:var(--gold-light); font-family:'Nunito',sans-serif;
+        color:var(--gold-light); font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
         font-size:12px; font-weight:700;
         padding:8px 20px; border-radius:20px;
         cursor:pointer; letter-spacing:0.5px;
@@ -1470,19 +1573,17 @@ textarea { min-height: 80px; }
 <div id="page-team" class="page">
   <div class="date-bar">
     <div>
-      <div class="date-label">Đội Nhóm</div>
+      <div class="date-label">Năng Lượng Đội Nhóm</div>
       <div class="date-value" id="team-date"></div>
     </div>
     <div class="day-badge" id="team-group-badge">Nhóm</div>
   </div>
 
   <div class="note-quote">
-    "Một cây làm chẳng nên non — cùng rèn, cùng lớn, cùng vững gốc. Thống kê chung để nâng đỡ nhau, không so sánh hơn thua."
+    "Một cây làm chẳng nên non — cùng rèn, cùng lớn, cùng vững gốc."
   </div>
 
-
-
-  <!-- Team overview -->
+  <!-- Snapshot nhóm hôm nay -->
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat-box stat-gold">
       <div class="stat-num" id="team-count">0</div>
@@ -1490,30 +1591,43 @@ textarea { min-height: 80px; }
     </div>
     <div class="stat-box stat-jade">
       <div class="stat-num" id="team-active-today">0</div>
-      <div class="stat-label">Hoạt động hôm nay</div>
+      <div class="stat-label">Đã rèn hôm nay</div>
     </div>
     <div class="stat-box stat-sky">
       <div class="stat-num" id="team-avg-nn">–</div>
-      <div class="stat-label">TB NL nhóm</div>
+      <div class="stat-label">NL TB nhóm</div>
     </div>
   </div>
 
-  <!-- Member list (read-only stats) -->
-  <div id="member-list"></div>
+  <!-- Ngôi nhà yếu nhất nhóm -->
+  <div id="team-weakest-nn" class="section-card" style="display:none;border-left:4px solid var(--rose);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:12px 16px;margin-bottom:12px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--rose);margin-bottom:4px">Ngôi nhà cần chú ý nhất của nhóm hôm nay</div>
+    <div id="team-weakest-content" style="font-size:13.5px;font-weight:700;color:var(--ink)"></div>
+  </div>
 
-  <!-- Team NL chart -->
+  <!-- Bảng năng lượng thành viên -->
+  <div class="section-card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;font-weight:600;color:var(--ink)">🌿 Bảng Năng Lượng Hôm Nay</div>
+      <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">Mỗi ô màu = 1 ngôi nhà · Đậm = cao · Nhạt = đang cần chú ý</div>
+    </div>
+    <div id="team-energy-board" style="padding:12px 14px"></div>
+  </div>
+
+  <!-- Nghi thức hôm nay -->
   <div class="chart-card">
-    <div class="chart-title">📊 So Sánh NL 5 Ngôi Nhà – Hôm Nay</div>
+    <div class="chart-title">🔥 Nghi Thức Hôm Nay – Cả Nhóm</div>
+    <div id="team-ritual-bars" style="padding:4px 0"></div>
+  </div>
+
+  <!-- NL 5 Ngôi Nhà chart -->
+  <div class="chart-card">
+    <div class="chart-title">🏠 So Sánh NL 5 Ngôi Nhà – Hôm Nay</div>
     <div class="chart-wrap" style="height:200px"><canvas id="team-nn-chart"></canvas></div>
   </div>
 
-  <div class="chart-card">
-    <div class="chart-title">🔥 Nghi Thức – 7 Ngày Qua</div>
-    <div class="chart-wrap"><canvas id="team-streak-chart"></canvas></div>
-  </div>
-
   <div style="text-align:center;margin-top:8px">
-    <button class="btn-outline" onclick="refreshTeam()" style="font-size:12px">🔄 Làm mới thống kê nhóm</button>
+    <button class="btn-outline" onclick="refreshTeam()" style="font-size:12px">🔄 Làm mới</button>
     <button class="btn-outline" onclick="changeGroup()" style="font-size:12px;margin-left:8px;color:var(--rose);border-color:var(--rose)">↩ Đổi nhóm</button>
   </div>
 </div>
@@ -1705,7 +1819,7 @@ textarea { min-height: 80px; }
       <div class="section-icon" style="background:rgba(201,168,76,0.15);font-size:18px">🔍</div>
       <div>
         Khám Nhà – Đo Thực Trạng Khách Quan
-        <div style="font-size:12px;font-weight:400;color:var(--ink-muted);font-family:'Nunito',sans-serif;margin-top:2px">BẠN CÓ ĐANG AN VUI, HẠNH PHÚC THẬT SỰ? NÀO CÙNG KHÁM NHÀ.</div>
+        <div style="font-size:12px;font-weight:400;color:var(--ink-muted);font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;margin-top:2px">BẠN CÓ ĐANG AN VUI, HẠNH PHÚC THẬT SỰ? NÀO CÙNG KHÁM NHÀ.</div>
       </div>
     </div>
     <div style="font-size:12.5px;color:var(--ink-muted);margin-bottom:16px;line-height:1.7;font-style:italic">
@@ -1889,7 +2003,7 @@ textarea { min-height: 80px; }
   </div>
 
   <button onclick="showPage('milestones',null);document.querySelectorAll('.nav-tab').forEach((t,i)=>{if(i===9)t.classList.add('active');else t.classList.remove('active')})"
-    style="width:100%;padding:10px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:10px;color:var(--gold-dark);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:16px;font-family:'Nunito',sans-serif">
+    style="width:100%;padding:10px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:10px;color:var(--gold-dark);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:16px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
     ← Quay lại danh sách mốc
   </button>
 
@@ -2021,67 +2135,143 @@ textarea { min-height: 80px; }
     "Trưởng nhóm đồng hành — nhìn thấy hành trình của từng thành viên để hỗ trợ đúng lúc, đúng chỗ."
   </div>
 
-  <!-- Thống kê nhóm -->
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
-    <div class="stat-box stat-gold">
-      <div class="stat-num" id="leader-total-members">0</div>
-      <div class="stat-label">Thành viên</div>
-    </div>
-    <div class="stat-box stat-jade">
-      <div class="stat-num" id="leader-active-today">0</div>
-      <div class="stat-label">Hoạt động hôm nay</div>
-    </div>
-    <div class="stat-box stat-sky">
-      <div class="stat-num" id="leader-avg-streak">0</div>
-      <div class="stat-label">Streak TB nhóm</div>
-    </div>
+  <!-- Tab navigation -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">
+    <button id="ltab-dashboard" onclick="switchLeaderTab('dashboard')"
+      style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;
+      color:var(--gold-dark);border-bottom:3px solid var(--gold);cursor:pointer;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      📊 Dashboard
+    </button>
+    <button id="ltab-members" onclick="switchLeaderTab('members')"
+      style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;
+      color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      📋 Danh Sách
+    </button>
+    <button id="ltab-pending" onclick="switchLeaderTab('pending')"
+      style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;
+      color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      ⏳ Duyệt Mới
+      <span id="leader-pending-badge" style="display:none;background:var(--rose);color:white;font-size:10px;font-weight:800;padding:1px 7px;border-radius:10px;margin-left:4px">0</span>
+    </button>
   </div>
 
-  <!-- ── MỤC 1: Duyệt thành viên mới ── -->
-  <div class="section-card" style="border:2px solid rgba(74,127,168,0.3);margin-bottom:16px">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(74,127,168,0.12)">👤</div>
-      <div style="flex:1">
-        Duyệt Thành Viên Mới
-        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Thành viên đăng ký nhóm <span id="leader-pending-group"></span> đang chờ duyệt</div>
+  <!-- ══ TAB: DASHBOARD ══ -->
+  <div id="leader-tab-dashboard">
+
+    <!-- A: Snapshot -->
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+      <div class="stat-box stat-gold">
+        <div class="stat-num" id="leader-total-members">0</div>
+        <div class="stat-label">Thành viên</div>
       </div>
-      <span id="leader-pending-badge" style="display:none;background:var(--rose);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:12px;margin-left:8px">0</span>
+      <div class="stat-box stat-jade">
+        <div class="stat-num" id="leader-active-today">0</div>
+        <div class="stat-label">Ghi hôm nay ✓</div>
+      </div>
+      <div class="stat-box" style="background:rgba(192,96,106,0.08);border:1px solid rgba(192,96,106,0.2)">
+        <div class="stat-num" id="leader-inactive-today" style="color:var(--rose)">0</div>
+        <div class="stat-label">Chưa ghi</div>
+      </div>
+      <div class="stat-box stat-sky">
+        <div class="stat-num" id="leader-avg-nl">–</div>
+        <div class="stat-label">NL TB nhóm</div>
+      </div>
     </div>
-    <div id="leader-member-requests-list">
-      <div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:10px 0">⏳ Đang tải...</div>
+
+    <!-- Ngôi nhà yếu nhất -->
+    <div id="leader-weakest-nn" style="display:none;border-left:4px solid var(--rose);border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:rgba(192,96,106,0.06);padding:12px 16px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--rose);margin-bottom:4px">Ngôi nhà cần chú ý nhất của nhóm hôm nay</div>
+      <div id="leader-weakest-content" style="font-size:14px;font-weight:700;color:var(--ink)"></div>
     </div>
-    <button class="btn-outline" onclick="loadLeaderMemberRequests()" style="width:100%;margin-top:8px;font-size:12px">🔄 Làm mới</button>
+
+    <!-- B: Cảnh báo tự động -->
+    <div class="section-card" style="border:1.5px solid rgba(192,96,106,0.25);margin-bottom:14px">
+      <div class="section-title" style="margin-bottom:10px">
+        <div class="section-icon" style="background:rgba(192,96,106,0.1)">🔔</div>
+        Cần Đồng Hành Ngay
+        <span id="leader-alerts-badge" style="display:none;background:var(--rose);color:white;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:auto">0</span>
+      </div>
+      <div id="leader-alerts-list">
+        <div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">Đang phân tích...</div>
+      </div>
+    </div>
+
+    <!-- C: Bảng thành viên trực quan -->
+    <div class="section-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+      <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;font-weight:600;color:var(--ink);flex:1">👥 Bảng Quan Sát Năng Lượng</div>
+        <button class="btn-outline" onclick="loadLeaderData()" style="font-size:11px;padding:5px 12px">🔄</button>
+      </div>
+      <!-- Header cột -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted)">
+        <span style="width:36px"></span>
+        <span style="flex:1">Thành viên</span>
+        <span style="width:100px;text-align:center">NL 5 Ngôi Nhà</span>
+        <span style="width:44px;text-align:center">Streak</span>
+        <span style="width:48px;text-align:right">Tổng</span>
+      </div>
+      <div id="leader-dashboard-member-list" style="padding:6px 14px"></div>
+    </div>
+
+    <!-- D: Chi tiết thành viên (inline expand) -->
+    <div id="leader-detail-panel" style="display:none;border:2px solid var(--gold);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;background:rgba(201,168,76,0.04)">
+      <div id="leader-detail-content"></div>
+    </div>
+
+    <!-- E: Xu hướng NL nhóm -->
+    <div class="chart-card">
+      <div class="chart-title">📊 So Sánh NL 5 Ngôi Nhà – Hôm Nay</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="leader-nn-chart"></canvas></div>
+    </div>
+
   </div>
 
-  <!-- ── MỤC 2: Danh sách thành viên đã đăng ký ── -->
-  <div class="section-card" style="padding:0;overflow:hidden;margin-bottom:16px">
-    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border)">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--ink);margin-bottom:2px">📋 Danh Sách Thành Viên</div>
-      <div style="font-size:11.5px;color:var(--ink-muted)">Click vào thành viên để xem chi tiết nhật ký rèn luyện</div>
+  <!-- ══ TAB: DANH SÁCH ══ -->
+  <div id="leader-tab-members" style="display:none">
+    <div class="section-card" style="padding:0;overflow:hidden">
+      <div style="padding:14px 16px 12px;border-bottom:1px solid var(--border)">
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;font-weight:600;color:var(--ink);margin-bottom:2px">📋 Danh Sách Thành Viên</div>
+        <div style="font-size:11.5px;color:var(--ink-muted)">Click vào thành viên để xem chi tiết nhật ký rèn luyện</div>
+      </div>
+      <div style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
+        <input type="text" id="leader-search" placeholder="🔍 Tìm thành viên..."
+          oninput="renderLeaderMemberList()"
+          style="flex:1;background:rgba(245,237,224,0.5);border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;outline:none;">
+        <select id="leader-filter" onchange="renderLeaderMemberList()"
+          style="background:rgba(245,237,224,0.5);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;color:var(--ink-muted);outline:none;cursor:pointer">
+          <option value="all">Tất cả</option>
+          <option value="active">Hôm nay ✓</option>
+          <option value="inactive">Chưa hoạt động</option>
+        </select>
+      </div>
+      <div id="leader-member-list" style="padding:12px 16px"></div>
     </div>
-
-    <!-- Lọc & tìm -->
-    <div style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
-      <input type="text" id="leader-search" placeholder="🔍 Tìm thành viên..."
-        oninput="renderLeaderMemberList()"
-        style="flex:1;background:rgba(245,237,224,0.5);border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;outline:none;">
-      <select id="leader-filter" onchange="renderLeaderMemberList()"
-        style="background:rgba(245,237,224,0.5);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;color:var(--ink-muted);outline:none;cursor:pointer">
-        <option value="all">Tất cả</option>
-        <option value="active">Hôm nay ✓</option>
-        <option value="inactive">Chưa hoạt động</option>
-      </select>
+    <div style="text-align:center;margin-top:8px">
+      <button class="btn-outline" onclick="loadLeaderData()" style="font-size:12px">🔄 Làm mới danh sách</button>
     </div>
-
-    <!-- Danh sách -->
-    <div id="leader-member-list" style="padding:12px 16px"></div>
   </div>
 
-  <div style="text-align:center;margin-bottom:8px">
-    <button class="btn-outline" onclick="loadLeaderData()" style="font-size:12px">🔄 Làm mới danh sách</button>
+  <!-- ══ TAB: DUYỆT MỚI ══ -->
+  <div id="leader-tab-pending" style="display:none">
+    <div class="section-card" style="border:2px solid rgba(74,127,168,0.3)">
+      <div class="section-title">
+        <div class="section-icon" style="background:rgba(74,127,168,0.12)">👤</div>
+        <div style="flex:1">
+          Duyệt Thành Viên Mới
+          <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Thành viên đăng ký nhóm <span id="leader-pending-group"></span> đang chờ duyệt</div>
+        </div>
+      </div>
+      <div id="leader-member-requests-list">
+        <div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:10px 0">⏳ Đang tải...</div>
+      </div>
+      <button class="btn-outline" onclick="loadLeaderMemberRequests()" style="width:100%;margin-top:8px;font-size:12px">🔄 Làm mới</button>
+    </div>
   </div>
 
-  <!-- Modal xem chi tiết thành viên -->
+  <!-- Modal xem chi tiết thành viên (từ tab Danh Sách) -->
   <div id="leader-member-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);overflow-y:auto;padding:16px">
     <div style="background:var(--card);border-radius:20px;max-width:700px;margin:0 auto;padding:24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.35)">
       <button onclick="closeLeaderModal()" style="position:absolute;top:14px;right:14px;border:none;background:rgba(201,168,76,0.12);color:var(--ink-muted);width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;font-weight:700">✕</button>
@@ -2131,19 +2321,19 @@ textarea { min-height: 80px; }
     <!-- Tabs -->
     <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0">
       <button class="admin-tab active" id="atab-pending" onclick="switchAdminTab('pending')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--rose);border-bottom:3px solid var(--rose);cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--rose);border-bottom:3px solid var(--rose);cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         ⏳ Chờ Duyệt <span id="pending-count-badge" style="background:var(--rose);color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px">0</span>
       </button>
       <button class="admin-tab" id="atab-leaders" onclick="switchAdminTab('leaders')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         👑 Trưởng Nhóm
       </button>
       <button class="admin-tab" id="atab-groups" onclick="switchAdminTab('groups')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         👥 Tất Cả Nhóm
       </button>
       <button class="admin-tab" id="atab-settings" onclick="switchAdminTab('settings')"
-        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',sans-serif">
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         ⚙️ Cài Đặt
       </button>
     </div>
@@ -2579,7 +2769,7 @@ function renderWheelQuestions(containerId, prefix, savedAnswers={}) {
             border-radius:8px;background:${selected===lv.val?lv.color+'22':'white'};
             color:${selected===lv.val?lv.color:'var(--ink-muted)'};
             font-size:10px;font-weight:${selected===lv.val?'800':'600'};cursor:pointer;
-            font-family:'Nunito',sans-serif;transition:all 0.15s;line-height:1.3;text-align:center">
+            font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;transition:all 0.15s;line-height:1.3;text-align:center">
             ${lv.label}
           </button>`).join('')}
       </div>
@@ -3263,6 +3453,31 @@ function saveToday() {
   showToast('💾 Đã lưu nhật ký hôm nay!');
   // Sync to Firebase for leader view
   setTimeout(syncJournalToFirebase, 300);
+}
+
+// ── Thêm nhanh hạt giống đỏ từ trang Hôm Nay ────────────────────
+function quickAddFromSeedRed() {
+  const text = (document.getElementById('seed-red').value || '').trim();
+  if (!text) { showToast('⚠️ Hãy ghi hạt giống đỏ vào ô bên trên trước!'); return; }
+  // Lấy phần tên ngắn gọn: tối đa 50 ký tự đầu của dòng đầu tiên
+  const firstLine = text.split('\n')[0].replace(/^(Tình huống.*?→|Hạt giống đỏ là:?)/i,'').trim();
+  const name = firstLine.length > 60 ? firstLine.substring(0, 60) + '…' : firstLine;
+  // Mở trang seeds và prefill form
+  showPage('seeds', null);
+  // Bỏ active tab hiện tại, active tab seeds
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.remove('active');
+    if (t.textContent.includes('Hạt Giống')) t.classList.add('active');
+  });
+  // Prefill form
+  setTimeout(() => {
+    const nameEl = document.getElementById('ns-name');
+    const sitEl  = document.getElementById('ns-situation');
+    if (nameEl) nameEl.value = name;
+    if (sitEl)  sitEl.value  = text;
+    nameEl && nameEl.focus();
+    showToast('📌 Đã chuyển sang tab Hạt Giống — kiểm tra và lưu nhé!');
+  }, 150);
 }
 function saveEnergy() {
   const e=getTodayEntry();
@@ -4038,119 +4253,144 @@ async function refreshTeam() {
 function renderTeam() {
   if (!userInfo) return;
   const k = todayKey();
-  const list = document.getElementById('member-list');
-  list.innerHTML = '<div class="empty-state"><div class="empty-icon" style="font-size:28px">⏳</div><p>Đang kết nối nhóm...</p></div>';
+  const boardEl = document.getElementById('team-energy-board');
+  const ritualEl = document.getElementById('team-ritual-bars');
+  if (boardEl) boardEl.innerHTML = '<div class="empty-state"><div class="empty-icon" style="font-size:28px">⏳</div><p>Đang kết nối nhóm...</p></div>';
 
   loadFirebase().then(async function(database) {
     if (!database) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase.<br>Kiểm tra mạng và thử lại.</p></div>';
-      renderTeamCharts({});
+      if (boardEl) boardEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được.<br>Kiểm tra mạng và thử lại.</p></div>';
       return;
     }
     db = database;
-
     try {
-      // Load song song: /members (đủ thành viên) + /groups (stats hôm nay)
       const [membersSnap, groupsSnap] = await Promise.all([
         db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
         db.ref('groups/' + userInfo.groupCode).once('value')
       ]);
-
       const membersData = membersSnap.val() || {};
       const allStats    = groupsSnap.val()  || {};
 
-      // Merge: lấy danh sách từ /members (nguồn đầy đủ), stats từ /groups/
       const allMembers = {};
       Object.values(membersData).forEach(function(m) {
-        const mid = m.memberId;
-        if (!mid) return;
+        const mid = m.memberId; if (!mid) return;
         const stat = allStats[mid] || {};
-        allMembers[mid] = {
-          name:    m.name || stat.name || '–',
-          date:    stat.date || null,
-          rituals: stat.rituals || 0,
-          nn:      stat.nn || [5,5,5,5,5],
-        };
+        allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5] };
       });
-      // Thêm thành viên có trong /groups/ nhưng chưa có trong /members/ (edge case)
       Object.entries(allStats).forEach(function([mid, stat]) {
-        if (!allMembers[mid]) {
-          allMembers[mid] = { name: stat.name||'–', date: stat.date||null, rituals: stat.rituals||0, nn: stat.nn||[5,5,5,5,5] };
-        }
+        if (!allMembers[mid]) allMembers[mid] = { name:stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5] };
       });
 
-      const entries = Object.entries(allMembers);
+      const entries      = Object.entries(allMembers);
       const todayEntries = entries.filter(function(e){ return e[1].date === k; });
 
-      document.getElementById('team-count').textContent = entries.length;
-      document.getElementById('team-active-today').textContent = todayEntries.length;
-      if (todayEntries.length) {
+      const countEl  = document.getElementById('team-count');
+      const activeEl = document.getElementById('team-active-today');
+      const avgEl    = document.getElementById('team-avg-nn');
+      if (countEl)  countEl.textContent  = entries.length;
+      if (activeEl) activeEl.textContent = todayEntries.length;
+      if (todayEntries.length && avgEl) {
         const avg = todayEntries.map(function(e){ return (e[1].nn||[5,5,5,5,5]).reduce(function(a,b){return a+b;},0)/5; });
-        document.getElementById('team-avg-nn').textContent = (avg.reduce(function(a,b){return a+b;},0)/avg.length).toFixed(1);
+        avgEl.textContent = (avg.reduce(function(a,b){return a+b;},0)/avg.length).toFixed(1);
+      } else if (avgEl) { avgEl.textContent = '–'; }
+
+      // Ngôi nhà yếu nhất
+      const weakestNNEl  = document.getElementById('team-weakest-nn');
+      const weakestContEl = document.getElementById('team-weakest-content');
+      if (todayEntries.length >= 2 && weakestNNEl && weakestContEl) {
+        const nnAvgs = NN_LIST.map(function(nn, j) {
+          const vals = todayEntries.map(function(e){ return (e[1].nn||[5,5,5,5,5])[j]||5; });
+          return { nn, avg: vals.reduce(function(a,b){return a+b;},0)/vals.length };
+        });
+        nnAvgs.sort(function(a,b){ return a.avg-b.avg; });
+        const w = nnAvgs[0];
+        if (w.avg < 7) {
+          weakestNNEl.style.display = 'block';
+          weakestContEl.textContent = w.nn.icon + ' ' + w.nn.label + ' — TB ' + w.avg.toFixed(1) + '/10';
+        } else { weakestNNEl.style.display='none'; }
+      } else if (weakestNNEl) { weakestNNEl.style.display='none'; }
+
+      // Bảng năng lượng cộng đồng
+      if (!entries.length) {
+        if (boardEl) boardEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm <strong>' + userInfo.groupCode + '</strong> chưa có thành viên nào.</p></div>';
       } else {
-        document.getElementById('team-avg-nn').textContent = '–';
+        const sorted = entries.slice().sort(function(a,b){
+          const aT=a[1].date===k?1:0, bT=b[1].date===k?1:0;
+          if (bT!==aT) return bT-aT;
+          const aA=(a[1].nn||[5,5,5,5,5]).reduce(function(s,v){return s+v;},0)/5;
+          const bA=(b[1].nn||[5,5,5,5,5]).reduce(function(s,v){return s+v;},0)/5;
+          return bA-aA;
+        });
+        if (boardEl) boardEl.innerHTML = sorted.map(function(entry, i) {
+          const id=entry[0], m=entry[1];
+          const isMe    = id === userInfo.memberId;
+          const isToday = m.date === k;
+          const nn      = m.nn || [5,5,5,5,5];
+          const avgNN   = (nn.reduce(function(a,b){return a+b;},0)/5);
+          const color   = MEMBER_COLORS[i % MEMBER_COLORS.length];
+          const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
+          const rituals  = m.rituals || 0;
+          const ritualPct = Math.round(rituals/9*100);
+          const statusBg    = avgNN>=7?'rgba(74,140,111,0.12)':avgNN>=5?'rgba(201,168,76,0.1)':'rgba(192,96,106,0.1)';
+          const statusColor = avgNN>=7?'var(--jade)':avgNN>=5?'var(--gold-dark)':'var(--rose)';
+          const statusLabel = avgNN>=7?'🟢 Xanh':avgNN>=5?'🟡 Vàng':'🔴 Đỏ';
+          const nnDots = NN_LIST.map(function(nnItem, j) {
+            const val = nn[j]||5;
+            const opacity = (val/10*0.65+0.35).toFixed(2);
+            return '<div title="'+nnItem.label+': '+val+'/10" style="flex:1;height:22px;border-radius:4px;background:'+nnItem.color+';opacity:'+opacity+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:white">'+val+'</div>';
+          }).join('');
+          return '<div style="padding:10px 0;border-bottom:1px solid var(--border)'+(isMe?';background:rgba(91,138,110,0.04)':'')+'">'+
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'+
+              '<div style="width:36px;height:36px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0">'+(isMe?'👤':initials)+'</div>'+
+              '<div style="flex:1;min-width:0">'+
+                '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+                  '<span style="font-size:13.5px;font-weight:800;color:var(--ink)">'+m.name+(isMe?' <span style="font-size:10px;color:var(--jade)">(Tôi)</span>':'')+'</span>'+
+                  (isToday?'<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">Hôm nay ✓</span>':'<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:700;padding:1px 7px;border-radius:6px">'+(m.date||'Chưa có')+'</span>')+
+                '</div>'+
+                '<div style="font-size:11px;color:var(--ink-muted);margin-top:2px">'+rituals+'/9 nghi thức · NL TB: '+avgNN.toFixed(1)+'/10</div>'+
+              '</div>'+
+              '<span style="background:'+statusBg+';color:'+statusColor+';font-size:11px;font-weight:800;padding:4px 10px;border-radius:10px;white-space:nowrap">'+statusLabel+'</span>'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
+              '<span style="font-size:10px;color:var(--ink-muted);width:60px">Nghi thức</span>'+
+              '<div style="flex:1;height:5px;background:rgba(201,168,76,0.12);border-radius:3px;overflow:hidden">'+
+                '<div style="height:100%;width:'+ritualPct+'%;background:'+color+';border-radius:3px;transition:width 0.4s"></div>'+
+              '</div>'+
+              '<span style="font-size:10.5px;font-weight:700;color:var(--ink-muted);width:30px;text-align:right">'+rituals+'/9</span>'+
+            '</div>'+
+            '<div style="display:flex;gap:3px">'+nnDots+'</div>'+
+          '</div>';
+        }).join('');
+
+        // Thanh nghi thức nhóm
+        if (ritualEl) {
+          ritualEl.innerHTML = sorted.filter(function(e){return e[1].date===k;}).map(function(entry,i){
+            const m=entry[1], r=m.rituals||0, pct=Math.round(r/9*100);
+            const firstName=(m.name||'?').trim().split(' ').pop();
+            const c=MEMBER_COLORS[i%MEMBER_COLORS.length];
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'+
+              '<span style="font-size:12px;font-weight:700;color:var(--ink);width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+firstName+'</span>'+
+              '<div style="flex:1;height:6px;background:rgba(201,168,76,0.12);border-radius:4px;overflow:hidden">'+
+                '<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:4px;transition:width 0.5s"></div>'+
+              '</div>'+
+              '<span style="font-size:11px;font-weight:700;color:var(--ink-muted);width:28px;text-align:right">'+r+'/9</span>'+
+            '</div>';
+          }).join('') || '<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:10px">Chưa có ai ghi nghi thức hôm nay.</div>';
+        }
       }
 
-      if (!entries.length) {
-        list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm <strong>' + userInfo.groupCode + '</strong> chưa có thành viên nào.</p></div>';
-      } else {
-        const sorted = entries.slice().sort(function(a, b) {
-          const aT = a[1].date===k?1:0, bT = b[1].date===k?1:0;
-          if (bT!==aT) return bT-aT;
-          return (a[1].name||'').localeCompare(b[1].name||'', 'vi');
-        });
-        list.innerHTML = sorted.map(function(entry, i) {
-          const id = entry[0], m = entry[1];
-          const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-          const isMe = id === userInfo.memberId;
-          const isToday = m.date === k;
-          const nn = m.nn || [5,5,5,5,5];
-          const avgNN = (nn.reduce(function(a,b){return a+b;},0)/5).toFixed(1);
-          const pct = Math.round((m.rituals||0)/9*100);
-          const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
-          const freshBadge = isToday
-            ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">Hôm nay ✓</span>'
-            : '<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">' + (m.date||'Chưa có stats') + '</span>';
-          const nnBadges = NN_LIST.map(function(nn_item, j) {
-            const val = nn[j]||5;
-            return '<span class="nn-mini-badge" title="'+nn_item.label+': '+val+'/10" style="background:'+nn_item.color+'22;color:'+nn_item.color+';cursor:help">'+nn_item.icon+' '+val+'</span>';
-          }).join('');
-          return '<div class="member-row" style="'+(isMe?'border:2px solid var(--nn1);':'')+'">'            + '<div class="member-avatar" style="background:'+color+'">'+(isMe?'👤':initials)+'</div>'            + '<div style="flex:1;min-width:0">'            + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">'            + '<div class="member-name-txt">'+m.name+(isMe?' (Tôi)':'')+'</div>'            + freshBadge + '</div>'            + '<div class="member-meta">✅ '+(m.rituals||0)+'/9 nghi thức · 🏠 TB NL: '+avgNN+'/10</div>'            + '<div style="background:rgba(201,168,76,0.1);border-radius:3px;height:5px;margin-top:5px">'            + '<div style="height:100%;border-radius:3px;width:'+pct+'%;background:'+color+';transition:width 0.4s"></div></div>'            + '<div class="nn-mini-badges" style="margin-top:6px">'+nnBadges+'</div>'            + '</div></div>';
-        }).join('');
-      }
       renderTeamCharts(allStats);
 
-      // Realtime listener: cập nhật stats khi thành viên sync
       if (teamListener) { teamListener.off(); teamListener = null; }
       teamListener = db.ref('groups/' + userInfo.groupCode);
-      teamListener.on('value', function(snap) {
-        renderTeamCharts(snap.val() || {});
-        // Cập nhật badge active
-        const todayNow = todayKey();
-        const statsNow = snap.val() || {};
-        const activeNow = Object.values(allMembers).filter(function(m) { return m.date === todayNow; }).length;
-        // Cập nhật date/rituals/nn từ stats mới
-        Object.entries(statsNow).forEach(function([mid, stat]) {
-          if (allMembers[mid]) {
-            allMembers[mid].date = stat.date;
-            allMembers[mid].rituals = stat.rituals || 0;
-            allMembers[mid].nn = stat.nn || [5,5,5,5,5];
-          }
-        });
-        const activeEl = document.getElementById('team-active-today');
-        if (activeEl) {
-          const activeCnt = Object.values(allMembers).filter(function(m){ return m.date === todayNow; }).length;
-          activeEl.textContent = activeCnt;
-        }
-      });
+      teamListener.on('value', function(snap) { renderTeamCharts(snap.val() || {}); });
 
     } catch(err) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi kết nối Firebase.</p></div>';
+      if (boardEl) boardEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi kết nối Firebase.</p></div>';
       console.error('renderTeam error:', err);
     }
   });
 }
-
 
 function renderTeamCharts(allStats={}) {
   const k = todayKey();
@@ -4536,7 +4776,7 @@ function openHistoryDetail(k, externalEntry, memberName) {
       ${e.wishFeeling?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(201,168,76,0.15)"><div style="font-size:11px;font-weight:700;color:var(--gold-light);margin-bottom:4px">💛 CẢM NHẬN</div><div style="font-size:13px;color:rgba(253,248,240,0.8);line-height:1.7">${e.wishFeeling}</div></div>`:''}
     </div>` : ''}
 
-    <button onclick="closeHistoryModal()" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-top:4px">
+    <button onclick="closeHistoryModal()" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;border-radius:12px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-top:4px">
       ← Đóng
     </button>
   `;
@@ -5157,6 +5397,12 @@ let r3mData = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
 // ══════════════════════════════════════
 const MS_KEY = 'nk5nn-milestones';
 let msData = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
+
+// ── Hạt Giống Đỏ ──────────────────────────────────────────────────────────
+const SEEDS_KEY = 'nk5nn-seeds';
+let seedsData = JSON.parse(localStorage.getItem(SEEDS_KEY) || '[]');
+// seedsData = [{ id, name, nn, situation, commit, createdAt, status:'active'|'done',
+//               checkins:[{date,appeared,note}], doneAt }]
 // msData = [{ id, name, note, createdAt, khamNha, wheelAnswers, nn{}, rw_{}, finScore, energy, assets, debt, income, moneyMind, seedsChanged, proud, commit, savedAt }]
 let currentMsId = null;
 
@@ -5213,11 +5459,11 @@ function renderMilestoneList() {
       </div>
       <div style="margin-top:10px;display:flex;gap:6px">
         <button onclick="event.stopPropagation();openMilestoneDetail('${ms.id}')"
-          style="flex:1;padding:7px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+          style="flex:1;padding:7px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
           ✏️ Tiếp tục đánh giá
         </button>
         <button onclick="event.stopPropagation();deleteMilestone('${ms.id}')"
-          style="padding:7px 12px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+          style="padding:7px 12px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
           🗑️
         </button>
       </div>
@@ -5849,7 +6095,7 @@ function renderTasksList() {
             rows="2"
             oninput="saveTaskSection('main',${i},this.value);autoResizeTextarea(this)"
             style="width:100%;border:none;background:transparent;
-              font-family:'Nunito',sans-serif;font-size:13px;
+              font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:13px;
               color:${t.done?'var(--ink-muted)':'var(--ink)'};
               text-decoration:${t.done?'line-through':'none'};
               resize:none;outline:none;padding:0;min-height:40px;
@@ -5877,7 +6123,7 @@ function renderTasksList() {
             rows="1"
             oninput="saveTaskSection('extra',${i},this.value);autoResizeTextarea(this)"
             style="width:100%;border:none;background:transparent;
-              font-family:'Nunito',sans-serif;font-size:13px;
+              font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:13px;
               color:${t.done?'var(--ink-muted)':'var(--ink)'};
               text-decoration:${t.done?'line-through':'none'};
               resize:none;outline:none;padding:0;min-height:22px;
@@ -5913,7 +6159,7 @@ function renderSubTaskList(section, containerId, placeholder) {
       <input type="text" id="task-${section}-${i}" value="${t.text}"
         placeholder="${placeholder}"
         onchange="saveTaskSection('${section}',${i},this.value)"
-        style="flex:1;border:none;background:transparent;font-family:'Nunito',sans-serif;
+        style="flex:1;border:none;background:transparent;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
           font-size:12.5px;color:${t.done?'var(--ink-muted)':'var(--ink-soft)'};
           text-decoration:${t.done?'line-through':'none'};
           outline:none;padding:0">
@@ -6581,8 +6827,354 @@ function initLeaderPage() {
   document.getElementById('leader-group-name').textContent = userInfo.groupCode;
   const pgEl = document.getElementById('leader-pending-group');
   if (pgEl) pgEl.textContent = userInfo.groupCode;
+  switchLeaderTab('dashboard');
   loadLeaderMemberRequests();
   loadLeaderData();
+}
+
+// ── Tab switcher cho Leader ──────────────────────────────────────
+function switchLeaderTab(tab) {
+  ['dashboard','members','pending'].forEach(t => {
+    const panelEl = document.getElementById('leader-tab-'+t);
+    const btnEl   = document.getElementById('ltab-'+t);
+    if (panelEl) panelEl.style.display = (t===tab)?'block':'none';
+    if (btnEl) {
+      btnEl.style.color        = (t===tab)?'var(--gold-dark)':'var(--ink-muted)';
+      btnEl.style.borderBottom = (t===tab)?'3px solid var(--gold)':'3px solid transparent';
+      btnEl.style.fontWeight   = (t===tab)?'800':'700';
+    }
+  });
+}
+
+// ── Render Leader Dashboard (sau khi loadLeaderData xong) ─────────
+function renderLeaderDashboard() {
+  const todayK = todayKey();
+  const members = Object.entries(leaderAllData);
+  const activeToday = members.filter(([,m]) => m.stats?.date === todayK);
+  const inactiveToday = members.filter(([,m]) => m.stats?.date !== todayK);
+
+  // Cập nhật stats
+  const totalEl    = document.getElementById('leader-total-members');
+  const activeEl   = document.getElementById('leader-active-today');
+  const inactiveEl = document.getElementById('leader-inactive-today');
+  const avgNlEl    = document.getElementById('leader-avg-nl');
+  if (totalEl)    totalEl.textContent    = members.length;
+  if (activeEl)   activeEl.textContent   = activeToday.length;
+  if (inactiveEl) inactiveEl.textContent = inactiveToday.length;
+
+  // NL trung bình nhóm
+  if (activeToday.length) {
+    const avgArr = activeToday.map(([,m]) => {
+      const nn = m.stats?.nn || [5,5,5,5,5];
+      return nn.reduce((a,b)=>a+b,0)/5;
+    });
+    const avg = avgArr.reduce((a,b)=>a+b,0)/avgArr.length;
+    if (avgNlEl) avgNlEl.textContent = avg.toFixed(1);
+  } else {
+    if (avgNlEl) avgNlEl.textContent = '–';
+  }
+
+  // Tìm ngôi nhà yếu nhất
+  if (activeToday.length >= 2) {
+    const nnAvgs = NN_LIST.map((nn, j) => {
+      const vals = activeToday.map(([,m]) => (m.stats?.nn||[5,5,5,5,5])[j]||5);
+      return { nn, avg: vals.reduce((a,b)=>a+b,0)/vals.length };
+    });
+    nnAvgs.sort((a,b)=>a.avg-b.avg);
+    const weakest = nnAvgs[0];
+    const weakestEl   = document.getElementById('leader-weakest-nn');
+    const weakContEl  = document.getElementById('leader-weakest-content');
+    if (weakestEl && weakContEl && weakest.avg < 7) {
+      weakestEl.style.display = 'block';
+      weakContEl.textContent  = weakest.nn.icon + ' ' + weakest.nn.label + ' — TB ' + weakest.avg.toFixed(1) + '/10 · ' +
+        activeToday.filter(([,m])=>(m.stats?.nn||[5,5,5,5,5])[NN_LIST.indexOf(weakest.nn)]<6).length +
+        '/' + activeToday.length + ' thành viên dưới 6';
+    } else if (weakestEl) {
+      weakestEl.style.display = 'none';
+    }
+  }
+
+  // B: Cảnh báo tự động
+  renderLeaderAlerts(members, todayK);
+
+  // C: Bảng thành viên
+  renderLeaderDashboardList(members, todayK);
+
+  // E: Chart NL 5 Ngôi Nhà
+  destroyChart('leader-nn-chart');
+  const ctx = document.getElementById('leader-nn-chart');
+  if (ctx && activeToday.length) {
+    chartInstances['leader-nn-chart'] = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: NN_LIST.map(n=>n.icon+' '+n.label.split('·')[0].trim()),
+        datasets: activeToday.slice(0,6).map(([id,m],i)=>({
+          label: m.name.split(' ').pop()+(id===userInfo.memberId?' (Tôi)':''),
+          data: m.stats?.nn||[5,5,5,5,5],
+          backgroundColor: MEMBER_COLORS[i%6]+'99',
+          borderColor: MEMBER_COLORS[i%6],
+          borderWidth:1.5, borderRadius:5,
+        }))
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{y:{min:0,max:10,ticks:{stepSize:2,font:{size:10}}},x:{grid:{display:false},ticks:{font:{size:10}}}},
+        plugins:{legend:{position:'top',labels:{boxWidth:8,padding:6,font:{size:10}}}}}
+    });
+  }
+}
+
+// ── Cảnh báo tự động ─────────────────────────────────────────────
+function renderLeaderAlerts(members, todayK) {
+  const alertsEl = document.getElementById('leader-alerts-list');
+  const badgeEl  = document.getElementById('leader-alerts-badge');
+  if (!alertsEl) return;
+
+  const alerts = [];
+
+  members.forEach(([mid, m]) => {
+    const entries = m.entries || {};
+    const keys    = Object.keys(entries).sort().reverse();
+
+    // Kiểm tra bỏ nghi thức nhiều ngày liên tiếp
+    let skipDays = 0;
+    for (let i = 0; i < Math.min(keys.length, 7); i++) {
+      const e = entries[keys[i]];
+      const ritualDone = Object.values(e?.rituals||{}).some(Boolean);
+      if (!ritualDone) skipDays++;
+      else break;
+    }
+    // Chưa ghi hôm nay
+    const noToday = m.stats?.date !== todayK;
+
+    // NL giảm mạnh: so sánh ngôi nhà hôm nay vs 3 ngày trước
+    let nlDrop = null;
+    if (m.stats?.date === todayK && keys.length >= 2) {
+      const todayNN  = (m.stats?.nn||[5,5,5,5,5]).reduce((a,b)=>a+b,0)/5;
+      // Lấy entry trước nhất khác hôm nay
+      const prevKey  = keys.find(k => k !== todayK);
+      if (prevKey) {
+        const prevEntry = entries[prevKey];
+        const prevNN    = NN_LIST.map((nn,j) => prevEntry?.nnEnergy?.[nn.key] || 5);
+        const prevAvg   = prevNN.reduce((a,b)=>a+b,0)/5;
+        if (prevAvg - todayNN >= 2) nlDrop = { from: prevAvg.toFixed(1), to: todayNN.toFixed(1) };
+      }
+    }
+
+    if (skipDays >= 3) {
+      alerts.push({ level:'red', name:m.name, msg:`Bỏ nghi thức ${skipDays} ngày liên tiếp${noToday?' · Chưa ghi hôm nay':''}` });
+    } else if (noToday && keys.length > 0) {
+      const lastDate = m.stats?.date || keys[0];
+      alerts.push({ level:'amber', name:m.name, msg:`Chưa ghi hôm nay · Lần cuối: ${lastDate}` });
+    } else if (nlDrop) {
+      alerts.push({ level:'amber', name:m.name, msg:`NL giảm từ ${nlDrop.from} → ${nlDrop.to} so với lần trước` });
+    }
+  });
+
+  if (!alerts.length) {
+    alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--jade);font-weight:700;padding:6px 0;text-align:center">✅ Cả nhóm đang ổn — không có cảnh báo!</div>';
+    if (badgeEl) badgeEl.style.display = 'none';
+    return;
+  }
+
+  if (badgeEl) { badgeEl.style.display='inline-block'; badgeEl.textContent=alerts.length; }
+
+  alertsEl.innerHTML = alerts.map(a => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:6px;
+      background:${a.level==='red'?'rgba(192,96,106,0.08)':'rgba(201,168,76,0.08)'}">
+      <span style="font-size:14px;flex-shrink:0">${a.level==='red'?'🔴':'🟡'}</span>
+      <div style="font-size:12.5px;line-height:1.5;color:var(--ink-soft)">
+        <strong style="color:${a.level==='red'?'var(--rose)':'var(--gold-dark)'}">${escHtml(a.name)}</strong> — ${escHtml(a.msg)}
+      </div>
+    </div>`).join('');
+}
+
+// ── Bảng quan sát từng thành viên (Dashboard tab C) ───────────────
+let _leaderExpandedMid = null;
+function renderLeaderDashboardList(members, todayK) {
+  const listEl = document.getElementById('leader-dashboard-member-list');
+  if (!listEl) return;
+
+  if (!members.length) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Chưa có thành viên nào.</p></div>';
+    return;
+  }
+
+  // Sắp xếp: đang gặp vấn đề lên trước, hôm nay ghi lên trước so với không ghi, theo NL tổng
+  const sorted = members.slice().sort(([,a],[,b]) => {
+    const aActive = a.stats?.date === todayK ? 1 : 0;
+    const bActive = b.stats?.date === todayK ? 1 : 0;
+    if (bActive !== aActive) return bActive - aActive;
+    const aAvg = (a.stats?.nn||[5,5,5,5,5]).reduce((s,v)=>s+v,0)/5;
+    const bAvg = (b.stats?.nn||[5,5,5,5,5]).reduce((s,v)=>s+v,0)/5;
+    return bAvg - aAvg;
+  });
+
+  listEl.innerHTML = sorted.map(([mid, m], i) => {
+    const isActive = m.stats?.date === todayK;
+    const isMe     = mid === userInfo.memberId;
+    const nn       = m.stats?.nn || [5,5,5,5,5];
+    const avgNN    = nn.reduce((a,b)=>a+b,0)/5;
+    const color    = MEMBER_COLORS[i % MEMBER_COLORS.length];
+    const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
+    const rituals  = m.stats?.rituals || 0;
+
+    // Màu tổng: xanh >= 7, vàng >= 5, đỏ < 5
+    const statusColor = avgNN >= 7 ? 'var(--jade)' : avgNN >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+    const statusBg    = avgNN >= 7 ? 'rgba(74,140,111,0.12)' : avgNN >= 5 ? 'rgba(201,168,76,0.1)' : 'rgba(192,96,106,0.1)';
+    const statusLabel = avgNN >= 7 ? 'Xanh' : avgNN >= 5 ? 'Vàng' : 'Đỏ';
+
+    // Tính streak từ entries
+    const entryKeys = Object.keys(m.entries||{}).sort().reverse();
+    let streak = 0;
+    for (let k of entryKeys) {
+      const e = m.entries[k];
+      if (Object.values(e?.rituals||{}).some(Boolean) || e?.energy) streak++;
+      else break;
+    }
+
+    // 5 ô màu NL ngôi nhà
+    const nnDots = NN_LIST.map((nnItem,j) => {
+      const val = nn[j]||5;
+      const opacity = (val/10*0.7+0.3).toFixed(2);
+      return `<div title="${nnItem.label}: ${val}/10" style="width:18px;height:18px;border-radius:4px;background:${nnItem.color};opacity:${opacity};display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:800">${val}</div>`;
+    }).join('');
+
+    const isExpanded = _leaderExpandedMid === mid;
+
+    return `<div style="border-bottom:0.5px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer"
+        onclick="toggleLeaderMemberDetail('${mid}')">
+        <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0">${isMe?'👤':initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:800;color:var(--ink)">${escHtml(m.name)}${isMe?' <span style="font-size:10px;color:var(--jade)">(Tôi)</span>':''}</div>
+          <div style="font-size:11px;color:${isActive?'var(--jade)':'var(--ink-muted)'}">
+            ${isActive ? '✅ Ghi hôm nay · '+rituals+'/9 nghi thức' : '⚪ Chưa ghi hôm nay'}
+          </div>
+        </div>
+        <div style="display:flex;gap:3px;width:100px;justify-content:center">${nnDots}</div>
+        <div style="width:44px;text-align:center;font-size:12px;font-weight:700;color:var(--ink-muted)">
+          ${streak > 0 ? '🔥'+streak : '–'}
+        </div>
+        <div style="width:48px;text-align:right">
+          <span style="background:${statusBg};color:${statusColor};font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:8px">${statusLabel}</span>
+        </div>
+      </div>
+      ${isExpanded ? renderLeaderMemberInline(mid, m, todayK) : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Toggle mở/đóng chi tiết thành viên trong dashboard ────────────
+function toggleLeaderMemberDetail(mid) {
+  _leaderExpandedMid = (_leaderExpandedMid === mid) ? null : mid;
+  const todayK = todayKey();
+  renderLeaderDashboardList(Object.entries(leaderAllData), todayK);
+  if (_leaderExpandedMid) {
+    // Scroll đến thành viên vừa mở
+    setTimeout(() => {
+      const el = document.getElementById('leader-detail-inline-'+mid);
+      if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }, 50);
+  }
+}
+
+// ── Nội dung chi tiết inline từng thành viên ─────────────────────
+function renderLeaderMemberInline(mid, m, todayK) {
+  const entries  = m.entries || {};
+  const keys     = Object.keys(entries).sort().reverse().slice(0, 14);
+  const nn       = m.stats?.nn || [5,5,5,5,5];
+  const rituals  = m.stats?.rituals || 0;
+  const avgNN    = nn.reduce((a,b)=>a+b,0)/5;
+
+  // Heatmap 14 ngày nghi thức
+  const recentDays = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = d.toISOString().split('T')[0];
+    const e = entries[k];
+    const done = e ? Object.values(e.rituals||{}).filter(Boolean).length : -1;
+    recentDays.push({ k, done, d });
+  }
+  const heatmap = recentDays.map(({k, done, d}) => {
+    let bg, label, title;
+    if (done === -1) { bg='rgba(201,168,76,0.1)'; label='–'; title='Chưa có data'; }
+    else if (done >= 7) { bg='var(--jade-light)'; label=done; title=done+'/9 nghi thức'; }
+    else if (done >= 4) { bg='rgba(201,168,76,0.25)'; label=done; title=done+'/9 nghi thức'; }
+    else if (done > 0)  { bg='rgba(192,96,106,0.15)'; label=done; title=done+'/9 nghi thức'; }
+    else { bg='rgba(192,96,106,0.08)'; label='0'; title='Không ghi'; }
+    return `<div title="${d.getDate()}/${d.getMonth()+1}: ${title}" style="width:20px;height:20px;border-radius:4px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:var(--ink-muted)">${label}</div>`;
+  }).join('');
+
+  // Xu hướng NL từng ngôi nhà
+  const nnBars = NN_LIST.map((nnItem, j) => {
+    const val = nn[j] || 5;
+    const pct = val * 10;
+    const color = val >= 7 ? 'var(--jade)' : val >= 5 ? 'var(--gold)' : 'var(--rose)';
+    const textColor = val >= 7 ? 'var(--jade)' : val >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+
+    // So sánh với entry trước
+    let arrow = '';
+    const prevKey = keys.find(k => k !== todayK);
+    if (prevKey) {
+      const prevEntry = entries[prevKey];
+      const prevVal   = prevEntry?.nnEnergy?.[nnItem.key] || 5;
+      const diff = val - prevVal;
+      if (diff >= 1)       arrow = `<span style="color:var(--jade);font-size:10px">↗+${diff}</span>`;
+      else if (diff <= -1) arrow = `<span style="color:var(--rose);font-size:10px">↘${diff}</span>`;
+      else                 arrow = `<span style="color:var(--ink-muted);font-size:10px">→</span>`;
+    }
+
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="font-size:11px;color:var(--ink-muted);width:110px;white-space:nowrap">${nnItem.icon} ${nnItem.label.split('·')[1]?.trim()||nnItem.label}</span>
+      <div style="flex:1;height:5px;background:rgba(201,168,76,0.12);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.4s"></div>
+      </div>
+      <span style="font-size:11.5px;font-weight:800;color:${textColor};width:22px;text-align:right">${val}</span>
+      ${arrow}
+    </div>`;
+  }).join('');
+
+  // Hạt giống: đọc từ entries nếu có
+  let seedCount = 0, seedDoneCount = 0;
+  if (window.seedsData) {
+    // Không có seedsData của người khác từ Firebase — hiển thị placeholder
+    seedCount = '?'; seedDoneCount = '?';
+  }
+
+  return `<div id="leader-detail-inline-${mid}" style="background:rgba(201,168,76,0.04);border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid rgba(201,168,76,0.15)">
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">📅 Rèn luyện 14 ngày qua</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">${heatmap}</div>
+    <div style="font-size:10.5px;color:var(--ink-muted);margin-bottom:12px">
+      Xanh = 7+/9 · Vàng = 4-6/9 · Đỏ = dưới 4 · Xám = chưa có data
+    </div>
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">🏠 Năng lượng 5 ngôi nhà hôm nay</div>
+    ${nnBars}
+
+    <div style="display:flex;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:800;color:var(--ink)">${rituals}/9</div>
+        <div style="font-size:10px;color:var(--ink-muted)">Nghi thức hôm nay</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:800;color:var(--ink)">${Object.keys(entries).length}</div>
+        <div style="font-size:10px;color:var(--ink-muted)">Tổng ngày ghi</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:18px;font-weight:800;color:${avgNN>=7?'var(--jade)':avgNN>=5?'var(--gold-dark)':'var(--rose)'}">${avgNN.toFixed(1)}</div>
+        <div style="font-size:10px;color:var(--ink-muted)">NL TB 5 nhà</div>
+      </div>
+    </div>
+
+    <button onclick="openLeaderMemberDetail('${mid}')"
+      style="width:100%;margin-top:10px;padding:8px;border-radius:8px;
+      background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);
+      color:var(--gold-dark);font-size:12px;font-weight:800;cursor:pointer;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      📖 Xem đầy đủ nhật ký →
+    </button>
+  </div>`;
 }
 
 // Load danh sách thành viên chờ duyệt (chỉ nhóm của trưởng nhóm)
@@ -6634,12 +7226,12 @@ async function loadLeaderMemberRequests() {
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
           <button onclick="approveLeaderMember('${memberId}')"
             style="padding:8px 14px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;
-              border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+              border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             ✅ Duyệt
           </button>
           <button onclick="rejectLeaderMember('${memberId}')"
             style="padding:8px 14px;background:rgba(192,96,106,0.1);color:var(--rose);
-              border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+              border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             ❌ Từ chối
           </button>
         </div>
@@ -6806,6 +7398,7 @@ function loadLeaderData() {
                 window._lmDetailEntries[mid] = m.entries;
               });
               renderLeaderMemberList();
+              renderLeaderDashboard();
             }
           }).catch(() => {
             loaded++;
@@ -6882,7 +7475,7 @@ function renderLeaderMemberList() {
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <div style="font-size:11px;color:var(--ink-muted);font-weight:700">📖 Chi tiết →</div>
           <button onclick="event.stopPropagation();leaderDeleteMember('${mid}','${m.name}')"
-            style="padding:4px 10px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+            style="padding:4px 10px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             🗑 Xoá
           </button>
         </div>
@@ -6969,7 +7562,7 @@ function openLeaderMemberDetail(mid) {
           </div>`;
         }).join('')
     }
-    <button onclick="closeLeaderModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-top:8px">← Đóng</button>
+    <button onclick="closeLeaderModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:12px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-top:8px">← Đóng</button>
   `;
 
   modal.style.display = 'block';
@@ -7253,11 +7846,11 @@ function renderAdminPending(pending) {
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
           <button onclick="approveLeader('${id}')"
-            style="padding:8px 14px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+            style="padding:8px 14px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             ✅ Duyệt
           </button>
           <button onclick="rejectLeader('${id}')"
-            style="padding:8px 14px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif">
+            style="padding:8px 14px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             ❌ Từ chối
           </button>
         </div>
@@ -7307,7 +7900,7 @@ function renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCod
         </div>
         ${hasLeader
           ? `<button onclick="revokeLeader('${leader.id}')"
-              style="padding:6px 12px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;flex-shrink:0">
+              style="padding:6px 12px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;white-space:nowrap;flex-shrink:0">
               Thu hồi
              </button>`
           : ''
@@ -7318,7 +7911,7 @@ function renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCod
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="font-size:11px;font-weight:700;color:var(--ink-muted)">👤 Thành viên</div>
           <button id="admin-toggle-btn-${groupCode}" onclick="toggleGroupMembers('${groupCode}')"
-            style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:3px 10px;cursor:pointer;font-family:'Nunito',sans-serif">
+            style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:3px 10px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             Xem danh sách ▼
           </button>
         </div>
@@ -7382,11 +7975,11 @@ async function loadGroupMembers(groupCode, targetEl) {
             </div>
             <div style="font-size:10px;color:var(--sky);font-weight:700">✅ ${rituals}/9 nghi thức</div>
             <button onclick="adminChangeMemberGroup('${m.memberId}','${m.name}','${groupCode}')"
-              style="margin-top:6px;padding:4px 8px;background:rgba(74,127,168,0.1);color:var(--sky);border:1px solid rgba(74,127,168,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+              style="margin-top:6px;padding:4px 8px;background:rgba(74,127,168,0.1);color:var(--sky);border:1px solid rgba(74,127,168,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
               Đổi nhóm
             </button>
             <button onclick="adminDeleteMember('${m.memberId}','${m.name}','${groupCode}')"
-              style="margin-top:4px;padding:4px 8px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">
+              style="margin-top:4px;padding:4px 8px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
               🗑 Xoá
             </button>
           </div>
@@ -7648,11 +8241,11 @@ function renderAdminGroups(groupsAll, membersAll, leaderByGroup, allGroupCodes) 
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
           <button id="admin-toggle-btn-grp-${groupCode}" onclick="toggleGroupMembersGrp('${groupCode}')"
-            style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'Nunito',sans-serif;flex-shrink:0;white-space:nowrap">
+            style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;flex-shrink:0;white-space:nowrap">
             Chi tiết ▼
           </button>
           ${members.length === 0 ? `<button onclick="adminDeleteGroup('${groupCode}')"
-            style="font-size:10px;font-weight:700;color:var(--rose);background:rgba(192,96,106,0.08);border:1px solid rgba(192,96,106,0.25);border-radius:8px;padding:3px 9px;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap">
+            style="font-size:10px;font-weight:700;color:var(--rose);background:rgba(192,96,106,0.08);border:1px solid rgba(192,96,106,0.25);border-radius:8px;padding:3px 9px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;white-space:nowrap">
             🗑 Xoá nhóm
           </button>` : ''}
         </div>
@@ -7882,6 +8475,426 @@ async function adminDeleteGroup(groupCode) {
     showToast('⚠️ Lỗi: ' + e.message);
   }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// HẠT GIỐNG ĐỎ — THEO DÕI XUYÊN SUỐT
+// ══════════════════════════════════════════════════════════════════
+
+function saveSeedsData() {
+  localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
+  if (typeof scheduleSyncPush === 'function') scheduleSyncPush(SEEDS_KEY);
+}
+
+// ── Chọn NN khi thêm hạt giống mới ──────────────────────────────
+function pickSeedNN(btn) {
+  document.querySelectorAll('.ns-nn-btn').forEach(b => b.style.opacity = '0.45');
+  btn.style.opacity = '1';
+  btn.style.fontWeight = '800';
+  document.getElementById('ns-nn-val').value = btn.dataset.nn;
+}
+
+// ── Thêm hạt giống mới ──────────────────────────────────────────
+function addNewSeed() {
+  const name      = (document.getElementById('ns-name').value || '').trim();
+  const nn        = document.getElementById('ns-nn-val').value;
+  const situation = (document.getElementById('ns-situation').value || '').trim();
+  const commit    = (document.getElementById('ns-commit').value || '').trim();
+
+  if (!name) { showToast('⚠️ Hãy đặt tên cho hạt giống!'); return; }
+
+  const seed = {
+    id:        'seed_' + Date.now(),
+    name,
+    nn:        nn || '',
+    situation,
+    commit,
+    createdAt: todayKey(),
+    status:    'active',
+    checkins:  [],
+    doneAt:    null,
+  };
+  seedsData.unshift(seed);
+  saveSeedsData();
+
+  // Clear form
+  document.getElementById('ns-name').value = '';
+  document.getElementById('ns-nn-val').value = '';
+  document.getElementById('ns-situation').value = '';
+  document.getElementById('ns-commit').value = '';
+  document.querySelectorAll('.ns-nn-btn').forEach(b => { b.style.opacity = '1'; b.style.fontWeight = '700'; });
+
+  showToast('🌱 Đã thêm hạt giống vào danh sách theo dõi!');
+  renderSeedsPage();
+}
+
+// ── Render toàn bộ trang Hạt Giống ──────────────────────────────
+function renderSeedsPage() {
+  // Set date
+  const dateEl = document.getElementById('seeds-date');
+  if (dateEl) dateEl.textContent = formatDate(new Date());
+
+  const active = seedsData.filter(s => s.status === 'active');
+  const done   = seedsData.filter(s => s.status === 'done');
+
+  const activeCount = document.getElementById('seeds-active-count');
+  const doneCount   = document.getElementById('seeds-done-count');
+  if (activeCount) activeCount.textContent = active.length + ' hạt';
+  if (doneCount)   doneCount.textContent   = done.length  + ' hạt';
+
+  renderSeedsList('seeds-active-list', active, false);
+  renderSeedsList('seeds-done-list',   done,   true);
+}
+
+// ── NN color map ─────────────────────────────────────────────────
+const SEED_NN_MAP = {
+  nn1: { label:'NN1 · Bản Thân',           color:'#5b8a6e', icon:'🌱' },
+  nn2: { label:'NN2 · Cha Mẹ',             color:'#c9a84c', icon:'👨‍👩‍👧' },
+  nn3: { label:'NN3 · Vợ/Chồng',           color:'#c0606a', icon:'💑' },
+  nn4: { label:'NN4 · Hồn Thiêng Sông Núi',color:'#4a7fa8', icon:'🏔️' },
+  nn5: { label:'NN5 · Mẹ Thiên Nhiên',     color:'#7c5cbf', icon:'🌍' },
+};
+
+function nnBadge(nn) {
+  const m = SEED_NN_MAP[nn];
+  if (!m) return '';
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+    background:${m.color}18;color:${m.color};margin-left:6px">${m.icon} ${m.label}</span>`;
+}
+
+// ── Render danh sách ─────────────────────────────────────────────
+function renderSeedsList(containerId, seeds, isDone) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  if (!seeds.length) {
+    el.innerHTML = isDone
+      ? `<div style="text-align:center;padding:12px;color:var(--ink-muted);font-size:12px">Chưa có — hãy tiếp tục rèn luyện!</div>`
+      : `<div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px">Chưa có hạt giống nào đang theo dõi.<br><span style="font-size:12px">Thêm từ phần bên trên hoặc từ tab Hôm Nay.</span></div>`;
+    return;
+  }
+
+  el.innerHTML = seeds.map(s => {
+    const checkedToday = s.checkins.some(c => c.date === todayKey());
+    const streak       = calcNoAppearStreak(s);
+    const totalDays    = Math.floor((Date.now() - new Date(s.createdAt).getTime()) / 86400000) + 1;
+    const appearedDays = s.checkins.filter(c => c.appeared).length;
+    const barW         = totalDays > 0 ? Math.round((1 - appearedDays / totalDays) * 100) : 0;
+    const canDone      = !isDone && streak >= 7;
+
+    return `
+    <div style="border:1.5px solid ${isDone ? 'rgba(74,140,111,0.3)' : 'rgba(192,96,106,0.2)'};
+      border-radius:12px;padding:14px;margin-bottom:10px;background:var(--card);
+      ${isDone ? 'opacity:0.8' : ''}">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+            ${isDone ? '✅' : '😔'} ${escHtml(s.name)}
+            ${nnBadge(s.nn)}
+          </div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-top:3px">
+            Bắt đầu theo dõi: ${s.createdAt}
+            ${isDone ? ` · ✅ Chuyển hóa: ${s.doneAt}` : ''}
+          </div>
+        </div>
+        <button onclick="openSeedDetail('${s.id}')"
+          style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);
+          background:transparent;font-size:11px;font-weight:700;color:var(--ink-muted);
+          cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;flex-shrink:0">Chi tiết</button>
+      </div>
+
+      <!-- Thanh tiến trình -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-muted);margin-bottom:4px">
+          <span>Ngày không tái phát liên tiếp: <strong style="color:${streak>=7?'var(--jade)':'var(--rose)'}">${streak} ngày</strong></span>
+          <span>Đã check-in: ${s.checkins.length}/${totalDays} ngày</span>
+        </div>
+        <div style="height:6px;background:rgba(201,168,76,0.12);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${barW}%;background:${barW>=80?'var(--jade)':barW>=50?'var(--gold)':'var(--rose)'};border-radius:4px;transition:width 0.4s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--ink-muted);margin-top:3px;text-align:right">${barW}% ngày sạch</div>
+      </div>
+
+      <!-- Nút check-in hôm nay (chỉ active) -->
+      ${!isDone ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${checkedToday
+          ? `<div style="flex:1;padding:9px;border-radius:10px;background:rgba(74,140,111,0.1);
+              border:1px solid rgba(74,140,111,0.3);text-align:center;font-size:12px;font-weight:700;color:var(--jade)">
+              ✓ Đã check-in hôm nay</div>`
+          : `<button onclick="openSeedCheckin('${s.id}')" style="flex:1;padding:9px;border-radius:10px;
+              background:linear-gradient(135deg,var(--rose),#8a2a2a);color:white;border:none;
+              font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+              Hôm nay hạt giống có xuất hiện? →</button>`
+        }
+        ${canDone ? `<button onclick="markSeedDone('${s.id}')" style="padding:9px 14px;border-radius:10px;
+          background:linear-gradient(135deg,var(--jade),#2d6a4f);color:white;border:none;
+          font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+          🎉 Đánh dấu đã chuyển hóa</button>` : ''}
+      </div>
+      ` : `
+      <div style="font-size:12px;color:var(--jade);font-style:italic;font-weight:700">
+        🌿 Không tái phát ${streak} ngày — đã chuyển hóa thành công!
+      </div>
+      `}
+    </div>`;
+  }).join('');
+}
+
+// ── Tính streak ngày không tái phát liên tiếp ───────────────────
+function calcNoAppearStreak(seed) {
+  if (!seed.checkins.length) return 0;
+  // Sắp xếp giảm dần theo ngày
+  const sorted = [...seed.checkins].sort((a, b) => b.date.localeCompare(a.date));
+  let streak = 0;
+  for (const c of sorted) {
+    if (!c.appeared) streak++;
+    else break;
+  }
+  return streak;
+}
+
+// ── HTML escape ──────────────────────────────────────────────────
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Mở modal check-in ────────────────────────────────────────────
+function openSeedCheckin(seedId) {
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+
+  document.getElementById('seed-checkin-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:13px;color:var(--ink-muted);margin-bottom:4px">Check-in hôm nay</div>
+      <div style="font-size:18px;font-weight:800;color:var(--ink)">😔 ${escHtml(seed.name)}</div>
+      ${seed.nn ? `<div style="margin-top:4px">${nnBadge(seed.nn)}</div>` : ''}
+    </div>
+
+    <div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;
+      color:var(--ink);text-align:center;margin-bottom:20px;line-height:1.7">
+      Hôm nay hạt giống này<br>có xuất hiện không?
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <button onclick="submitSeedCheckin('${seedId}', false)"
+        style="padding:16px;border-radius:14px;background:linear-gradient(135deg,var(--jade),#2d6a4f);
+        color:white;border:none;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        😌 Không — sạch!</button>
+      <button onclick="submitSeedCheckin('${seedId}', true)"
+        style="padding:16px;border-radius:14px;background:linear-gradient(135deg,var(--rose),#8a2a2a);
+        color:white;border:none;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        😤 Có — xuất hiện</button>
+    </div>
+
+    <div id="seed-checkin-note-wrap" style="display:none">
+      <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">
+        Ghi lại ngắn gọn — tình huống gì, mình đã xử lý thế nào: (tuỳ chọn)
+      </div>
+      <textarea id="seed-checkin-note" rows="3" placeholder="Khi... tôi đã... và cảm thấy..."
+        style="width:100%;border:1.5px solid rgba(192,96,106,0.3);border-radius:10px;
+        padding:10px;font-size:13px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;resize:vertical;
+        background:rgba(255,255,255,0.7);color:var(--ink)"></textarea>
+      <button onclick="saveCheckinWithNote('${seedId}')"
+        style="width:100%;margin-top:8px;padding:10px;border-radius:10px;
+        background:linear-gradient(135deg,var(--rose),#8a2a2a);color:white;border:none;
+        font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        💾 Lưu check-in</button>
+    </div>
+  `;
+  document.getElementById('seed-checkin-modal').style.display = 'block';
+}
+
+function closeSeedCheckin() {
+  document.getElementById('seed-checkin-modal').style.display = 'none';
+}
+
+function submitSeedCheckin(seedId, appeared) {
+  if (!appeared) {
+    // Không xuất hiện → lưu ngay
+    doSaveCheckin(seedId, false, '');
+    closeSeedCheckin();
+    checkAutoConvert(seedId);
+  } else {
+    // Có xuất hiện → show ô ghi chú
+    document.getElementById('seed-checkin-note-wrap').style.display = 'block';
+    // Ẩn 2 nút chọn
+    document.querySelectorAll('#seed-checkin-content > div:nth-child(3) button').forEach(b => b.style.opacity = '0.4');
+  }
+}
+
+function saveCheckinWithNote(seedId) {
+  const note = (document.getElementById('seed-checkin-note')?.value || '').trim();
+  doSaveCheckin(seedId, true, note);
+  closeSeedCheckin();
+}
+
+function doSaveCheckin(seedId, appeared, note) {
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+  // Xóa check-in cũ cùng ngày nếu có (tránh duplicate)
+  seed.checkins = seed.checkins.filter(c => c.date !== todayKey());
+  seed.checkins.push({ date: todayKey(), appeared, note: note || '' });
+  saveSeedsData();
+  showToast(appeared ? '📌 Đã ghi nhận — tiếp tục quan sát nhé!' : '🌿 Tuyệt! Một ngày sạch nữa!');
+  renderSeedsPage();
+}
+
+// ── Tự động gợi ý chuyển hóa khi streak >= 7 ────────────────────
+function checkAutoConvert(seedId) {
+  const seed  = seedsData.find(s => s.id === seedId);
+  if (!seed || seed.status === 'done') return;
+  const streak = calcNoAppearStreak(seed);
+  if (streak >= 7) {
+    showToast('🎉 ' + seed.name + ' không tái phát ' + streak + ' ngày! Bạn có thể đánh dấu đã chuyển hóa rồi!');
+  }
+}
+
+// ── Đánh dấu đã chuyển hóa ──────────────────────────────────────
+function markSeedDone(seedId) {
+  if (!confirm('Bạn chắc chắn muốn đánh dấu hạt giống này đã chuyển hóa hoàn toàn?')) return;
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+  seed.status = 'done';
+  seed.doneAt = todayKey();
+  saveSeedsData();
+  showToast('🎉 Chúc mừng! Một hạt giống đã được chuyển hóa thành công!');
+  renderSeedsPage();
+}
+
+// ── Mở modal chi tiết ────────────────────────────────────────────
+function openSeedDetail(seedId) {
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+
+  const streak   = calcNoAppearStreak(seed);
+  const appeared = seed.checkins.filter(c => c.appeared).length;
+  const clean    = seed.checkins.filter(c => !c.appeared).length;
+  // 7 check-in gần nhất
+  const recent   = [...seed.checkins].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+
+  document.getElementById('seed-detail-content').innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:4px">Hạt giống đang giải phóng</div>
+      <div style="font-size:20px;font-weight:800;color:var(--ink)">${escHtml(seed.name)}</div>
+      ${seed.nn ? `<div style="margin-top:5px">${nnBadge(seed.nn)}</div>` : ''}
+    </div>
+
+    <!-- Thống kê nhanh -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:rgba(74,140,111,0.08);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--jade)">${streak}</div>
+        <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày sạch<br>liên tiếp</div>
+      </div>
+      <div style="background:rgba(201,168,76,0.08);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--gold-dark)">${clean}</div>
+        <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày<br>sạch</div>
+      </div>
+      <div style="background:rgba(192,96,106,0.08);border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--rose)">${appeared}</div>
+        <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày<br>tái phát</div>
+      </div>
+    </div>
+
+    ${seed.situation ? `
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Tình huống ban đầu</div>
+      <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(192,96,106,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.situation)}</div>
+    </div>` : ''}
+
+    ${seed.commit ? `
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Cam kết chuyển hóa</div>
+      <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(74,140,111,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.commit)}</div>
+    </div>` : ''}
+
+    <!-- Lịch sử 10 ngày gần nhất -->
+    ${recent.length ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">10 Ngày Gần Nhất</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        ${recent.map(c => `
+          <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;
+            border-radius:8px;background:${c.appeared ? 'rgba(192,96,106,0.07)' : 'rgba(74,140,111,0.07)'}">
+            <span style="font-size:14px;flex-shrink:0">${c.appeared ? '🔴' : '🟢'}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700;color:var(--ink)">${c.date}
+                <span style="font-weight:400;color:${c.appeared ? 'var(--rose)' : 'var(--jade)'};margin-left:4px">
+                  ${c.appeared ? 'Có xuất hiện' : 'Không tái phát'}
+                </span>
+              </div>
+              ${c.note ? `<div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px;line-height:1.5">${escHtml(c.note)}</div>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Nút xóa -->
+    ${seed.status === 'active' ? `
+    <button onclick="deleteSeed('${seed.id}')"
+      style="width:100%;padding:10px;border-radius:10px;background:transparent;
+      border:1.5px solid rgba(192,96,106,0.4);color:var(--rose);font-size:13px;
+      font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;margin-top:4px">
+      🗑 Xóa hạt giống này
+    </button>` : ''}
+  `;
+
+  document.getElementById('seed-detail-modal').style.display = 'block';
+}
+
+function closeSeedDetail() {
+  document.getElementById('seed-detail-modal').style.display = 'none';
+}
+
+function deleteSeed(seedId) {
+  if (!confirm('Xóa hạt giống này? Toàn bộ lịch sử check-in sẽ bị mất.')) return;
+  seedsData = seedsData.filter(s => s.id !== seedId);
+  saveSeedsData();
+  closeSeedDetail();
+  showToast('🗑 Đã xóa hạt giống.');
+  renderSeedsPage();
+}
+
+// ── Thêm nhanh từ tab Hôm Nay ────────────────────────────────────
+// Gọi hàm này khi người dùng bấm nút "Theo dõi hạt giống này" ở trang Today
+function quickAddSeedFromToday(name, nn) {
+  if (!name || !name.trim()) { showToast('⚠️ Hãy nhập tên hạt giống trước!'); return; }
+  const seed = {
+    id:        'seed_' + Date.now(),
+    name:      name.trim(),
+    nn:        nn || '',
+    situation: '',
+    commit:    '',
+    createdAt: todayKey(),
+    status:    'active',
+    checkins:  [],
+    doneAt:    null,
+  };
+  seedsData.unshift(seed);
+  saveSeedsData();
+  showToast('🌱 Đã thêm "' + seed.name + '" vào danh sách theo dõi!');
+}
+
+// ── Hook vào showPage để render khi vào trang ────────────────────
+const _origShowPage = showPage;
+showPage = function(name, btn) {
+  _origShowPage(name, btn);
+  if (name === 'seeds') renderSeedsPage();
+};
+
+// ── Thêm SEEDS_KEY vào scheduleSyncPush (nếu chưa có) ───────────
+const _origSchedule = scheduleSyncPush;
+scheduleSyncPush = function(key) {
+  if (key === SEEDS_KEY) {
+    clearTimeout(_syncDebounceTimer);
+    _syncDebounceTimer = setTimeout(() => {
+      if (db && userInfo) pushLocalToFirebase && pushLocalToFirebase();
+    }, 3000);
+    return;
+  }
+  _origSchedule(key);
+};
 
 </script>
 </body>
