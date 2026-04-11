@@ -2382,11 +2382,11 @@ const DIMENSIONS = [
 ];
 
 const NN_LIST = [
-  { key:'nn1', label:'NN1 · Cội Nguồn', color:'#5b8a6e', bg:'#d6ede3', icon:'🌱' },
-  { key:'nn2', label:'NN2 · Cha Mẹ',    color:'#c9a84c', bg:'#f5ecd1', icon:'👨‍👩‍👧' },
-  { key:'nn3', label:'NN3 · Gia Đình',  color:'#c0606a', bg:'#f7e0e2', icon:'💑' },
-  { key:'nn4', label:'NN4 · Hồn Thiêng',color:'#4a7fa8', bg:'#d4e8f5', icon:'🏔️' },
-  { key:'nn5', label:'NN5 · Mẹ TĐ',    color:'#7c5cbf', bg:'#e8e0f5', icon:'🌍' },
+  { key:'nn1', label:'NN1 · Bản Thân',          color:'#5b8a6e', bg:'#d6ede3', icon:'🌱' },
+  { key:'nn2', label:'NN2 · Cha Mẹ',            color:'#c9a84c', bg:'#f5ecd1', icon:'👨‍👩‍👧' },
+  { key:'nn3', label:'NN3 · Vợ Chồng',          color:'#c0606a', bg:'#f7e0e2', icon:'💑' },
+  { key:'nn4', label:'NN4 · Hồn Thiêng Sông Núi',color:'#4a7fa8', bg:'#d4e8f5', icon:'🏔️' },
+  { key:'nn5', label:'NN5 · Mẹ Thiên Nhiên',    color:'#7c5cbf', bg:'#e8e0f5', icon:'🌍' },
 ];
 
 const WHEEL_DIMS = [
@@ -4893,7 +4893,7 @@ const KN_LEVELS = [
 // Lưu ý: val=1 (Không bao giờ) = tốt (xanh), val=5 (Luôn luôn) = cần chú ý (đỏ)
 // vì đây là câu hỏi về LỖ THỦNG — trả lời "Luôn luôn" nghĩa là lỗ thủng lớn
 
-const NN_NAMES = ['','NN1 · Cội Nguồn','NN2 · Cha Mẹ','NN3 · Gia Đình','NN4 · Hồn Thiêng','NN5 · Mẹ Trái Đất'];
+const NN_NAMES = ['','NN1 · Bản Thân','NN2 · Cha Mẹ','NN3 · Vợ Chồng','NN4 · Hồn Thiêng Sông Núi','NN5 · Mẹ Thiên Nhiên'];
 
 function renderKhamNha(containerId, prefix, savedAnswers={}) {
   const container = document.getElementById(containerId);
@@ -4902,11 +4902,11 @@ function renderKhamNha(containerId, prefix, savedAnswers={}) {
   const NN_COLORS = {1:'var(--nn1)',2:'var(--nn2)',3:'var(--nn3)',4:'var(--nn4)',5:'var(--nn5)'};
   const NN_ICONS  = {1:'🌱',2:'👨‍👩‍👧',3:'💑',4:'🏔️',5:'🌍'};
   const NN_FULL   = {
-    1:'NN1 · Cội Nguồn – Nội Lực & Bình An',
+    1:'NN1 · Bản Thân – Nội Lực & Bình An',
     2:'NN2 · Cha Mẹ & Dòng Phước Lành',
-    3:'NN3 · Gia Đình, Vợ Chồng',
+    3:'NN3 · Vợ Chồng & Gia Đình',
     4:'NN4 · Hồn Thiêng Sông Núi',
-    5:'NN5 · Mẹ Trái Đất & Vũ Trụ'
+    5:'NN5 · Mẹ Thiên Nhiên & Vũ Trụ'
   };
 
   let html = '';
@@ -6837,14 +6837,15 @@ function openLeaderMemberDetail(mid) {
           if (e.moneySeed) chips.push(`<span title="Hạt giống tiền: ${e.moneySeed}" style="${chipStyle};background:rgba(91,138,110,0.1);color:var(--jade)">🌱 Hạt giống $</span>`);
 
           // Năng lượng 5 ngôi nhà
-          const nnLabels = ['Bản Thân','Gia Đình','Đội Nhóm','Tổ Quốc','Mẹ Trái Đất'];
+          const nnLabels = NN_LIST.map(n => n.label.split('·')[1]?.trim() || n.label); // dùng NN_LIST đảm bảo luôn đúng tên
           const nnEnergy = e.nnEnergy || {};
           // nnEnergy có thể dùng key số (1,2,3,4,5) hoặc key string (nn1,nn2...)
-          const NN_KEYS = ['nn1','nn2','nn3','nn4','nn5'];
-          const nnChips = nnLabels.map((lbl,j) => {
-            const val = nnEnergy[j+1] || nnEnergy[NN_KEYS[j]] || null;
-            if (!val) return '';
-            return `<span title="Ngôi nhà ${j+1} – ${lbl}: ${val}/10" style="${chipStyle};background:rgba(91,138,110,0.06);color:var(--ink-muted)">🏠${j+1} ${lbl}: ${val}</span>`;
+          const nnChips = NN_LIST.map((nn, j) => {
+            // nnEnergy lưu bằng key 'nn1','nn2'... từ NN_LIST
+            const val = nnEnergy[nn.key] || nnEnergy[j+1] || null;
+            if (!val) return ''; // Chỉ bỏ qua nếu không có giá trị
+            const shortLabel = nn.label.split('·')[1]?.trim() || nn.label;
+            return `<span title="${nn.label}: ${val}/10" style="${chipStyle};background:${nn.color}18;color:${nn.color}">${nn.icon} ${shortLabel}: ${val}</span>`;
           }).filter(Boolean).join('');
 
           return `<div style="padding:12px 14px;background:var(--card);border:1.5px solid ${isToday?'rgba(91,138,110,0.35)':'var(--border)'};border-radius:12px;margin-bottom:8px">
