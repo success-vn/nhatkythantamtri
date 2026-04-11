@@ -3194,7 +3194,10 @@ function toggleRitual(id) {
   updateRitualProgress();
   // Auto-sync thống kê nhóm sau 3 giây
   clearTimeout(_autoSyncTimer);
-  _autoSyncTimer = setTimeout(autoSyncMyTeamStats, 3000);
+  _autoSyncTimer = setTimeout(() => {
+    autoSyncMyTeamStats();
+    if (db) syncJournalToFirebase();
+  }, 3000);
 }
 function updateRitualProgress() {
   const entry=getTodayEntry();
@@ -3275,6 +3278,8 @@ function saveEnergy() {
   // Auto-sync team sau 2 giây
   clearTimeout(_autoSyncTimer);
   _autoSyncTimer = setTimeout(autoSyncMyTeamStats, 2000);
+  // Sync journal để trưởng nhóm/admin thấy nnEnergy đúng
+  if (db) setTimeout(syncJournalToFirebase, 500);
 }
 function saveGratitude() {
   const e=getTodayEntry();
@@ -3286,6 +3291,7 @@ function saveGratitude() {
   e.savedGratitude=true;
   save(STORAGE_KEY,data);
   showToast('🙏 Đã lưu biết ơn!');
+  if (db) setTimeout(syncJournalToFirebase, 300);
 }
 function saveFinance() {
   const e=getTodayEntry();
@@ -3301,6 +3307,7 @@ function saveFinance() {
   save(STORAGE_KEY,data);
   updateMoneyColorAssess();
   showToast('💰 Đã lưu tài chính!');
+  if (db) setTimeout(syncJournalToFirebase, 300);
 }
 
 // Format tiền VNĐ gọn
@@ -3462,6 +3469,7 @@ function saveWish() {
   e.savedWish=true;
   save(STORAGE_KEY,data);
   showToast('✨ Đã gửi lời cầu nguyện!');
+  if (db) setTimeout(syncJournalToFirebase, 300);
 }
 
 function loadTodayFields() {
@@ -3636,6 +3644,14 @@ async function initFirebaseBackground() {
 
   // FIX L3: Bắt đầu lắng nghe realtime isLeader sau khi Firebase kết nối
   startLeaderStatusListener();
+
+  // Sync toàn bộ lịch sử journal lên Firebase ngay khi boot
+  // (trưởng nhóm/admin mới thấy được lịch sử nhiều ngày đầy đủ)
+  setTimeout(() => {
+    if (db && userInfo && data) {
+      syncJournalHistoryToFirebase();
+    }
+  }, 2000);
 }
 
 // Kiểm tra auth state Firebase khi app load (auto-login nếu còn session)
@@ -5981,16 +5997,23 @@ function setupAutosave() {
         target.obj[cfg.key] = el.type==='number' ? (parseFloat(el.value)||0) : el.value;
         save(target.storageKey, target.rootObj);
         showAutosaveIndicator();
+        // Sync journal fields (lesson, seedGreen, seedRed, v.v.) lên Firebase
+        if (db && cfg.store === 'today') setTimeout(syncJournalToFirebase, 1000);
       }, 500);
     });
   });
 
   // Slider nhật ký hàng ngày
   const energyEl = document.getElementById('overall-energy');
-  if (energyEl) energyEl.addEventListener('input', () => {
-    getTodayEntry().energy = +energyEl.value;
-    save(STORAGE_KEY, data);
-  });
+  if (energyEl) {
+    energyEl.addEventListener('input', () => {
+      getTodayEntry().energy = +energyEl.value;
+      save(STORAGE_KEY, data);
+    });
+    energyEl.addEventListener('change', () => {
+      if (db) setTimeout(syncJournalToFirebase, 300);
+    });
+  }
 
   // NN energy sliders
   NN_LIST.forEach(nn => {
@@ -6001,6 +6024,10 @@ function setupAutosave() {
       if (!entry.nnEnergy) entry.nnEnergy = {};
       entry.nnEnergy[nn.key] = +el.value;
       save(STORAGE_KEY, data);
+    });
+    // Sync journal khi thả slider (dùng 'change' thay 'input' để tránh flood)
+    el.addEventListener('change', () => {
+      if (db) setTimeout(syncJournalToFirebase, 300);
     });
   });
 
@@ -6813,56 +6840,98 @@ function openLeaderMemberDetail(mid) {
           const done = Object.values(e.rituals||{}).filter(Boolean).length;
           const isToday = k === todayK;
           const color = COLORS[i % COLORS.length];
-          // Chips với tooltip title để giải thích ý nghĩa
-          const chipStyle = 'font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:help;display:inline-block';
-          const chips = [];
-          if (done > 0) chips.push(`<span title="Nghi thức: hoàn thành ${done}/9 nghi thức trong ngày" style="${chipStyle};background:var(--jade-light);color:var(--jade)">✅ ${done}/9 nghi thức</span>`);
-          if (e.energy) chips.push(`<span title="Năng lượng tổng thể trong ngày: ${e.energy}/10" style="${chipStyle};background:rgba(201,168,76,0.1);color:var(--gold-dark)">⚡ NL: ${e.energy}/10</span>`);
-          if (e.lesson) chips.push(`<span title="Bài học rút ra: ${e.lesson.slice(0,80)}${e.lesson.length>80?'...':''}" style="${chipStyle};background:rgba(91,138,110,0.1);color:var(--jade)">📝 Có bài học</span>`);
-          if (e.seedGreen||e.seedRed) chips.push(`<span title="Hạt giống xanh (điểm tốt): ${e.seedGreen||'–'} | Hạt giống đỏ (cần sửa): ${e.seedRed||'–'}" style="${chipStyle};background:rgba(192,96,106,0.08);color:var(--rose)">🌱 Hạt giống</span>`);
-          if (e.gratitude1||e.gratitude2||e.gratitude3) chips.push(`<span title="Biết ơn: ${[e.gratitude1,e.gratitude2,e.gratitude3].filter(Boolean).join(' | ')}" style="${chipStyle};background:rgba(201,168,76,0.08);color:var(--gold-dark)">🙏 Biết ơn</span>`);
-          if (e.wishContent) chips.push(`<span title="Xin quà/ước muốn: ${(e.wishContent||'').slice(0,60)}${(e.wishContent||'').length>60?'...':''}" style="${chipStyle};background:rgba(124,92,191,0.1);color:#7c5cbf">✨ Xin quà</span>`);
-          if (e.selfLetter||e.selfProud) chips.push(`<span title="Thư gửi bản thân / Tự hào về bản thân" style="${chipStyle};background:rgba(74,127,168,0.1);color:var(--sky)">💌 Thư bản thân</span>`);
-          if (e.dailyGood||e.dailyImprove) chips.push(`<span title="Việc tốt hôm nay: ${e.dailyGood||'–'} | Cần cải thiện: ${e.dailyImprove||'–'}" style="${chipStyle};background:rgba(91,138,110,0.08);color:var(--jade)">🗓 Nhật ký ngày</span>`);
-          // Tiền xanh/đỏ (hạt giống tài chính)
-          if (e.recvGreen||e.spendGreen||e.recvRed||e.spendRed) {
-            const moneyTip = [
-              e.recvGreen?`💚 Nhận xanh: +${e.recvGreen}`:'',
-              e.spendGreen?`💚 Chi xanh: -${e.spendGreen}`:'',
-              e.recvRed?`❤️ Nhận đỏ: +${e.recvRed}`:'',
-              e.spendRed?`❤️ Chi đỏ: -${e.spendRed}`:'',
-            ].filter(Boolean).join(' | ');
-            chips.push(`<span title="Tài chính hạt giống: ${moneyTip}" style="${chipStyle};background:rgba(201,168,76,0.12);color:var(--gold-dark)">💰 Tài chính</span>`);
-          }
-          if (e.moneySeed) chips.push(`<span title="Hạt giống tiền: ${e.moneySeed}" style="${chipStyle};background:rgba(91,138,110,0.1);color:var(--jade)">🌱 Hạt giống $</span>`);
+          const badgeStyle = 'font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block';
 
-          // Năng lượng 5 ngôi nhà
-          const nnLabels = NN_LIST.map(n => n.label.split('·')[1]?.trim() || n.label); // dùng NN_LIST đảm bảo luôn đúng tên
+          // ── Hàng 1: Tổng quan số liệu ──
+          const summaryBadges = [];
+          if (done > 0) summaryBadges.push(`<span style="${badgeStyle};background:var(--jade-light);color:var(--jade)">✅ ${done}/9 nghi thức</span>`);
+          else summaryBadges.push(`<span style="${badgeStyle};background:rgba(192,96,106,0.08);color:var(--rose)">⬜ 0/9 nghi thức</span>`);
+          summaryBadges.push(`<span style="${badgeStyle};background:rgba(201,168,76,0.1);color:var(--gold-dark)">⚡ NL: ${e.energy||5}/10</span>`);
+
+          // ── Năng lượng 5 ngôi nhà ──
           const nnEnergy = e.nnEnergy || {};
-          // nnEnergy có thể dùng key số (1,2,3,4,5) hoặc key string (nn1,nn2...)
-          const nnChips = NN_LIST.map((nn, j) => {
-            // nnEnergy lưu bằng key 'nn1','nn2'... từ NN_LIST
-            const val = nnEnergy[nn.key] || nnEnergy[j+1] || null;
-            if (!val) return ''; // Chỉ bỏ qua nếu không có giá trị
+          const nnRow = NN_LIST.map((nn,j) => {
+            const val = nnEnergy[nn.key] || nnEnergy[j+1] || 5;
             const shortLabel = nn.label.split('·')[1]?.trim() || nn.label;
-            return `<span title="${nn.label}: ${val}/10" style="${chipStyle};background:${nn.color}18;color:${nn.color}">${nn.icon} ${shortLabel}: ${val}</span>`;
-          }).filter(Boolean).join('');
+            return `<span style="${badgeStyle};background:${nn.color}18;color:${nn.color}">${nn.icon} ${shortLabel}: ${val}</span>`;
+          }).join(' ');
 
-          return `<div style="padding:12px 14px;background:var(--card);border:1.5px solid ${isToday?'rgba(91,138,110,0.35)':'var(--border)'};border-radius:12px;margin-bottom:8px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0;line-height:1.1">
+          // ── Nội dung chi tiết dạng block ──
+          const detailRows = [];
+
+          if (e.lesson) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(91,138,110,0.07);border-left:3px solid var(--jade);border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:var(--jade);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">📝 Bài học rút ra</div>
+              <div style="font-size:12px;color:var(--ink);line-height:1.6">${e.lesson}</div>
+            </div>`);
+
+          if (e.seedGreen || e.seedRed) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(192,96,106,0.06);border-left:3px solid var(--rose);border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:var(--rose);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">🌱 Hạt giống</div>
+              ${e.seedGreen?`<div style="font-size:12px;color:var(--jade);line-height:1.5">🟢 ${e.seedGreen}</div>`:''}
+              ${e.seedRed?`<div style="font-size:12px;color:var(--rose);line-height:1.5">🔴 ${e.seedRed}</div>`:''}
+            </div>`);
+
+          const gratList = [e.gratitude1, e.gratitude2, e.gratitude3].filter(Boolean);
+          if (gratList.length) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(201,168,76,0.07);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">🙏 Biết ơn hôm nay</div>
+              ${gratList.map((g,gi)=>`<div style="font-size:12px;color:var(--ink);line-height:1.5">${gi+1}. ${g}</div>`).join('')}
+            </div>`);
+
+          if (e.dailyGood || e.dailyImprove) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(74,127,168,0.07);border-left:3px solid var(--sky);border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">🗓 Nhật ký ngày</div>
+              ${e.dailyGood?`<div style="font-size:12px;color:var(--ink);line-height:1.5">✨ Tốt: ${e.dailyGood}</div>`:''}
+              ${e.dailyImprove?`<div style="font-size:12px;color:var(--ink-muted);line-height:1.5">🔧 Cải thiện: ${e.dailyImprove}</div>`:''}
+            </div>`);
+
+          if (e.selfProud || e.selfLetter) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(124,92,191,0.07);border-left:3px solid #7c5cbf;border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:#7c5cbf;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">💌 Thư bản thân</div>
+              ${e.selfProud?`<div style="font-size:12px;color:var(--ink);line-height:1.5">🌟 Tự hào: ${e.selfProud}</div>`:''}
+              ${e.selfLetter?`<div style="font-size:12px;color:var(--ink-muted);line-height:1.5;font-style:italic">${e.selfLetter.slice(0,200)}${e.selfLetter.length>200?'...':''}</div>`:''}
+            </div>`);
+
+          if (e.wishContent) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(124,92,191,0.05);border-left:3px solid #7c5cbf;border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:#7c5cbf;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">✨ Xin quà / Ước muốn</div>
+              <div style="font-size:12px;color:var(--ink);line-height:1.5">${e.wishContent}</div>
+            </div>`);
+
+          const hasFinance = e.recvGreen||e.spendGreen||e.recvRed||e.spendRed||e.moneySeed;
+          if (hasFinance) detailRows.push(`
+            <div style="padding:8px 10px;background:rgba(201,168,76,0.07);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-bottom:6px">
+              <div style="font-size:10px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">💰 Tài chính hạt giống</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px">
+                ${e.recvGreen?`<span style="color:var(--jade)">💚 Nhận xanh: +${e.recvGreen}</span>`:''}
+                ${e.spendGreen?`<span style="color:var(--jade)">💚 Chi xanh: -${e.spendGreen}</span>`:''}
+                ${e.recvRed?`<span style="color:var(--rose)">❤️ Nhận đỏ: +${e.recvRed}</span>`:''}
+                ${e.spendRed?`<span style="color:var(--rose)">❤️ Chi đỏ: -${e.spendRed}</span>`:''}
+              </div>
+              ${e.moneySeed?`<div style="font-size:12px;color:var(--ink-muted);margin-top:4px">🌱 Hạt giống tiền: ${e.moneySeed}</div>`:''}
+            </div>`);
+
+          const hasDetail = detailRows.length > 0;
+          const detailId = 'day-detail-' + mid.replace(/[^a-z0-9]/gi,'_') + '_' + k;
+
+          return `<div style="background:var(--card);border:1.5px solid ${isToday?'rgba(91,138,110,0.4)':'var(--border)'};border-radius:12px;margin-bottom:8px;overflow:hidden">
+            <!-- Header ngày -->
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;${hasDetail?'cursor:pointer;':''}" ${hasDetail?`onclick="const d=document.getElementById('${detailId}');const a=document.getElementById('${detailId}_arrow');d.style.display=d.style.display==='none'?'block':'none';a.textContent=d.style.display==='none'?'▼':'▲';"`:''}>              <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0;line-height:1.1">
                 <div>${d.getDate()}</div><div style="font-size:9px">${d.getMonth()+1}/${d.getFullYear().toString().slice(2)}</div>
               </div>
               <div style="flex:1;min-width:0">
-                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
                   <div style="font-weight:800;font-size:13px;color:var(--ink)">${formatDate(d)}</div>
                   ${isToday?'<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">Hôm nay</span>':''}
                 </div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${summaryBadges.join(' ')}</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">${nnRow}</div>
               </div>
+              ${hasDetail?`<div id="${detailId}_arrow" style="font-size:11px;color:var(--ink-muted);font-weight:700;flex-shrink:0">▼</div>`:''}
             </div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${(e.lesson||nnChips)?'6px':'0'}">${chips.join(' ')}</div>
-            ${nnChips ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${e.lesson?'5px':'0'}">${nnChips}</div>` : ''}
-            ${e.lesson?`<div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px;font-style:italic;border-left:3px solid var(--jade);padding-left:7px">📝 ${e.lesson}</div>`:''}
+            <!-- Nội dung chi tiết (ẩn mặc định, bấm header để mở) -->
+            ${hasDetail?`<div id="${detailId}" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border)">${detailRows.join('')}</div>`:''}
           </div>`;
         }).join('')
     }
@@ -6896,13 +6965,9 @@ function closeLeaderModal() {
 // Sync journal lên Firebase để trưởng nhóm xem được
 // CHỈ ghi vào /journals/{groupCode}/{memberId}/{date} (trưởng nhóm đọc)
 // KHÔNG ghi vào /users/ — việc đó do pushLocalToFirebase đảm nhận (tránh xung đột)
-function syncJournalToFirebase() {
-  if (!userInfo || !db) return;
-  const todayK = todayKey();
-  const entry = data[todayK];
-  if (!entry) return;
-
-  const makeEntry = (e) => ({
+// Tạo object entry chuẩn để ghi lên /journals/
+function _makeJournalEntry(e) {
+  return {
     rituals:     e.rituals||{},
     energy:      e.energy||5,
     lesson:      e.lesson||'',
@@ -6922,32 +6987,46 @@ function syncJournalToFirebase() {
     spendGreen:  e.spendGreen||0,
     spendRed:    e.spendRed||0,
     moneySeed:   e.moneySeed||'',
-    tasks:       (e.tasks||[]).filter(t=>t.text),
+    tasks:       (e.tasks||[]).filter(t=>t&&t.text),
     _updatedAt:  e._updatedAt || Date.now(),
     syncedAt:    Date.now(),
-  });
+  };
+}
 
+// Sync ngày hôm nay lên /journals/ (gọi mỗi khi lưu bất kỳ tab nào)
+function syncJournalToFirebase() {
+  if (!userInfo || !db) return;
+  const todayK = todayKey();
+  const entry = data[todayK];
+  if (!entry) return;
   const basePath = 'journals/' + userInfo.groupCode + '/' + userInfo.memberId;
-
-  // Sync hôm nay (luôn luôn)
   db.ref(basePath + '/' + todayK)
-    .set(makeEntry(entry)).catch(e => console.warn('Journal sync today failed:', e));
+    .set(_makeJournalEntry(entry))
+    .catch(e => console.warn('Journal sync today failed:', e));
+}
 
-  // Lần đầu trong session: sync toàn bộ lịch sử (tối đa 30 ngày gần nhất)
-  if (!window._journalHistorySynced) {
-    window._journalHistorySynced = true;
-    const historyBatch = {};
-    const sortedKeys = Object.keys(data).sort().reverse().slice(0, 30);
-    sortedKeys.forEach(dateKey => {
-      if (dateKey !== todayK && data[dateKey]) {
-        historyBatch[dateKey] = makeEntry(data[dateKey]);
-      }
-    });
-    if (Object.keys(historyBatch).length > 0) {
-      db.ref(basePath).update(historyBatch)
-        .catch(e => console.warn('Journal history sync failed:', e));
+// Sync TOÀN BỘ lịch sử (tất cả ngày trong localStorage) lên /journals/
+// Gọi khi boot và khi trưởng nhóm/admin xem lịch sử
+function syncJournalHistoryToFirebase(onDone) {
+  if (!userInfo || !db || !data) return;
+  const basePath = 'journals/' + userInfo.groupCode + '/' + userInfo.memberId;
+  const batch = {};
+  const allKeys = Object.keys(data).sort().reverse().slice(0, 60); // tối đa 60 ngày
+  allKeys.forEach(dateKey => {
+    if (data[dateKey] && Object.keys(data[dateKey]).length > 1) {
+      batch[dateKey] = _makeJournalEntry(data[dateKey]);
     }
-  }
+  });
+  if (Object.keys(batch).length === 0) { if (onDone) onDone(); return; }
+  db.ref(basePath).update(batch)
+    .then(() => {
+      console.log('✅ Journal history synced:', Object.keys(batch).length, 'days');
+      if (onDone) onDone();
+    })
+    .catch(e => {
+      console.warn('Journal history sync failed:', e.message);
+      if (onDone) onDone();
+    });
 }
 
 
