@@ -3645,13 +3645,9 @@ async function initFirebaseBackground() {
   // FIX L3: Bắt đầu lắng nghe realtime isLeader sau khi Firebase kết nối
   startLeaderStatusListener();
 
-  // Sync toàn bộ lịch sử journal lên Firebase ngay khi boot
-  // (trưởng nhóm/admin mới thấy được lịch sử nhiều ngày đầy đủ)
-  setTimeout(() => {
-    if (db && userInfo && data) {
-      syncJournalHistoryToFirebase();
-    }
-  }, 2000);
+  // Sync toàn bộ lịch sử journal lên Firebase ngay sau khi pull+push xong
+  // Đảm bảo nnEnergy từ localStorage (đã được merge đúng) được ghi lên /journals/
+  syncJournalHistoryToFirebase();
 }
 
 // Kiểm tra auth state Firebase khi app load (auto-login nếu còn session)
@@ -3811,10 +3807,13 @@ function _applyRemoteData(remote) {
             if (lv && rv) {
               mergedNN[nn.key] = rTs > lTs ? rv : lv;
             } else {
-              mergedNN[nn.key] = lv || rv || 5;
+              mergedNN[nn.key] = lv || rv || null; // null = chưa có data, không hiện 5
             }
           });
-          base.nnEnergy = mergedNN;
+          // Chỉ ghi nnEnergy nếu có ít nhất 1 key có giá trị thực
+          const hasAnyNN = Object.values(mergedNN).some(v => v !== null && v !== undefined);
+          if (hasAnyNN) base.nnEnergy = mergedNN;
+          else if (localEntry.nnEnergy && Object.keys(localEntry.nnEnergy).length > 0) base.nnEnergy = localEntry.nnEnergy;
           data[date] = base;
         }
       });
@@ -6708,22 +6707,28 @@ function loadLeaderData() {
 
           // Load journal: ưu tiên /journals/{group}/{mid} (đầy đủ fields, sync realtime)
           // + bổ sung /users/{firebaseUid}/daily cho lịch sử nhiều ngày
-          const firebaseUid = memberInfo.firebaseUid || null;
+          // BUG FIX: dùng memberToUid[mid] (đã build từ uid_to_member), KHÔNG dùng memberInfo.firebaseUid
+          const firebaseUid = memberToUid[mid] || memberInfo.firebaseUid || null;
 
           const promises = [
             db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value'),
           ];
-          // Nếu biết firebaseUid thì load /users/ để có lịch sử nhiều ngày
+          // Luôn load cả 2 path: /journals/ và /users/ để có data đầy đủ nhất
           if (firebaseUid && firebaseUid !== mid) {
             promises.push(db.ref('users/' + firebaseUid + '/daily').once('value'));
-          } else {
-            // Thử cả memberId (trường hợp uid = memberId)
-            promises.push(db.ref('users/' + mid + '/daily').once('value'));
           }
+          // Luôn thêm path memberId làm fallback
+          promises.push(db.ref('users/' + mid + '/daily').once('value'));
 
-          Promise.all(promises).then(([jSnap, dailySnap]) => {
-            const journalData = jSnap.val() || {};   // /journals/ - đầy đủ fields (ưu tiên)
-            const dailyData   = dailySnap ? (dailySnap.val() || {}) : {};  // /users/ - lịch sử nhiều ngày
+          Promise.all(promises).then((results) => {
+            const jSnap     = results[0];
+            // Merge tất cả daily snaps (có thể có từ firebaseUid và memberId)
+            const journalData = jSnap ? (jSnap.val() || {}) : {};
+            const dailyData   = {};
+            for (let ri = 1; ri < results.length; ri++) {
+              const snap = results[ri];
+              if (snap && snap.val()) Object.assign(dailyData, snap.val());
+            }
 
             // Merge: /users/ làm base (nhiều ngày), /journals/ override từng ngày
             const merged = Object.assign({}, dailyData);
