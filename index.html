@@ -3795,9 +3795,26 @@ function _applyRemoteData(remote) {
         } else {
           const rTs = remoteEntry._updatedAt || 0;
           const lTs = localEntry._updatedAt   || 0;
-          // Merge: OR rituals (giữ tick nào đã check), field nào mới hơn thắng
+          // Merge: field nào mới hơn thắng
           const base = rTs > lTs ? Object.assign({}, localEntry, remoteEntry) : Object.assign({}, remoteEntry, localEntry);
+          // Luôn OR rituals (giữ tick đã check)
           base.rituals = mergeRituals(localEntry.rituals||{}, remoteEntry.rituals||{});
+          // Bảo vệ nnEnergy: merge từng key, giữ giá trị != 5 (đã được người dùng chọn)
+          // hoặc giữ giá trị từ local nếu remote không có
+          const localNN  = localEntry.nnEnergy  || {};
+          const remoteNN = remoteEntry.nnEnergy || {};
+          const mergedNN = {};
+          NN_LIST.forEach(nn => {
+            const lv = localNN[nn.key];
+            const rv = remoteNN[nn.key];
+            // Ưu tiên: giá trị khác 5 (đã chọn), nếu cả 2 đều khác 5 → lấy theo timestamp
+            if (lv && rv) {
+              mergedNN[nn.key] = rTs > lTs ? rv : lv;
+            } else {
+              mergedNN[nn.key] = lv || rv || 5;
+            }
+          });
+          base.nnEnergy = mergedNN;
           data[date] = base;
         }
       });
@@ -6705,14 +6722,29 @@ function loadLeaderData() {
           }
 
           Promise.all(promises).then(([jSnap, dailySnap]) => {
-            const journalData = jSnap.val() || {};   // /journals/ - đầy đủ fields, hôm nay
+            const journalData = jSnap.val() || {};   // /journals/ - đầy đủ fields (ưu tiên)
             const dailyData   = dailySnap ? (dailySnap.val() || {}) : {};  // /users/ - lịch sử nhiều ngày
 
-            // Merge: /users/ làm base (nhiều ngày), /journals/ override (đầy đủ fields, ưu tiên)
+            // Merge: /users/ làm base (nhiều ngày), /journals/ override từng ngày
             const merged = Object.assign({}, dailyData);
-            // Merge từng ngày từ journals vào (journals có fields đầy đủ hơn)
-            Object.entries(journalData).forEach(([date, dayData]) => {
-              merged[date] = Object.assign({}, merged[date] || {}, dayData);
+            Object.entries(journalData).forEach(([date, jDay]) => {
+              const base = merged[date] || {};
+              const m = Object.assign({}, base, jDay);
+              // Bảo vệ nnEnergy: ưu tiên nguồn nào có đủ keys nhất và khác 5
+              const baseNN = base.nnEnergy || {};
+              const jNN    = jDay.nnEnergy || {};
+              const mergedNN = {};
+              NN_LIST.forEach(nn => {
+                const bv = baseNN[nn.key];
+                const jv = jNN[nn.key];
+                // Lấy giá trị khác 5 (đã chỉnh), nếu cả 2 khác 5 → journals thắng
+                if (jv && jv !== 5) mergedNN[nn.key] = jv;
+                else if (bv && bv !== 5) mergedNN[nn.key] = bv;
+                else mergedNN[nn.key] = jv || bv || null;
+              });
+              // Chỉ ghi nnEnergy nếu có ít nhất 1 key
+              if (Object.values(mergedNN).some(v => v)) m.nnEnergy = mergedNN;
+              merged[date] = m;
             });
             leaderAllData[mid].entries = merged;
 
@@ -6842,82 +6874,41 @@ function openLeaderMemberDetail(mid) {
           const color = COLORS[i % COLORS.length];
           const badgeStyle = 'font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block';
 
-          // ── Hàng 1: Tổng quan số liệu ──
+          // ── Hàng 1: Nghi thức + NL + Tiền ──
           const summaryBadges = [];
           if (done > 0) summaryBadges.push(`<span style="${badgeStyle};background:var(--jade-light);color:var(--jade)">✅ ${done}/9 nghi thức</span>`);
           else summaryBadges.push(`<span style="${badgeStyle};background:rgba(192,96,106,0.08);color:var(--rose)">⬜ 0/9 nghi thức</span>`);
           summaryBadges.push(`<span style="${badgeStyle};background:rgba(201,168,76,0.1);color:var(--gold-dark)">⚡ NL: ${e.energy||5}/10</span>`);
 
-          // ── Năng lượng 5 ngôi nhà ──
+          // Badge tiền xanh/đỏ tổng ngày
+          const tG = (e.recvGreen||0) + (e.spendGreen||0);
+          const tR = (e.recvRed||0)   + (e.spendRed||0);
+          if (tG > 0 || tR > 0) {
+            const tot = tG + tR;
+            const ratio = tot > 0 ? tG / tot : 0;
+            const moneyIcon = ratio >= 0.75 ? '🟢' : ratio >= 0.4 ? '🟡' : '🔴';
+            const moneyColor = ratio >= 0.75 ? 'var(--jade)' : ratio >= 0.4 ? 'var(--gold-dark)' : 'var(--rose)';
+            const moneyBg   = ratio >= 0.75 ? 'rgba(74,140,111,0.1)' : ratio >= 0.4 ? 'rgba(201,168,76,0.1)' : 'rgba(192,96,106,0.08)';
+            summaryBadges.push(`<span style="${badgeStyle};background:${moneyBg};color:${moneyColor}">${moneyIcon} ${ratio>=0.75?'Xanh':ratio>=0.4?'Vàng':'Đỏ'} ${Math.round(ratio*100)}%</span>`);
+          }
+
+          // ── Hàng 2: Năng lượng 5 ngôi nhà ──
           const nnEnergy = e.nnEnergy || {};
+          const hasNNData = Object.keys(nnEnergy).length > 0;
           const nnRow = NN_LIST.map((nn,j) => {
-            const val = nnEnergy[nn.key] || nnEnergy[j+1] || 5;
+            const val = nnEnergy[nn.key] || nnEnergy[j+1];
             const shortLabel = nn.label.split('·')[1]?.trim() || nn.label;
-            return `<span style="${badgeStyle};background:${nn.color}18;color:${nn.color}">${nn.icon} ${shortLabel}: ${val}</span>`;
+            if (!val && !hasNNData) {
+              return `<span style="${badgeStyle};background:rgba(0,0,0,0.04);color:var(--ink-muted);opacity:0.55">${nn.icon} ${shortLabel}: –</span>`;
+            }
+            const displayVal = val || 5;
+            const bgAlpha = displayVal >= 8 ? '30' : displayVal >= 5 ? '18' : '10';
+            return `<span style="${badgeStyle};background:${nn.color}${bgAlpha};color:${nn.color};font-weight:${displayVal>=8?'800':'700'}">${nn.icon} ${shortLabel}: ${displayVal}</span>`;
           }).join(' ');
 
-          // ── Nội dung chi tiết dạng block ──
-          const detailRows = [];
-
-          if (e.lesson) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(91,138,110,0.07);border-left:3px solid var(--jade);border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:var(--jade);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">📝 Bài học rút ra</div>
-              <div style="font-size:12px;color:var(--ink);line-height:1.6">${e.lesson}</div>
-            </div>`);
-
-          if (e.seedGreen || e.seedRed) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(192,96,106,0.06);border-left:3px solid var(--rose);border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:var(--rose);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">🌱 Hạt giống</div>
-              ${e.seedGreen?`<div style="font-size:12px;color:var(--jade);line-height:1.5">🟢 ${e.seedGreen}</div>`:''}
-              ${e.seedRed?`<div style="font-size:12px;color:var(--rose);line-height:1.5">🔴 ${e.seedRed}</div>`:''}
-            </div>`);
-
-          const gratList = [e.gratitude1, e.gratitude2, e.gratitude3].filter(Boolean);
-          if (gratList.length) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(201,168,76,0.07);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">🙏 Biết ơn hôm nay</div>
-              ${gratList.map((g,gi)=>`<div style="font-size:12px;color:var(--ink);line-height:1.5">${gi+1}. ${g}</div>`).join('')}
-            </div>`);
-
-          if (e.dailyGood || e.dailyImprove) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(74,127,168,0.07);border-left:3px solid var(--sky);border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">🗓 Nhật ký ngày</div>
-              ${e.dailyGood?`<div style="font-size:12px;color:var(--ink);line-height:1.5">✨ Tốt: ${e.dailyGood}</div>`:''}
-              ${e.dailyImprove?`<div style="font-size:12px;color:var(--ink-muted);line-height:1.5">🔧 Cải thiện: ${e.dailyImprove}</div>`:''}
-            </div>`);
-
-          if (e.selfProud || e.selfLetter) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(124,92,191,0.07);border-left:3px solid #7c5cbf;border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:#7c5cbf;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">💌 Thư bản thân</div>
-              ${e.selfProud?`<div style="font-size:12px;color:var(--ink);line-height:1.5">🌟 Tự hào: ${e.selfProud}</div>`:''}
-              ${e.selfLetter?`<div style="font-size:12px;color:var(--ink-muted);line-height:1.5;font-style:italic">${e.selfLetter.slice(0,200)}${e.selfLetter.length>200?'...':''}</div>`:''}
-            </div>`);
-
-          if (e.wishContent) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(124,92,191,0.05);border-left:3px solid #7c5cbf;border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:#7c5cbf;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">✨ Xin quà / Ước muốn</div>
-              <div style="font-size:12px;color:var(--ink);line-height:1.5">${e.wishContent}</div>
-            </div>`);
-
-          const hasFinance = e.recvGreen||e.spendGreen||e.recvRed||e.spendRed||e.moneySeed;
-          if (hasFinance) detailRows.push(`
-            <div style="padding:8px 10px;background:rgba(201,168,76,0.07);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;margin-bottom:6px">
-              <div style="font-size:10px;font-weight:800;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">💰 Tài chính hạt giống</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px">
-                ${e.recvGreen?`<span style="color:var(--jade)">💚 Nhận xanh: +${e.recvGreen}</span>`:''}
-                ${e.spendGreen?`<span style="color:var(--jade)">💚 Chi xanh: -${e.spendGreen}</span>`:''}
-                ${e.recvRed?`<span style="color:var(--rose)">❤️ Nhận đỏ: +${e.recvRed}</span>`:''}
-                ${e.spendRed?`<span style="color:var(--rose)">❤️ Chi đỏ: -${e.spendRed}</span>`:''}
-              </div>
-              ${e.moneySeed?`<div style="font-size:12px;color:var(--ink-muted);margin-top:4px">🌱 Hạt giống tiền: ${e.moneySeed}</div>`:''}
-            </div>`);
-
-          const hasDetail = detailRows.length > 0;
-          const detailId = 'day-detail-' + mid.replace(/[^a-z0-9]/gi,'_') + '_' + k;
-
-          return `<div style="background:var(--card);border:1.5px solid ${isToday?'rgba(91,138,110,0.4)':'var(--border)'};border-radius:12px;margin-bottom:8px;overflow:hidden">
-            <!-- Header ngày -->
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;${hasDetail?'cursor:pointer;':''}" ${hasDetail?`onclick="const d=document.getElementById('${detailId}');const a=document.getElementById('${detailId}_arrow');d.style.display=d.style.display==='none'?'block':'none';a.textContent=d.style.display==='none'?'▼':'▲';"`:''}>              <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0;line-height:1.1">
+          return `<div style="background:var(--card);border:1.5px solid ${isToday?'rgba(91,138,110,0.4)':'var(--border)'};border-radius:12px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px">
+              <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0;line-height:1.1">
                 <div>${d.getDate()}</div><div style="font-size:9px">${d.getMonth()+1}/${d.getFullYear().toString().slice(2)}</div>
               </div>
               <div style="flex:1;min-width:0">
@@ -6928,10 +6919,7 @@ function openLeaderMemberDetail(mid) {
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${summaryBadges.join(' ')}</div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap">${nnRow}</div>
               </div>
-              ${hasDetail?`<div id="${detailId}_arrow" style="font-size:11px;color:var(--ink-muted);font-weight:700;flex-shrink:0">▼</div>`:''}
             </div>
-            <!-- Nội dung chi tiết (ẩn mặc định, bấm header để mở) -->
-            ${hasDetail?`<div id="${detailId}" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border)">${detailRows.join('')}</div>`:''}
           </div>`;
         }).join('')
     }
@@ -7009,14 +6997,31 @@ function syncJournalToFirebase() {
 // Gọi khi boot và khi trưởng nhóm/admin xem lịch sử
 function syncJournalHistoryToFirebase(onDone) {
   if (!userInfo || !db || !data) return;
+  // Reload localStorage để đảm bảo có data mới nhất (trường hợp merge chưa xong)
+  try {
+    const freshData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    Object.assign(data, freshData);
+  } catch(e) {}
   const basePath = 'journals/' + userInfo.groupCode + '/' + userInfo.memberId;
   const batch = {};
   const allKeys = Object.keys(data).sort().reverse().slice(0, 60); // tối đa 60 ngày
+  let nnCount = 0;
   allKeys.forEach(dateKey => {
-    if (data[dateKey] && Object.keys(data[dateKey]).length > 1) {
-      batch[dateKey] = _makeJournalEntry(data[dateKey]);
+    const entry = data[dateKey];
+    if (entry && Object.keys(entry).length > 1) {
+      // Đảm bảo nnEnergy có giá trị trước khi sync
+      if (!entry.nnEnergy || Object.keys(entry.nnEnergy).length === 0) {
+        // Thử đọc lại từ localStorage một lần nữa
+        try {
+          const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          if (raw[dateKey]?.nnEnergy) entry.nnEnergy = raw[dateKey].nnEnergy;
+        } catch(e) {}
+      }
+      if (entry.nnEnergy && Object.keys(entry.nnEnergy).length > 0) nnCount++;
+      batch[dateKey] = _makeJournalEntry(entry);
     }
   });
+  console.log('📤 Syncing journal history:', Object.keys(batch).length, 'days,', nnCount, 'with nnEnergy');
   if (Object.keys(batch).length === 0) { if (onDone) onDone(); return; }
   db.ref(basePath).update(batch)
     .then(() => {
