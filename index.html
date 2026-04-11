@@ -4041,72 +4041,113 @@ function renderTeam() {
   const list = document.getElementById('member-list');
   list.innerHTML = '<div class="empty-state"><div class="empty-icon" style="font-size:28px">⏳</div><p>Đang kết nối nhóm...</p></div>';
 
-  loadFirebase().then(function(database) {
+  loadFirebase().then(async function(database) {
     if (!database) {
       list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase.<br>Kiểm tra mạng và thử lại.</p></div>';
       renderTeamCharts({});
       return;
     }
     db = database;
-    if (teamListener) { teamListener.off(); teamListener = null; }
-    teamListener = db.ref('groups/' + userInfo.groupCode);
-    teamListener.on('value', function(snapshot) {
-      var allStats = snapshot.val() || {};
-      var entries = Object.entries(allStats);
-      var todayEntries = entries.filter(function(e){ return e[1].date===k; });
+
+    try {
+      // Load song song: /members (đủ thành viên) + /groups (stats hôm nay)
+      const [membersSnap, groupsSnap] = await Promise.all([
+        db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
+        db.ref('groups/' + userInfo.groupCode).once('value')
+      ]);
+
+      const membersData = membersSnap.val() || {};
+      const allStats    = groupsSnap.val()  || {};
+
+      // Merge: lấy danh sách từ /members (nguồn đầy đủ), stats từ /groups/
+      const allMembers = {};
+      Object.values(membersData).forEach(function(m) {
+        const mid = m.memberId;
+        if (!mid) return;
+        const stat = allStats[mid] || {};
+        allMembers[mid] = {
+          name:    m.name || stat.name || '–',
+          date:    stat.date || null,
+          rituals: stat.rituals || 0,
+          nn:      stat.nn || [5,5,5,5,5],
+        };
+      });
+      // Thêm thành viên có trong /groups/ nhưng chưa có trong /members/ (edge case)
+      Object.entries(allStats).forEach(function([mid, stat]) {
+        if (!allMembers[mid]) {
+          allMembers[mid] = { name: stat.name||'–', date: stat.date||null, rituals: stat.rituals||0, nn: stat.nn||[5,5,5,5,5] };
+        }
+      });
+
+      const entries = Object.entries(allMembers);
+      const todayEntries = entries.filter(function(e){ return e[1].date === k; });
 
       document.getElementById('team-count').textContent = entries.length;
       document.getElementById('team-active-today').textContent = todayEntries.length;
       if (todayEntries.length) {
-        var avg = todayEntries.map(function(e){ return (e[1].nn||[5,5,5,5,5]).reduce(function(a,b){return a+b;},0)/5; });
+        const avg = todayEntries.map(function(e){ return (e[1].nn||[5,5,5,5,5]).reduce(function(a,b){return a+b;},0)/5; });
         document.getElementById('team-avg-nn').textContent = (avg.reduce(function(a,b){return a+b;},0)/avg.length).toFixed(1);
       } else {
         document.getElementById('team-avg-nn').textContent = '–';
       }
 
       if (!entries.length) {
-        list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm <strong>' + userInfo.groupCode + '</strong> chưa có ai gửi thống kê hôm nay.</p></div>';
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm <strong>' + userInfo.groupCode + '</strong> chưa có thành viên nào.</p></div>';
       } else {
-        var sorted = entries.slice().sort(function(a, b) {
-          var aT = a[1].date===k?1:0, bT = b[1].date===k?1:0;
+        const sorted = entries.slice().sort(function(a, b) {
+          const aT = a[1].date===k?1:0, bT = b[1].date===k?1:0;
           if (bT!==aT) return bT-aT;
-          return a[1].name.localeCompare(b[1].name);
+          return (a[1].name||'').localeCompare(b[1].name||'', 'vi');
         });
         list.innerHTML = sorted.map(function(entry, i) {
-          var id = entry[0], m = entry[1];
-          var color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-          var isMe = id === userInfo.memberId;
-          var isToday = m.date === k;
-          var nn = m.nn || [5,5,5,5,5];
-          var avgNN = (nn.reduce(function(a,b){return a+b;},0)/5).toFixed(1);
-          var pct = Math.round((m.rituals||0)/9*100);
-          var initials = m.name.trim().split(' ').pop().slice(0,2).toUpperCase();
-          var freshBadge = isToday
+          const id = entry[0], m = entry[1];
+          const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
+          const isMe = id === userInfo.memberId;
+          const isToday = m.date === k;
+          const nn = m.nn || [5,5,5,5,5];
+          const avgNN = (nn.reduce(function(a,b){return a+b;},0)/5).toFixed(1);
+          const pct = Math.round((m.rituals||0)/9*100);
+          const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
+          const freshBadge = isToday
             ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">Hôm nay ✓</span>'
-            : '<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">' + (m.date||'–') + '</span>';
-          var nnBadges = NN_LIST.map(function(nn_item, j) {
-            var val = nn[j]||5;
-            var shortLabel = nn_item.label.split('·')[1]||nn_item.label;
+            : '<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">' + (m.date||'Chưa có stats') + '</span>';
+          const nnBadges = NN_LIST.map(function(nn_item, j) {
+            const val = nn[j]||5;
             return '<span class="nn-mini-badge" title="'+nn_item.label+': '+val+'/10" style="background:'+nn_item.color+'22;color:'+nn_item.color+';cursor:help">'+nn_item.icon+' '+val+'</span>';
           }).join('');
-          return '<div class="member-row" style="'+(isMe?'border:2px solid var(--nn1);':'')+'">'
-            + '<div class="member-avatar" style="background:'+color+'">'+(isMe?'👤':initials)+'</div>'
-            + '<div style="flex:1;min-width:0">'
-            + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">'
-            + '<div class="member-name-txt">'+m.name+(isMe?' (Tôi)':'')+'</div>'
-            + freshBadge + '</div>'
-            + '<div class="member-meta">✅ '+(m.rituals||0)+'/9 nghi thức · 🏠 TB NL: '+avgNN+'/10</div>'
-            + '<div style="background:rgba(201,168,76,0.1);border-radius:3px;height:5px;margin-top:5px">'
-            + '<div style="height:100%;border-radius:3px;width:'+pct+'%;background:'+color+';transition:width 0.4s"></div></div>'
-            + '<div class="nn-mini-badges" style="margin-top:6px">'+nnBadges+'</div>'
-            + '</div></div>';
+          return '<div class="member-row" style="'+(isMe?'border:2px solid var(--nn1);':'')+'">'            + '<div class="member-avatar" style="background:'+color+'">'+(isMe?'👤':initials)+'</div>'            + '<div style="flex:1;min-width:0">'            + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">'            + '<div class="member-name-txt">'+m.name+(isMe?' (Tôi)':'')+'</div>'            + freshBadge + '</div>'            + '<div class="member-meta">✅ '+(m.rituals||0)+'/9 nghi thức · 🏠 TB NL: '+avgNN+'/10</div>'            + '<div style="background:rgba(201,168,76,0.1);border-radius:3px;height:5px;margin-top:5px">'            + '<div style="height:100%;border-radius:3px;width:'+pct+'%;background:'+color+';transition:width 0.4s"></div></div>'            + '<div class="nn-mini-badges" style="margin-top:6px">'+nnBadges+'</div>'            + '</div></div>';
         }).join('');
       }
       renderTeamCharts(allStats);
-    }, function(err) {
+
+      // Realtime listener: cập nhật stats khi thành viên sync
+      if (teamListener) { teamListener.off(); teamListener = null; }
+      teamListener = db.ref('groups/' + userInfo.groupCode);
+      teamListener.on('value', function(snap) {
+        renderTeamCharts(snap.val() || {});
+        // Cập nhật badge active
+        const todayNow = todayKey();
+        const statsNow = snap.val() || {};
+        const activeNow = Object.values(allMembers).filter(function(m) { return m.date === todayNow; }).length;
+        // Cập nhật date/rituals/nn từ stats mới
+        Object.entries(statsNow).forEach(function([mid, stat]) {
+          if (allMembers[mid]) {
+            allMembers[mid].date = stat.date;
+            allMembers[mid].rituals = stat.rituals || 0;
+            allMembers[mid].nn = stat.nn || [5,5,5,5,5];
+          }
+        });
+        const activeEl = document.getElementById('team-active-today');
+        if (activeEl) {
+          const activeCnt = Object.values(allMembers).filter(function(m){ return m.date === todayNow; }).length;
+          activeEl.textContent = activeCnt;
+        }
+      });
+
+    } catch(err) {
       list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi kết nối Firebase.</p></div>';
-      console.error('Firebase error:', err);
-    });
+      console.error('renderTeam error:', err);
+    }
   });
 }
 
