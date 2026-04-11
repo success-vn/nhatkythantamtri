@@ -1480,28 +1480,7 @@ textarea { min-height: 80px; }
     "Một cây làm chẳng nên non — cùng rèn, cùng lớn, cùng vững gốc. Thống kê chung để nâng đỡ nhau, không so sánh hơn thua."
   </div>
 
-  <!-- My update card -->
-  <div class="section-card" style="border:2px solid rgba(91,138,110,0.3)">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(91,138,110,0.12)">✍️</div>
-      <div>Tình Trạng Của Tôi Hôm Nay
-        <div style="font-size:11.5px;font-weight:400;color:var(--ink-muted);margin-top:1px" id="team-my-name-label"></div>
-      </div>
-    </div>
-    <!-- Auto-sync indicator -->
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(91,138,110,0.08);border-radius:10px;margin-bottom:14px">
-      <span style="font-size:20px">🔄</span>
-      <div style="flex:1">
-        <div style="font-size:12.5px;font-weight:700;color:var(--jade)">Tự động đồng bộ lên nhóm</div>
-        <div id="my-last-sync" style="font-size:11px;color:var(--ink-muted);margin-top:2px">Đang kiểm tra...</div>
-      </div>
-    </div>
-    <!-- Preview stats lấy từ nhật ký hôm nay -->
-    <div id="my-today-preview" style="font-size:12.5px;color:var(--ink-muted);line-height:2"></div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px">
-      <div id="my-nn-sliders"></div>
-    </div>
-  </div>
+
 
   <!-- Team overview -->
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -3121,8 +3100,7 @@ function bootApp() {
   // Show username in header area
   const grpBadge = document.getElementById('team-group-badge');
   if (grpBadge) grpBadge.textContent = userInfo.groupCode;
-  const myLabel = document.getElementById('team-my-name-label');
-  if (myLabel) myLabel.textContent = '👤 ' + userInfo.name;
+
   // Header username
   const headerUsr = document.getElementById('header-username');
   if (headerUsr) headerUsr.textContent = userInfo.name.split(' ').pop() + ' · ' + userInfo.groupCode;
@@ -3134,7 +3112,6 @@ function bootApp() {
   loadTodayFields();
   renderTasksList();
   updateSlider('overall-energy','overall-thumb','overall-val');
-  renderMyNNSliders();
 
   // Load saved kaizen for this week
   const w=getWeekKey();
@@ -3146,7 +3123,6 @@ function bootApp() {
   }
 
   // Load my last sync time
-  loadMyLastSync();
 
   // Check admin access
   checkAdminAccess();
@@ -3888,8 +3864,7 @@ function _applyRemoteData(remote) {
     loadTodayFields();
     renderTasksList();
     updateSlider('overall-energy','overall-thumb','overall-val');
-    renderMyNNSliders();
-
+  
     // Reload Kaizen cho tuần hiện tại
     const w = getWeekKey();
     const kz = kzData.find(k=>k.week===w);
@@ -3911,7 +3886,7 @@ function _applyRemoteData(remote) {
         renderDashboard();
       }
       if (pid==='history')    renderHistory();
-      if (pid==='team')       { renderMyNNSliders(); renderTeam(); }
+      if (pid==='team')       { renderTeam(); }
       if (pid==='start')      initStartPage();
       if (pid==='milestones') initMilestonesPage();
       if (pid==='finance')    { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
@@ -3960,45 +3935,6 @@ function fbMemberRef() {
   return db ? db.ref('groups/' + userInfo.groupCode + '/' + userInfo.memberId) : null;
 }
 
-function renderMyNNSliders() {
-  const wrap = document.getElementById('my-nn-sliders');
-  if (!wrap) return;
-
-  // Lấy dữ liệu thực từ nhật ký hôm nay
-  const todayEntry = getTodayEntry();
-  const ritualsDone = Object.values(todayEntry.rituals || {}).filter(Boolean).length;
-  const nnFromEntry = NN_LIST.map(nn => todayEntry.nnEnergy?.[nn.key] || 5);
-  const saved = getMyLocalStats();
-
-  const nn = nnFromEntry.some(v=>v!==5) ? nnFromEntry : (saved?.nn || [5,5,5,5,5]);
-
-  // Update preview text
-  const preview = document.getElementById('my-today-preview');
-  if (preview) {
-    preview.innerHTML = `
-      ✅ <strong>${ritualsDone}/9</strong> nghi thức hoàn thành &nbsp;·&nbsp;
-      ⚡ NL tổng: <strong>${todayEntry.energy||5}/10</strong>
-      ${todayEntry.lesson ? '<br>📝 Có ghi bài học hôm nay' : ''}
-      ${todayEntry.seedGreen ? ' · 🌱 Có hạt giống xanh' : ''}
-    `;
-  }
-
-  wrap.style.gridColumn = '1/-1';
-  wrap.parentElement.style.gridTemplateColumns = 'repeat(5,1fr)';
-  wrap.innerHTML = NN_LIST.map((n,i)=>`
-    <div style="text-align:center">
-      <div style="font-size:18px">${n.icon}</div>
-      <div style="font-size:9.5px;font-weight:800;color:${n.color};margin:2px 0">${n.label.split('·')[0]}</div>
-      <div style="font-size:18px;font-weight:800;color:${n.color};margin-top:4px">${nn[i]||5}</div>
-    </div>`).join('');
-
-  // Auto-sync nếu có dữ liệu hôm nay mà chưa sync
-  const alreadySyncedToday = saved?.date === todayKey();
-  const hasData = ritualsDone > 0 || nnFromEntry.some(v=>v!==5);
-  if (hasData && !alreadySyncedToday) {
-    setTimeout(autoSyncMyTeamStats, 1500);
-  }
-}
 
 // Tự động sync thống kê nhóm từ nhật ký hôm nay — không cần bấm nút
 let _autoSyncTimer = null;
@@ -4020,8 +3956,7 @@ async function autoSyncMyTeamStats() {
   }
   try {
     await fbMemberRef().set(myStats);
-    loadMyLastSync();
-    console.log('Auto-synced team stats ✅');
+      console.log('Auto-synced team stats ✅');
   } catch(e) {
     console.warn('Auto-sync team failed:', e);
   }
@@ -4062,17 +3997,6 @@ async function saveMyTeamStats() {
   }
 }
 
-function loadMyLastSync() {
-  const saved = getMyLocalStats();
-  const syncEl = document.getElementById('my-last-sync');
-  if (!syncEl) return;
-  if (!saved) {
-    syncEl.textContent = '⏳ Chưa đồng bộ hôm nay — sẽ tự động khi có dữ liệu';
-    return;
-  }
-  const timeStr = new Date(saved.ts).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
-  syncEl.innerHTML = `✅ Đã đồng bộ lúc ${timeStr} · ${saved.rituals}/9 nghi thức`;
-}
 
 async function refreshTeam() {
   showToast('🔄 Đang làm mới...');
@@ -4129,7 +4053,9 @@ function renderTeam() {
             ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">Hôm nay ✓</span>'
             : '<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">' + (m.date||'–') + '</span>';
           var nnBadges = NN_LIST.map(function(nn_item, j) {
-            return '<span class="nn-mini-badge" style="background:'+nn_item.color+'22;color:'+nn_item.color+'">'+nn_item.icon+' '+(nn[j]||5)+'</span>';
+            var val = nn[j]||5;
+            var shortLabel = nn_item.label.split('·')[1]||nn_item.label;
+            return '<span class="nn-mini-badge" title="'+nn_item.label+': '+val+'/10" style="background:'+nn_item.color+'22;color:'+nn_item.color+';cursor:help">'+nn_item.icon+' '+val+'</span>';
           }).join('');
           return '<div class="member-row" style="'+(isMe?'border:2px solid var(--nn1);':'')+'">'
             + '<div class="member-avatar" style="background:'+color+'">'+(isMe?'👤':initials)+'</div>'
@@ -6463,7 +6389,7 @@ function showPage(name, btn) {
     renderDashboard();
   }
   if (name==='history')     renderHistory();
-  if (name==='team')        { renderMyNNSliders(); loadMyLastSync(); renderTeam(); }
+  if (name==='team')        { renderTeam(); }
   if (name==='finance')     { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
   if (name==='start')       { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('sp')||k.startsWith('r3m')) destroyChart(k); }); initStartPage(); }
   if (name==='milestones')  { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('ms')) destroyChart(k); }); initMilestonesPage(); }
@@ -6691,12 +6617,18 @@ function loadLeaderData() {
     const loadAll = async () => {
       const todayK = todayKey();
       try {
-        const [membersSnap, groupSnap] = await Promise.all([
+        const [membersSnap, groupSnap, uidMapSnap] = await Promise.all([
           db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
-          db.ref('groups/' + userInfo.groupCode).once('value')
+          db.ref('groups/' + userInfo.groupCode).once('value'),
+          db.ref('uid_to_member').once('value')
         ]);
         const membersData = membersSnap.val() || {};
         const stats = groupSnap.val() || {};
+        // Tạo map memberId → firebaseUid
+        const memberToUid = {};
+        Object.entries(uidMapSnap.val() || {}).forEach(([uid, mapping]) => {
+          if (mapping.memberId) memberToUid[mapping.memberId] = uid;
+        });
 
         // Lấy tất cả thành viên từ /members (đủ, kể cả chưa có stats)
         const allMemberEntries = Object.entries(membersData);
@@ -6727,16 +6659,36 @@ function loadLeaderData() {
             email:        memberInfo.email || '',
             referrer:     memberInfo.referrer || '',
             registeredAt: memberInfo.registeredAt || '',
+            firebaseUid:  memberToUid[mid] || memberInfo.firebaseUid || null,
           };
 
-          // Load journal: /users/{mid}/daily (mới) + /journals/{group}/{mid} (cũ)
-          Promise.all([
-            db.ref('users/' + mid + '/daily').once('value'),
-            db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value')
-          ]).then(([dailySnap, jSnap]) => {
-            const daily = dailySnap.val() || {};
-            const oldJ  = jSnap.val() || {};
-            leaderAllData[mid].entries = Object.assign({}, oldJ, daily);
+          // Load journal: ưu tiên /journals/{group}/{mid} (đầy đủ fields, sync realtime)
+          // + bổ sung /users/{firebaseUid}/daily cho lịch sử nhiều ngày
+          const firebaseUid = memberInfo.firebaseUid || null;
+
+          const promises = [
+            db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value'),
+          ];
+          // Nếu biết firebaseUid thì load /users/ để có lịch sử nhiều ngày
+          if (firebaseUid && firebaseUid !== mid) {
+            promises.push(db.ref('users/' + firebaseUid + '/daily').once('value'));
+          } else {
+            // Thử cả memberId (trường hợp uid = memberId)
+            promises.push(db.ref('users/' + mid + '/daily').once('value'));
+          }
+
+          Promise.all(promises).then(([jSnap, dailySnap]) => {
+            const journalData = jSnap.val() || {};   // /journals/ - đầy đủ fields, hôm nay
+            const dailyData   = dailySnap ? (dailySnap.val() || {}) : {};  // /users/ - lịch sử nhiều ngày
+
+            // Merge: /users/ làm base (nhiều ngày), /journals/ override (đầy đủ fields, ưu tiên)
+            const merged = Object.assign({}, dailyData);
+            // Merge từng ngày từ journals vào (journals có fields đầy đủ hơn)
+            Object.entries(journalData).forEach(([date, dayData]) => {
+              merged[date] = Object.assign({}, merged[date] || {}, dayData);
+            });
+            leaderAllData[mid].entries = merged;
+
             loaded++;
             if (loaded === allMemberEntries.length) {
               let totalDays = 0;
@@ -6869,17 +6821,30 @@ function openLeaderMemberDetail(mid) {
           if (e.lesson) chips.push(`<span title="Bài học rút ra: ${e.lesson.slice(0,80)}${e.lesson.length>80?'...':''}" style="${chipStyle};background:rgba(91,138,110,0.1);color:var(--jade)">📝 Có bài học</span>`);
           if (e.seedGreen||e.seedRed) chips.push(`<span title="Hạt giống xanh (điểm tốt): ${e.seedGreen||'–'} | Hạt giống đỏ (cần sửa): ${e.seedRed||'–'}" style="${chipStyle};background:rgba(192,96,106,0.08);color:var(--rose)">🌱 Hạt giống</span>`);
           if (e.gratitude1||e.gratitude2||e.gratitude3) chips.push(`<span title="Biết ơn: ${[e.gratitude1,e.gratitude2,e.gratitude3].filter(Boolean).join(' | ')}" style="${chipStyle};background:rgba(201,168,76,0.08);color:var(--gold-dark)">🙏 Biết ơn</span>`);
-          if (e.wishContent) chips.push(`<span title="Xin quà/ước muốn: ${(e.wishContent||'').slice(0,60)}..." style="${chipStyle};background:rgba(124,92,191,0.1);color:#7c5cbf">✨ Xin quà</span>`);
+          if (e.wishContent) chips.push(`<span title="Xin quà/ước muốn: ${(e.wishContent||'').slice(0,60)}${(e.wishContent||'').length>60?'...':''}" style="${chipStyle};background:rgba(124,92,191,0.1);color:#7c5cbf">✨ Xin quà</span>`);
           if (e.selfLetter||e.selfProud) chips.push(`<span title="Thư gửi bản thân / Tự hào về bản thân" style="${chipStyle};background:rgba(74,127,168,0.1);color:var(--sky)">💌 Thư bản thân</span>`);
           if (e.dailyGood||e.dailyImprove) chips.push(`<span title="Việc tốt hôm nay: ${e.dailyGood||'–'} | Cần cải thiện: ${e.dailyImprove||'–'}" style="${chipStyle};background:rgba(91,138,110,0.08);color:var(--jade)">🗓 Nhật ký ngày</span>`);
+          // Tiền xanh/đỏ (hạt giống tài chính)
+          if (e.recvGreen||e.spendGreen||e.recvRed||e.spendRed) {
+            const moneyTip = [
+              e.recvGreen?`💚 Nhận xanh: +${e.recvGreen}`:'',
+              e.spendGreen?`💚 Chi xanh: -${e.spendGreen}`:'',
+              e.recvRed?`❤️ Nhận đỏ: +${e.recvRed}`:'',
+              e.spendRed?`❤️ Chi đỏ: -${e.spendRed}`:'',
+            ].filter(Boolean).join(' | ');
+            chips.push(`<span title="Tài chính hạt giống: ${moneyTip}" style="${chipStyle};background:rgba(201,168,76,0.12);color:var(--gold-dark)">💰 Tài chính</span>`);
+          }
+          if (e.moneySeed) chips.push(`<span title="Hạt giống tiền: ${e.moneySeed}" style="${chipStyle};background:rgba(91,138,110,0.1);color:var(--jade)">🌱 Hạt giống $</span>`);
 
           // Năng lượng 5 ngôi nhà
           const nnLabels = ['Bản Thân','Gia Đình','Đội Nhóm','Tổ Quốc','Mẹ Trái Đất'];
           const nnEnergy = e.nnEnergy || {};
+          // nnEnergy có thể dùng key số (1,2,3,4,5) hoặc key string (nn1,nn2...)
+          const NN_KEYS = ['nn1','nn2','nn3','nn4','nn5'];
           const nnChips = nnLabels.map((lbl,j) => {
-            const val = nnEnergy[j+1];
+            const val = nnEnergy[j+1] || nnEnergy[NN_KEYS[j]] || null;
             if (!val) return '';
-            return `<span title="Ngôi nhà ${j+1} – ${lbl}: ${val}/10" style="${chipStyle};background:rgba(91,138,110,0.06);color:var(--ink-muted)">🏠${j+1}: ${val}</span>`;
+            return `<span title="Ngôi nhà ${j+1} – ${lbl}: ${val}/10" style="${chipStyle};background:rgba(91,138,110,0.06);color:var(--ink-muted)">🏠${j+1} ${lbl}: ${val}</span>`;
           }).filter(Boolean).join('');
 
           return `<div style="padding:12px 14px;background:var(--card);border:1.5px solid ${isToday?'rgba(91,138,110,0.35)':'var(--border)'};border-radius:12px;margin-bottom:8px">
@@ -6936,35 +6901,52 @@ function syncJournalToFirebase() {
   const entry = data[todayK];
   if (!entry) return;
 
-  const safeEntry = {
-    rituals:     entry.rituals||{},
-    energy:      entry.energy||5,
-    lesson:      entry.lesson||'',
-    seedGreen:   entry.seedGreen||'',
-    seedRed:     entry.seedRed||'',
-    gratitude1:  entry.gratitude1||'',
-    gratitude2:  entry.gratitude2||'',
-    gratitude3:  entry.gratitude3||'',
-    selfLetter:  entry.selfLetter||'',
-    selfProud:   entry.selfProud||'',
-    dailyGood:   entry.dailyGood||'',
-    dailyImprove:entry.dailyImprove||'',
-    wishContent: entry.wishContent||'',
-    tasks:       (entry.tasks||[]).filter(t=>t.text),
-    tasksV2:     entry.tasksV2 || null,
-    nnEnergy:    entry.nnEnergy||{},
-    recvGreen:   entry.recvGreen||0,
-    recvRed:     entry.recvRed||0,
-    spendGreen:  entry.spendGreen||0,
-    spendRed:    entry.spendRed||0,
-    moneySeed:   entry.moneySeed||'',
-    _updatedAt:  entry._updatedAt || Date.now(),
+  const makeEntry = (e) => ({
+    rituals:     e.rituals||{},
+    energy:      e.energy||5,
+    lesson:      e.lesson||'',
+    seedGreen:   e.seedGreen||'',
+    seedRed:     e.seedRed||'',
+    gratitude1:  e.gratitude1||'',
+    gratitude2:  e.gratitude2||'',
+    gratitude3:  e.gratitude3||'',
+    selfLetter:  e.selfLetter||'',
+    selfProud:   e.selfProud||'',
+    dailyGood:   e.dailyGood||'',
+    dailyImprove:e.dailyImprove||'',
+    wishContent: e.wishContent||'',
+    nnEnergy:    e.nnEnergy||{},
+    recvGreen:   e.recvGreen||0,
+    recvRed:     e.recvRed||0,
+    spendGreen:  e.spendGreen||0,
+    spendRed:    e.spendRed||0,
+    moneySeed:   e.moneySeed||'',
+    tasks:       (e.tasks||[]).filter(t=>t.text),
+    _updatedAt:  e._updatedAt || Date.now(),
     syncedAt:    Date.now(),
-  };
+  });
 
-  // Chỉ ghi vào /journals/ để trưởng nhóm xem — KHÔNG ghi vào /users/
-  db.ref('journals/' + userInfo.groupCode + '/' + userInfo.memberId + '/' + todayK)
-    .set(safeEntry).catch(e => console.warn('Journal sync (leader path) failed:', e));
+  const basePath = 'journals/' + userInfo.groupCode + '/' + userInfo.memberId;
+
+  // Sync hôm nay (luôn luôn)
+  db.ref(basePath + '/' + todayK)
+    .set(makeEntry(entry)).catch(e => console.warn('Journal sync today failed:', e));
+
+  // Lần đầu trong session: sync toàn bộ lịch sử (tối đa 30 ngày gần nhất)
+  if (!window._journalHistorySynced) {
+    window._journalHistorySynced = true;
+    const historyBatch = {};
+    const sortedKeys = Object.keys(data).sort().reverse().slice(0, 30);
+    sortedKeys.forEach(dateKey => {
+      if (dateKey !== todayK && data[dateKey]) {
+        historyBatch[dateKey] = makeEntry(data[dateKey]);
+      }
+    });
+    if (Object.keys(historyBatch).length > 0) {
+      db.ref(basePath).update(historyBatch)
+        .catch(e => console.warn('Journal history sync failed:', e));
+    }
+  }
 }
 
 
