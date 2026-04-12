@@ -640,9 +640,9 @@ textarea { min-height: 80px; }
           <button type="button" onclick="togglePwVis('reg-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
         </div>
       </div>
-      <div>
+      <!-- Trường chọn nhóm cho MEMBER -->
+      <div id="reg-member-group-wrap">
         <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Chọn Nhóm (Tên Trưởng Nhóm) *</label>
-        <!-- Ô gõ tìm tên trưởng nhóm -->
         <div style="position:relative">
           <input type="text" id="reg-group-search" placeholder="Gõ tên trưởng nhóm để tìm..."
             style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
@@ -659,12 +659,24 @@ textarea { min-height: 80px; }
             </div>
           </div>
         </div>
-        <!-- Hidden field lưu groupCode thực sự -->
         <input type="hidden" id="reg-group" value="">
         <div id="reg-group-display" style="font-size:10.5px;color:var(--jade);margin-top:4px;font-weight:700;display:none">
           ✓ Đã chọn nhóm: <span id="reg-group-name-show"></span>
         </div>
         <div style="font-size:10.5px;color:var(--ink-muted);margin-top:4px">💡 Gõ tên trưởng nhóm để tìm và chọn nhóm của bạn</div>
+      </div>
+
+      <!-- Trường đặt tên nhóm cho TRƯỞNG NHÓM (ẩn mặc định) -->
+      <div id="reg-leader-group-wrap" style="display:none">
+        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Đặt Tên Nhóm *</label>
+        <input type="text" id="reg-new-group-name" placeholder="VD: Nhóm Hoa Hướng Dương, Nhóm Thịnh Vượng..."
+          style="background:white;border:2px solid rgba(201,168,76,0.4);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='rgba(201,168,76,0.4)'"
+          oninput="updateLeaderGroupPreview(this.value)">
+        <div id="reg-leader-group-preview" style="font-size:10.5px;color:var(--gold-dark);margin-top:4px;font-weight:700;display:none">
+          👑 Tên nhóm: <span id="reg-leader-group-name-show"></span>
+        </div>
+        <div style="font-size:10.5px;color:var(--ink-muted);margin-top:4px">💡 Đây sẽ là tên nhóm của bạn sau khi được duyệt</div>
       </div>
       <div>
         <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Người Gieo Duyên</label>
@@ -6813,14 +6825,52 @@ function showAutosaveIndicator() {
 const LEADER_KEY_SUFFIX = '_LEAD'; // leader code = groupCode + suffix + custom
 
 function toggleLeaderField() {
-  const wrap = document.getElementById('leader-request-wrap');
-  const btn  = document.getElementById('leader-toggle-btn');
+  const wrap       = document.getElementById('leader-request-wrap');
+  const btn        = document.getElementById('leader-toggle-btn');
+  const memberGrp  = document.getElementById('reg-member-group-wrap');
+  const leaderGrp  = document.getElementById('reg-leader-group-wrap');
   if (!wrap) return;
   const isShowing = wrap.style.display !== 'none';
+
+  // Toggle banner thông tin trưởng nhóm
   wrap.style.display = isShowing ? 'none' : 'block';
+
+  // Toggle 2 trường nhóm
+  if (memberGrp) memberGrp.style.display = isShowing ? 'block' : 'none';
+  if (leaderGrp) leaderGrp.style.display = isShowing ? 'none' : 'block';
+
+  // Khi chuyển về member: xóa tên nhóm leader để tránh dùng nhầm
+  if (isShowing) {
+    const newGrpInput = document.getElementById('reg-new-group-name');
+    if (newGrpInput) newGrpInput.value = '';
+    const preview = document.getElementById('reg-leader-group-preview');
+    if (preview) preview.style.display = 'none';
+  } else {
+    // Khi chuyển sang leader: xóa nhóm member đã chọn
+    const grpInput = document.getElementById('reg-group');
+    if (grpInput) grpInput.value = '';
+    const grpSearch = document.getElementById('reg-group-search');
+    if (grpSearch) grpSearch.value = '';
+    const grpDisplay = document.getElementById('reg-group-display');
+    if (grpDisplay) grpDisplay.style.display = 'none';
+  }
+
   if (btn) {
     btn.style.color = isShowing ? 'var(--gold-dark)' : 'var(--jade)';
     btn.textContent = isShowing ? '👑 Tôi là Trưởng Nhóm' : '✓ Đã chọn Trưởng Nhóm';
+  }
+}
+
+function updateLeaderGroupPreview(val) {
+  const preview  = document.getElementById('reg-leader-group-preview');
+  const nameShow = document.getElementById('reg-leader-group-name-show');
+  if (!preview || !nameShow) return;
+  const trimmed = val.trim();
+  if (trimmed) {
+    nameShow.textContent = trimmed.toUpperCase();
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
   }
 }
 
@@ -6973,14 +7023,14 @@ async function doRegister() {
   const phone      = document.getElementById('reg-phone').value.trim();
   const email      = document.getElementById('reg-email').value.trim();
   const password   = document.getElementById('reg-password').value;
-  const group      = document.getElementById('reg-group').value.trim().toUpperCase();
+  let group        = document.getElementById('reg-group').value.trim().toUpperCase();
   const referrer   = document.getElementById('reg-referrer').value.trim();
   const errEl      = document.getElementById('reg-error');
   const loadEl     = document.getElementById('reg-loading');
 
   // Validate
-  if (!name || !phone || !email || !password || !group) {
-    errEl.textContent = '⚠️ Vui lòng nhập đầy đủ họ tên, SĐT, email, mật khẩu và chọn nhóm.';
+  if (!name || !phone || !email || !password) {
+    errEl.textContent = '⚠️ Vui lòng nhập đầy đủ họ tên, SĐT, email và mật khẩu.';
     errEl.style.display = 'block'; return;
   }
   if (password.length < 6) {
@@ -6992,6 +7042,22 @@ async function doRegister() {
 
   const leaderWrap = document.getElementById('leader-request-wrap');
   const isLeaderReg = leaderWrap && leaderWrap.style.display !== 'none';
+
+  // Nếu là trưởng nhóm, lấy tên nhóm từ trường "Đặt tên nhóm"
+  if (isLeaderReg) {
+    const newGroupName = document.getElementById('reg-new-group-name')?.value.trim().toUpperCase();
+    if (!newGroupName) {
+      if (loadEl) loadEl.style.display = 'none';
+      errEl.textContent = '⚠️ Vui lòng đặt tên nhóm của bạn.';
+      errEl.style.display = 'block'; return;
+    }
+    group = newGroupName;
+    document.getElementById('reg-group').value = newGroupName;
+  } else if (!group) {
+    if (loadEl) loadEl.style.display = 'none';
+    errEl.textContent = '⚠️ Vui lòng chọn nhóm của bạn.';
+    errEl.style.display = 'block'; return;
+  }
 
   try {
     // 1. Tạo Firebase Auth account
