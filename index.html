@@ -2642,6 +2642,12 @@ textarea { min-height: 80px; }
 // DATA
 // ══════════════════════════════════════
 const STORAGE_KEY = 'nk5nn-main';
+
+// Helper: encode groupCode để dùng làm Firebase path key
+// Firebase không chấp nhận: . # $ [ ] /
+function fbKey(groupCode) {
+  return (groupCode || '').replace(/[.#$\[\]/]/g, '_');
+}
 const SP_KEY      = 'nk5nn-sp';
 const KZ_KEY      = 'nk5nn-kaizen';
 const USER_KEY    = 'nk5nn-user';
@@ -8016,24 +8022,24 @@ async function confirmRenameGroup(oldGroupCode) {
     if (Object.keys(memberUpdates).length) await database.ref().update(memberUpdates);
 
     // 2. Copy groups stats sang tên mới
-    const gSnap = await database.ref('groups/' + oldGroupCode).once('value');
+    const gSnap = await database.ref('groups/' + fbKey(oldGroupCode)).once('value');
     if (gSnap.val()) {
-      await database.ref('groups/' + newName).set(gSnap.val());
-      await database.ref('groups/' + oldGroupCode).remove();
+      await database.ref('groups/' + fbKey(newName)).set(gSnap.val());
+      await database.ref('groups/' + fbKey(oldGroupCode)).remove();
     }
 
     // 3. Copy journals sang tên mới
-    const jSnap = await database.ref('journals/' + oldGroupCode).once('value');
+    const jSnap = await database.ref('journals/' + fbKey(oldGroupCode)).once('value');
     if (jSnap.val()) {
-      await database.ref('journals/' + newName).set(jSnap.val());
-      await database.ref('journals/' + oldGroupCode).remove();
+      await database.ref('journals/' + fbKey(newName)).set(jSnap.val());
+      await database.ref('journals/' + fbKey(oldGroupCode)).remove();
     }
 
     // 4. Copy leaders sang tên mới
-    const lSnap = await database.ref('leaders/' + oldGroupCode).once('value');
+    const lSnap = await database.ref('leaders/' + fbKey(oldGroupCode)).once('value');
     if (lSnap.val()) {
-      await database.ref('leaders/' + newName).set(lSnap.val());
-      await database.ref('leaders/' + oldGroupCode).remove();
+      await database.ref('leaders/' + fbKey(newName)).set(lSnap.val());
+      await database.ref('leaders/' + fbKey(oldGroupCode)).remove();
     }
 
     // 5. Cập nhật leader_requests
@@ -8084,7 +8090,7 @@ function loadLeaderData() {
       try {
         const [membersSnap, groupSnap, uidMapSnap] = await Promise.all([
           db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
-          db.ref('groups/' + userInfo.groupCode).once('value'),
+          db.ref('groups/' + fbKey(userInfo.groupCode)).once('value'),
           db.ref('uid_to_member').once('value')
         ]);
         const membersData = membersSnap.val() || {};
@@ -8167,7 +8173,7 @@ function loadLeaderData() {
           const firebaseUid = memberToUid[mid] || memberInfo.firebaseUid || null;
 
           const promises = [
-            db.ref('journals/' + userInfo.groupCode + '/' + mid).once('value'),
+            db.ref('journals/' + fbKey(userInfo.groupCode) + '/' + mid).once('value'),
           ];
           // Luôn load cả 2 path: /journals/ và /users/ để có data đầy đủ nhất
           if (firebaseUid && firebaseUid !== mid) {
@@ -8820,7 +8826,7 @@ async function loadGroupMembers(groupCode, targetEl) {
   try {
     const [membersSnap, groupSnap] = await Promise.all([
       database.ref('members').orderByChild('groupCode').equalTo(groupCode).once('value'),
-      database.ref('groups/' + groupCode).once('value')
+      database.ref('groups/' + fbKey(groupCode)).once('value')
     ]);
     const members = membersSnap.val() || {};
     const todayStats = groupSnap.val() || {};
@@ -9005,18 +9011,18 @@ async function confirmAdminChangeGroup(memberId, memberName, currentGroup) {
     await database.ref('members/' + memberId).update({ groupCode: newGroupCode });
 
     // 2. Di chuyển stats từ /groups/{old} → /groups/{new}
-    const statsSnap = await database.ref('groups/' + currentGroup + '/' + memberId).once('value');
+    const statsSnap = await database.ref('groups/' + fbKey(currentGroup) + '/' + memberId).once('value');
     if (statsSnap.val()) {
-      await database.ref('groups/' + newGroupCode + '/' + memberId).set(statsSnap.val());
-      await database.ref('groups/' + currentGroup + '/' + memberId).remove();
+      await database.ref('groups/' + fbKey(newGroupCode) + '/' + memberId).set(statsSnap.val());
+      await database.ref('groups/' + fbKey(currentGroup) + '/' + memberId).remove();
     }
 
     // 3. Di chuyển journals từ /journals/{old}/{memberId} → /journals/{new}/{memberId}
     if (currentGroup) {
-      const journalSnap = await database.ref('journals/' + currentGroup + '/' + memberId).once('value');
+      const journalSnap = await database.ref('journals/' + fbKey(currentGroup) + '/' + memberId).once('value');
       if (journalSnap.val()) {
-        await database.ref('journals/' + newGroupCode + '/' + memberId).set(journalSnap.val());
-        await database.ref('journals/' + currentGroup + '/' + memberId).remove();
+        await database.ref('journals/' + fbKey(newGroupCode) + '/' + memberId).set(journalSnap.val());
+        await database.ref('journals/' + fbKey(currentGroup) + '/' + memberId).remove();
       }
     }
 
@@ -9050,7 +9056,7 @@ async function approveLeader(requestId) {
       approvedAt: new Date().toISOString()
     });
     // 2. Ghi vào /leaders/{groupCode}/{memberId} để member tự biết được duyệt
-    await database.ref('leaders/' + r.groupCode + '/' + r.memberId).set({
+    await database.ref('leaders/' + fbKey(r.groupCode) + '/' + r.memberId).set({
       name: r.name, approvedAt: new Date().toISOString(), memberId: r.memberId
     });
     // 3. Cập nhật /members/{memberId} thành isLeader = true
@@ -9080,7 +9086,7 @@ async function revokeLeader(requestId) {
   const r = snap.val();
   if (r) {
     await database.ref('leader_requests/' + requestId).update({ status: 'revoked' });
-    await database.ref('leaders/' + r.groupCode + '/' + r.memberId).remove();
+    await database.ref('leaders/' + fbKey(r.groupCode) + '/' + r.memberId).remove();
   }
   showToast('🔄 Đã thu hồi quyền trưởng nhóm');
   loadAdminData();
@@ -9340,6 +9346,9 @@ async function leaderDeleteMember(memberId, memberName) {
 
 // ══════ XOÁ NHÓM (Admin) ══════
 async function adminDeleteGroup(groupCode, memberCount) {
+  // Encode groupCode để dùng làm Firebase path (loại bỏ ký tự đặc biệt)
+  const safeKey = groupCode.replace(/[.#$\[\]/]/g, '_');
+
   const hasMembers = memberCount > 0;
   const confirmed = confirm(
     '🗑 Xoá nhóm: ' + groupCode + '?\n\n' +
@@ -9359,10 +9368,13 @@ async function adminDeleteGroup(groupCode, memberCount) {
   try {
     showToast('⏳ Đang xoá nhóm...');
 
-    // 1. Xoá stats, journals, leaders của nhóm
+    // 1. Xoá stats, journals, leaders — dùng safeKey cho path
     await Promise.all([
+      database.ref('groups/' + safeKey).remove().catch(() => {}),
       database.ref('groups/' + groupCode).remove().catch(() => {}),
+      database.ref('journals/' + safeKey).remove().catch(() => {}),
       database.ref('journals/' + groupCode).remove().catch(() => {}),
+      database.ref('leaders/' + safeKey).remove().catch(() => {}),
       database.ref('leaders/' + groupCode).remove().catch(() => {}),
     ]);
 
@@ -9385,8 +9397,8 @@ async function adminDeleteGroup(groupCode, memberCount) {
       if (Object.keys(memberUpdates).length) await database.ref().update(memberUpdates);
     }
 
-    // 4. Ghi vào /deleted_groups/ để ẩn khỏi form đăng ký
-    await database.ref('deleted_groups/' + groupCode.replace(/[.#$\[\]]/g, '_')).set({
+    // 4. Ghi vào /deleted_groups/ dùng safeKey làm key, lưu groupCode gốc để filter
+    await database.ref('deleted_groups/' + safeKey).set({
       groupCode,
       deletedAt: new Date().toISOString(),
     });
