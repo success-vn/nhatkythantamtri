@@ -2577,6 +2577,8 @@ let spData    = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
 let kzData    = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
 let userInfo  = JSON.parse(localStorage.getItem(USER_KEY)    || 'null');
 let seedsData = JSON.parse(localStorage.getItem(SEEDS_KEY)   || '[]');
+// Đảm bảo mọi seed đều có trường checkins (phòng data cũ/cloud thiếu trường này)
+seedsData = seedsData.map(s => { if (!Array.isArray(s.checkins)) s.checkins = []; return s; });
 // userInfo = { name, groupCode, memberId }
 
 const RITUALS = [
@@ -4150,6 +4152,8 @@ function _applyRemoteData(remote) {
     if (Array.isArray(remote.seeds) && remote.seeds.length > 0) {
       let seedsChanged = false;
       remote.seeds.forEach(rSeed => {
+        // Đảm bảo seed từ cloud luôn có trường checkins hợp lệ
+        if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
         const idx = seedsData.findIndex(s => s.id === rSeed.id);
         if (idx === -1) {
           seedsData.push(rSeed);
@@ -7153,27 +7157,113 @@ function renderLeaderAlerts(members, todayK) {
     // Chưa ghi hôm nay
     const noToday = m.stats?.date !== todayK;
 
-    // NL giảm mạnh: so sánh ngôi nhà hôm nay vs 3 ngày trước
+    // NL giảm mạnh: so sánh ngôi nhà hôm nay vs ngày trước
     let nlDrop = null;
     if (m.stats?.date === todayK && keys.length >= 2) {
       const todayNN  = (m.stats?.nn||[5,5,5,5,5]).reduce((a,b)=>a+b,0)/5;
-      // Lấy entry trước nhất khác hôm nay
       const prevKey  = keys.find(k => k !== todayK);
       if (prevKey) {
         const prevEntry = entries[prevKey];
-        const prevNN    = NN_LIST.map((nn,j) => prevEntry?.nnEnergy?.[nn.key] || 5);
+        const prevNN    = NN_LIST.map(nn => prevEntry?.nnEnergy?.[nn.key] || 5);
         const prevAvg   = prevNN.reduce((a,b)=>a+b,0)/5;
         if (prevAvg - todayNN >= 2) nlDrop = { from: prevAvg.toFixed(1), to: todayNN.toFixed(1) };
       }
     }
 
+    // ── Thu thập chi tiết đánh giá ──────────────────────────────
+    // 1. Năng lượng từng Ngôi Nhà hôm nay (hoặc lần cuối)
+    const refKey     = (m.stats?.date === todayK ? todayK : keys[0]);
+    const refEntry   = refKey ? entries[refKey] : null;
+    const nnEnergy   = refEntry?.nnEnergy || m.stats && {nn1:m.stats.nn?.[0],nn2:m.stats.nn?.[1],nn3:m.stats.nn?.[2],nn4:m.stats.nn?.[3],nn5:m.stats.nn?.[4]} || {};
+    // Các Ngôi Nhà đỏ (<5) và vàng (=5 nhưng không phải tất cả xanh)
+    const nnDetails = NN_LIST.map(nn => {
+      const val = nnEnergy[nn.key];
+      return { label: nn.label, icon: nn.icon, val: val != null ? val : null };
+    }).filter(n => n.val !== null);
+    const nnRed    = nnDetails.filter(n => n.val < 5);
+    const nnNeutral= nnDetails.filter(n => n.val === 5);
+    const nnGreen  = nnDetails.filter(n => n.val > 5);
+
+    // 2. Nghi thức bỏ hôm nay / lần cuối
+    const refRituals   = refEntry?.rituals || {};
+    const missedRituals= RITUALS.filter(r => !refRituals[r.id]);
+
+    // 3. Hạt giống tái phát gần đây (7 ngày)
+    const seeds = m.seeds || [];
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    const recentSeeds = seeds.filter(s =>
+      s.status === 'active' &&
+      (s.checkins||[]).some(c => c.appeared && c.date >= weekAgoStr)
+    );
+
+    // ── Tạo HTML chi tiết ──────────────────────────────────────
+    function buildDetail() {
+      let parts = [];
+
+      // Năng lượng 5 Ngôi Nhà
+      if (nnDetails.length > 0) {
+        let nnRows = '';
+        NN_LIST.forEach(nn => {
+          const nd = nnDetails.find(x => x.label === nn.label);
+          if (!nd) return;
+          const v = nd.val;
+          const color = v < 5 ? 'var(--rose)' : v > 5 ? 'var(--jade)' : 'var(--gold-dark)';
+          const dot   = v < 5 ? '🔴' : v > 5 ? '🟢' : '🟡';
+          const bar   = v != null ? Math.round((v/10)*60) : 0;
+          nnRows += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-size:11px;width:14px;flex-shrink:0">${dot}</span>
+            <span style="font-size:11px;color:var(--ink-soft);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nn.icon} ${nn.label.replace(/NN\d · /,'')}</span>
+            <div style="width:50px;height:5px;background:rgba(0,0,0,0.07);border-radius:3px;flex-shrink:0">
+              <div style="height:100%;width:${bar}px;max-width:50px;background:${color};border-radius:3px"></div>
+            </div>
+            <span style="font-size:11px;font-weight:800;color:${color};width:18px;text-align:right;flex-shrink:0">${v}</span>
+          </div>`;
+        });
+        if (nnRows) parts.push(`
+          <div style="margin-top:8px">
+            <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px">⚡ Năng lượng 5 Ngôi Nhà</div>
+            ${nnRows}
+          </div>`);
+      }
+
+      // Nghi thức bỏ
+      if (missedRituals.length > 0 && missedRituals.length < 9) {
+        const missed = missedRituals.map(r => `<span style="font-size:10.5px;background:rgba(192,96,106,0.1);color:var(--rose);padding:2px 7px;border-radius:6px;display:inline-block;margin:2px 2px 0 0">${r.label.replace(/^\d+\.\s*/,'')}</span>`).join('');
+        parts.push(`
+          <div style="margin-top:8px">
+            <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px">🔕 Nghi thức chưa thực hiện (${missedRituals.length}/9)</div>
+            <div>${missed}</div>
+          </div>`);
+      } else if (missedRituals.length === 9) {
+        parts.push(`<div style="margin-top:7px;font-size:11.5px;color:var(--rose);font-weight:700">🔕 Chưa thực hiện bất kỳ nghi thức nào</div>`);
+      }
+
+      // Hạt giống tái phát
+      if (recentSeeds.length > 0) {
+        const seedTags = recentSeeds.map(s => {
+          const lastCheckin = (s.checkins||[]).filter(c=>c.appeared).sort((a,b)=>b.date.localeCompare(a.date))[0];
+          return `<div style="font-size:11px;padding:3px 7px;background:rgba(192,96,106,0.08);border-left:3px solid var(--rose);border-radius:0 6px 6px 0;margin:2px 0;color:var(--ink-soft)">
+            😔 <strong>${escHtml(s.name)}</strong>${lastCheckin?' · '+lastCheckin.date:''}${lastCheckin?.note?' — "'+escHtml(lastCheckin.note.slice(0,40)+(lastCheckin.note.length>40?'…':''))+'"':''}
+          </div>`;
+        }).join('');
+        parts.push(`
+          <div style="margin-top:8px">
+            <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px">🌱 Hạt giống tái phát 7 ngày qua</div>
+            ${seedTags}
+          </div>`);
+      }
+
+      return parts.join('');
+    }
+
     if (skipDays >= 3) {
-      alerts.push({ level:'red', name:m.name, msg:`Bỏ nghi thức ${skipDays} ngày liên tiếp${noToday?' · Chưa ghi hôm nay':''}` });
+      alerts.push({ level:'red', name:m.name, reason:`Bỏ nghi thức ${skipDays} ngày liên tiếp${noToday?' · Chưa ghi hôm nay':''}`, detail: buildDetail() });
     } else if (noToday && keys.length > 0) {
       const lastDate = m.stats?.date || keys[0];
-      alerts.push({ level:'amber', name:m.name, msg:`Chưa ghi hôm nay · Lần cuối: ${lastDate}` });
+      alerts.push({ level:'amber', name:m.name, reason:`Chưa ghi hôm nay · Lần cuối: ${lastDate}`, detail: buildDetail() });
     } else if (nlDrop) {
-      alerts.push({ level:'amber', name:m.name, msg:`NL giảm từ ${nlDrop.from} → ${nlDrop.to} so với lần trước` });
+      alerts.push({ level:'amber', name:m.name, reason:`NL giảm từ ${nlDrop.from} → ${nlDrop.to} so với lần trước`, detail: buildDetail() });
     }
   });
 
@@ -7185,12 +7275,25 @@ function renderLeaderAlerts(members, todayK) {
 
   if (badgeEl) { badgeEl.style.display='inline-block'; badgeEl.textContent=alerts.length; }
 
-  alertsEl.innerHTML = alerts.map(a => `
-    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:6px;
-      background:${a.level==='red'?'rgba(192,96,106,0.08)':'rgba(201,168,76,0.08)'}">
-      <span style="font-size:14px;flex-shrink:0">${a.level==='red'?'🔴':'🟡'}</span>
-      <div style="font-size:12.5px;line-height:1.5;color:var(--ink-soft)">
-        <strong style="color:${a.level==='red'?'var(--rose)':'var(--gold-dark)'}">${escHtml(a.name)}</strong> — ${escHtml(a.msg)}
+  alertsEl.innerHTML = alerts.map((a, idx) => `
+    <div style="border-radius:10px;margin-bottom:8px;overflow:hidden;
+      border:1px solid ${a.level==='red'?'rgba(192,96,106,0.25)':'rgba(201,168,76,0.3)'}">
+      <!-- Header hàng tên + lý do -->
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;cursor:pointer;
+        background:${a.level==='red'?'rgba(192,96,106,0.07)':'rgba(201,168,76,0.07)'}"
+        onclick="(function(el){el.style.display=el.style.display==='none'?'block':'none'})(document.getElementById('alert-detail-${idx}'))">
+        <span style="font-size:15px;flex-shrink:0;margin-top:1px">${a.level==='red'?'🔴':'🟡'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:800;color:${a.level==='red'?'var(--rose)':'var(--gold-dark)'}">${escHtml(a.name)}</div>
+          <div style="font-size:11.5px;color:var(--ink-muted);margin-top:1px">${escHtml(a.reason)}</div>
+        </div>
+        <span style="font-size:10px;color:var(--ink-muted);flex-shrink:0;margin-top:2px">▼ Chi tiết</span>
+      </div>
+      <!-- Chi tiết đánh giá (ẩn/hiện) -->
+      <div id="alert-detail-${idx}" style="display:none;padding:10px 14px 12px;
+        background:${a.level==='red'?'rgba(192,96,106,0.03)':'rgba(201,168,76,0.03)'};
+        border-top:1px solid ${a.level==='red'?'rgba(192,96,106,0.12)':'rgba(201,168,76,0.15)'}">
+        ${a.detail || '<div style="font-size:12px;color:var(--ink-muted)">Chưa có đủ dữ liệu chi tiết.</div>'}
       </div>
     </div>`).join('');
 }
@@ -8826,6 +8929,7 @@ function renderSeedsList(containerId, seeds, isDone) {
   }
 
   el.innerHTML = seeds.map(s => {
+    if (!s.checkins) s.checkins = [];
     const checkedToday = s.checkins.some(c => c.date === todayKey());
     const streak       = calcNoAppearStreak(s);
     const totalDays    = Math.floor((Date.now() - new Date(s.createdAt).getTime()) / 86400000) + 1;
@@ -8896,7 +9000,7 @@ function renderSeedsList(containerId, seeds, isDone) {
 
 // ── Tính streak ngày không tái phát liên tiếp ───────────────────
 function calcNoAppearStreak(seed) {
-  if (!seed.checkins.length) return 0;
+  if (!seed.checkins || !seed.checkins.length) return 0;
   // Sắp xếp giảm dần theo ngày
   const sorted = [...seed.checkins].sort((a, b) => b.date.localeCompare(a.date));
   let streak = 0;
@@ -8985,6 +9089,8 @@ function saveCheckinWithNote(seedId) {
 function doSaveCheckin(seedId, appeared, note) {
   const seed = seedsData.find(s => s.id === seedId);
   if (!seed) return;
+  // Đảm bảo checkins luôn là mảng (phòng trường hợp data cũ từ cloud thiếu trường này)
+  if (!Array.isArray(seed.checkins)) seed.checkins = [];
   // Xóa check-in cũ cùng ngày nếu có (tránh duplicate)
   seed.checkins = seed.checkins.filter(c => c.date !== todayKey());
   seed.checkins.push({ date: todayKey(), appeared, note: note || '' });
@@ -9021,10 +9127,10 @@ function openSeedDetail(seedId) {
   if (!seed) return;
 
   const streak   = calcNoAppearStreak(seed);
-  const appeared = seed.checkins.filter(c => c.appeared).length;
-  const clean    = seed.checkins.filter(c => !c.appeared).length;
+  const appeared = (seed.checkins||[]).filter(c => c.appeared).length;
+  const clean    = (seed.checkins||[]).filter(c => !c.appeared).length;
   // 7 check-in gần nhất
-  const recent   = [...seed.checkins].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+  const recent   = [...(seed.checkins||[])].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
 
   document.getElementById('seed-detail-content').innerHTML = `
     <div style="margin-bottom:20px">
@@ -9145,6 +9251,7 @@ async function syncSeedsFromCloud() {
         const arr = Object.values(snapObj);
         if (arr.length > 0) {
           arr.forEach(rSeed => {
+            if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
             if (!seedsData.find(s => s.id === rSeed.id)) seedsData.push(rSeed);
           });
           localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
@@ -9158,6 +9265,7 @@ async function syncSeedsFromCloud() {
     }
     let added = 0;
     remoteSeedsArr.forEach(rSeed => {
+      if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
       if (!seedsData.find(s => s.id === rSeed.id)) {
         seedsData.push(rSeed);
         added++;
