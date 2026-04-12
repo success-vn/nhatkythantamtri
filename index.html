@@ -1297,7 +1297,7 @@ textarea { min-height: 80px; }
       <div class="section-icon" style="background:rgba(74,140,111,0.12)">✅</div>
       <div style="flex:1">
         Đã Chuyển Hóa
-        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Hạt giống không tái phát 7+ ngày liên tiếp</div>
+        <div style="font-size:11px;font-weight:400;color:var(--ink-muted);margin-top:1px">Hạt giống hành vi không tái phát 21+ ngày liên tiếp</div>
       </div>
       <span id="seeds-done-count" style="background:rgba(74,140,111,0.12);color:var(--jade);font-size:11px;font-weight:800;padding:3px 10px;border-radius:12px">0 hạt</span>
     </div>
@@ -3122,24 +3122,36 @@ async function doLogin() {
     try { localUser = JSON.parse(localStorage.getItem(USER_KEY)); } catch(e) {}
 
     if (localUser && localUser.email === email) {
-      // Đã có local → dùng làm base, nhưng PHẢI sync lại isLeader từ Firebase
+      // Đã có local → dùng làm base, nhưng PHẢI sync lại từ Firebase
       userInfo = localUser;
       userInfo.firebaseUid = firebaseUid;
-      // FIX LỖI 3+4: Luôn kiểm tra lại isLeader từ Firebase sau mỗi lần đăng nhập
       if (database) {
         try {
-          const mSnap = await database.ref('members/' + localUser.memberId).once('value');
+          // Ưu tiên tra cứu memberId thật từ uid_to_member để tránh dùng memberId cũ/sai
+          const uidSnap = await database.ref('uid_to_member/' + firebaseUid).once('value');
+          const uidMapping = uidSnap.val();
+          if (uidMapping && uidMapping.memberId) {
+            // Cập nhật memberId và groupCode từ Firebase nếu khác local
+            userInfo.memberId = uidMapping.memberId;
+            if (uidMapping.groupCode) userInfo.groupCode = uidMapping.groupCode;
+          }
+          // Sync thông tin member từ Firebase dùng memberId đã xác nhận
+          const mSnap = await database.ref('members/' + userInfo.memberId).once('value');
           const mData = mSnap.val();
           if (mData) {
-            userInfo.isLeader = mData.isLeader || false;
             userInfo.isAdmin = mData.isAdmin || false;
             userInfo.name = mData.name || localUser.name;
-            userInfo.groupCode = mData.groupCode || localUser.groupCode;
-          }
-          // Cũng check /leaders/ path
-          if (!userInfo.isLeader) {
+            userInfo.groupCode = mData.groupCode || userInfo.groupCode;
+            // Chỉ ghi đè isLeader từ Firebase nếu Firebase nói true,
+            // hoặc nếu không có /leaders/ path nào confirm
             const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
-            if (lSnap.val()) userInfo.isLeader = true;
+            userInfo.isLeader = mData.isLeader === true || lSnap.val() !== null;
+          } else {
+            // Không tìm thấy member trong DB → check /leaders/ path trực tiếp
+            if (userInfo.groupCode && userInfo.memberId) {
+              const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
+              if (lSnap.val()) userInfo.isLeader = true;
+            }
           }
           if (userInfo.isAdmin) localStorage.setItem(ADMIN_KEY, 'true');
         } catch(e) { console.warn('isLeader sync on login failed:', e.message); }
@@ -6852,9 +6864,34 @@ async function checkLeaderApproval() {
       leadersSnap.val() !== null ||
       memberSnap.val()?.isLeader === true;
     const wasLeaderBefore = userInfo.isLeader;
-    if (isApprovedAsLeader !== userInfo.isLeader) {
-      userInfo.isLeader = isApprovedAsLeader;
-      save(USER_KEY, userInfo);
+    // Chỉ cập nhật isLeader nếu Firebase confirm true,
+    // hoặc nếu đang false thì mới ghi đè về false (tránh mất quyền do data chưa sync)
+    if (isApprovedAsLeader) {
+      // Firebase xác nhận là leader → luôn set true
+      if (!userInfo.isLeader) {
+        userInfo.isLeader = true;
+        save(USER_KEY, userInfo);
+      }
+      // Đảm bảo /members/ cũng có isLeader: true
+      if (memberSnap.val() && !memberSnap.val().isLeader) {
+        database.ref('members/' + userInfo.memberId).update({ isLeader: true }).catch(() => {});
+      }
+    } else if (!isApprovedAsLeader && userInfo.isLeader) {
+      // Firebase nói không phải leader, nhưng local nói có
+      // → Không ghi đè ngay, thử lại sau 5s để tránh false negative do mạng chậm
+      setTimeout(async () => {
+        try {
+          const [ls2, ms2] = await Promise.all([
+            database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value'),
+            database.ref('members/' + userInfo.memberId).once('value'),
+          ]);
+          if (!ls2.val() && !ms2.val()?.isLeader) {
+            userInfo.isLeader = false;
+            save(USER_KEY, userInfo);
+            initLeaderUI();
+          }
+        } catch(e) {}
+      }, 5000);
     }
     initLeaderUI();
     if (isApprovedAsLeader && !wasLeaderBefore && !userInfo._leaderNotified) {
@@ -7863,6 +7900,26 @@ function loadLeaderData() {
         if (activeEl) activeEl.textContent = activeToday;
 
         leaderAllData = {};
+
+        // Đảm bảo trưởng nhóm luôn có trong danh sách theo dõi
+        // Nếu /members/ chưa có entry cho trưởng nhóm (groupCode chưa sync),
+        // tự inject từ userInfo
+        const selfInMembers = allMemberEntries.some(([, m]) =>
+          (m.memberId || '') === userInfo.memberId || (m.email || '') === userInfo.email
+        );
+        if (!selfInMembers && userInfo.memberId && userInfo.name) {
+          allMemberEntries.push([userInfo.memberId, {
+            memberId:     userInfo.memberId,
+            name:         userInfo.name,
+            phone:        userInfo.phone || '',
+            email:        userInfo.email || '',
+            groupCode:    userInfo.groupCode,
+            firebaseUid:  userInfo.firebaseUid || '',
+            isLeader:     true,
+            registeredAt: '',
+          }]);
+        }
+
         if (!allMemberEntries.length) {
           if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm chưa có thành viên nào.</p></div>';
           const avgEl = document.getElementById('leader-avg-streak');
@@ -8017,7 +8074,7 @@ function renderLeaderMemberList() {
           font-size:15px;font-weight:800;color:white;flex-shrink:0">${initials}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <div style="font-weight:800;font-size:14px;color:var(--ink)">${m.name}</div>
+            <div style="font-weight:800;font-size:14px;color:var(--ink)">${m.name}${mid === userInfo.memberId ? ' <span style="font-size:10px;font-weight:700;color:var(--gold-dark)">(Tôi)</span>' : ''}</div>
             ${isActive ? '<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px">Hôm nay ✓</span>' : '<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px">'+(m.stats?.date||'Chưa có')+'</span>'}
           </div>
           <div style="font-size:11px;color:var(--ink-muted);line-height:1.8;margin-top:2px">
@@ -9301,11 +9358,11 @@ function renderSeedsList(containerId, seeds, isDone) {
             background:linear-gradient(135deg,#7c5cbf,#4a3580);color:white;border:none;
             font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
             ${checkedThisWeek ? '🌿 Ghi nhận khiêm hạ thêm' : '🙏 Tôi đã khiêm hạ hạt giống này chưa?'}</button>
-          ${humbleCount >= 10 ? `<button onclick="markSeedDone('${s.id}')"
-            style="padding:9px 14px;border-radius:10px;background:linear-gradient(135deg,var(--jade),#2d6a4f);
+          <button onclick="markDeepRootDone('${s.id}')"
+            style="padding:9px 14px;border-radius:10px;background:linear-gradient(135deg,#7c5cbf,#4a3580);
             color:white;border:none;font-size:12px;font-weight:800;cursor:pointer;
             font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-            🎉 Chuyển hóa</button>` : ''}
+            🕊️ Đã giải phóng thành công</button>
         </div>
         ` : `
         <div style="font-size:12px;color:#7c5cbf;font-style:italic;font-weight:700">
@@ -9321,7 +9378,7 @@ function renderSeedsList(containerId, seeds, isDone) {
       const totalDays    = Math.floor((Date.now() - new Date(s.createdAt).getTime()) / 86400000) + 1;
       const appearedDays = s.checkins.filter(c => c.appeared).length;
       const barW         = totalDays > 0 ? Math.round((1 - appearedDays / totalDays) * 100) : 0;
-      const canDone      = !isDone && streak >= 7;
+      const canDone      = !isDone && streak >= 21;
 
       return `
       <div style="border:1.5px solid ${isDone ? 'rgba(74,140,111,0.3)' : 'rgba(192,96,106,0.2)'};
@@ -9350,7 +9407,7 @@ function renderSeedsList(containerId, seeds, isDone) {
         <!-- Thanh tiến trình -->
         <div style="margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-muted);margin-bottom:4px">
-            <span>Ngày không tái phát liên tiếp: <strong style="color:${streak>=7?'var(--jade)':'var(--rose)'}">${streak} ngày</strong></span>
+            <span>Ngày không tái phát liên tiếp: <strong style="color:${streak>=21?'var(--jade)':streak>=7?'var(--gold)':'var(--rose)'}">${streak} ngày${streak>=21?' 🎉':streak>=7?' 🌱':''}</strong></span>
             <span>Đã check-in: ${s.checkins.length}/${totalDays} ngày</span>
           </div>
           <div style="height:6px;background:rgba(201,168,76,0.12);border-radius:4px;overflow:hidden">
@@ -9557,9 +9614,28 @@ function checkAutoConvert(seedId) {
   const seed  = seedsData.find(s => s.id === seedId);
   if (!seed || seed.status === 'done') return;
   const streak = calcNoAppearStreak(seed);
-  if (streak >= 7) {
+  if (streak >= 21) {
     showToast('🎉 ' + seed.name + ' không tái phát ' + streak + ' ngày! Bạn có thể đánh dấu đã chuyển hóa rồi!');
+  } else if (streak >= 7) {
+    showToast('🌱 ' + seed.name + ' đạt ' + streak + ' ngày — tiếp tục duy trì đến 21 ngày!');
   }
+}
+
+// ── Giải phóng thành công hạt giống gốc rễ ẩn ngầm ─────────────
+function markDeepRootDone(seedId) {
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+  const humbleCount = (seed.humbleLog || []).length;
+  const msg = humbleCount > 0
+    ? `Xác nhận hạt giống "${seed.name}" đã được giải phóng thành công sau ${humbleCount} lần khiêm hạ?`
+    : `Xác nhận hạt giống "${seed.name}" đã được giải phóng thành công?`;
+  if (!confirm(msg)) return;
+  seed.status = 'done';
+  seed.doneAt = todayKey();
+  seed.liberatedManually = true;
+  saveSeedsData();
+  showToast('🕊️ Chúc mừng! Hạt giống gốc rễ đã được giải phóng thành công!');
+  renderSeedsPage();
 }
 
 // ── Đánh dấu đã chuyển hóa ──────────────────────────────────────
