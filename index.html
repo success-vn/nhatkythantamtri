@@ -9404,15 +9404,18 @@ async function adminDeleteGroup(groupCode, memberCount) {
   try {
     showToast('⏳ Đang xoá nhóm...');
 
-    // 1. Xoá stats, journals, leaders — dùng safeKey cho path
-    await Promise.all([
-      database.ref('groups/' + safeKey).remove().catch(() => {}),
-      database.ref('groups/' + groupCode).remove().catch(() => {}),
-      database.ref('journals/' + safeKey).remove().catch(() => {}),
-      database.ref('journals/' + groupCode).remove().catch(() => {}),
-      database.ref('leaders/' + safeKey).remove().catch(() => {}),
-      database.ref('leaders/' + groupCode).remove().catch(() => {}),
-    ]);
+    // 1. Xoá stats, journals, leaders
+    // Firebase SDK không cho phép ref() với path chứa dấu chấm/ký tự đặc biệt
+    // Nhưng database.ref().update({path: null}) hoạt động được với cả raw key
+    // Thử xóa cả 2: raw groupCode và safeKey
+    const nullUpdates = {};
+    nullUpdates['groups/' + groupCode]   = null;
+    nullUpdates['journals/' + groupCode] = null;
+    nullUpdates['leaders/' + groupCode]  = null;
+    nullUpdates['groups/' + safeKey]     = null;
+    nullUpdates['journals/' + safeKey]   = null;
+    nullUpdates['leaders/' + safeKey]    = null;
+    await database.ref().update(nullUpdates).catch(e => console.warn('delete paths:', e.message));
 
     // 2. Xoá leader_requests của nhóm này
     const reqSnap = await database.ref('leader_requests').once('value');
