@@ -6364,16 +6364,26 @@ function getTasksStruct() {
     // Migrate từ tasks cũ nếu có
     const old = entry.tasks || [];
     entry.tasksV2 = {
-      main: Array.from({length:4}, (_,i) => ({ text: old[i]?.text||'', done: old[i]?.done||false })),
-      reject:   Array.from({length:3}, () => ({ text:'', done:false })),
-      delegate: Array.from({length:3}, () => ({ text:'', done:false })),
-      outsource:Array.from({length:2}, () => ({ text:'', done:false })),
-      automate: Array.from({length:2}, () => ({ text:'', done:false })),
-      extra: old.slice(4).map(t=>({text:t.text||'',done:t.done||false}))
+      main:      Array.from({length:4}, (_,i) => ({ text: old[i]?.text||'', done: old[i]?.done||false })),
+      reject:    Array.from({length:3}, () => ({ text:'', done:false })),
+      delegate:  Array.from({length:3}, () => ({ text:'', done:false })),
+      outsource: Array.from({length:2}, () => ({ text:'', done:false })),
+      automate:  Array.from({length:2}, () => ({ text:'', done:false })),
+      extra:     old.slice(4).map(t=>({text:t.text||'',done:t.done||false}))
     };
     save(STORAGE_KEY, data);
   }
-  return entry.tasksV2;
+  // Normalize: đảm bảo tất cả các field luôn tồn tại (phòng data cũ/sync thiếu field)
+  const tv2 = entry.tasksV2;
+  if (!Array.isArray(tv2.main))      tv2.main      = Array.from({length:4}, () => ({text:'',done:false}));
+  if (!Array.isArray(tv2.extra))     tv2.extra     = [];
+  if (!Array.isArray(tv2.reject))    tv2.reject    = Array.from({length:3}, () => ({text:'',done:false}));
+  if (!Array.isArray(tv2.delegate))  tv2.delegate  = Array.from({length:3}, () => ({text:'',done:false}));
+  if (!Array.isArray(tv2.outsource)) tv2.outsource = Array.from({length:2}, () => ({text:'',done:false}));
+  if (!Array.isArray(tv2.automate))  tv2.automate  = Array.from({length:2}, () => ({text:'',done:false}));
+  // Đảm bảo main luôn đủ 4 phần tử
+  while (tv2.main.length < 4) tv2.main.push({text:'', done:false});
+  return tv2;
 }
 
 function renderTasksList() {
