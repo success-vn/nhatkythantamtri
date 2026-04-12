@@ -2223,9 +2223,15 @@ textarea { min-height: 80px; }
 <!-- ══════ LEADER PAGE ══════ -->
 <div id="page-leader" class="page">
   <div class="date-bar">
-    <div>
+    <div style="flex:1">
       <div class="date-label">Trưởng Nhóm</div>
-      <div class="date-value" id="leader-group-name"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="date-value" id="leader-group-name"></div>
+        <button onclick="openRenameGroup()" title="Sửa tên nhóm"
+          style="border:none;background:rgba(201,168,76,0.15);color:var(--gold-dark);
+          border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;
+          font-family:'Nunito',sans-serif">✏️ Sửa</button>
+      </div>
     </div>
     <div class="day-badge" style="background:linear-gradient(135deg,var(--gold),var(--gold-dark))">👑 Leader</div>
   </div>
@@ -3066,9 +3072,16 @@ async function loadLeaderList() {
     return;
   }
   try {
-    const snap = await database.ref('leader_requests').once('value');
+    const [snap, deletedSnap] = await Promise.all([
+      database.ref('leader_requests').once('value'),
+      database.ref('deleted_groups').once('value'),
+    ]);
     const all = snap.val() || {};
-    _leaderListCache = Object.values(all).filter(r => r.status === 'approved');
+    const deletedGroups = deletedSnap.val() || {};
+    const deletedCodes = new Set(Object.values(deletedGroups).map(d => d.groupCode));
+    _leaderListCache = Object.values(all).filter(r =>
+      r.status === 'approved' && !deletedCodes.has(r.groupCode)
+    );
     renderLeaderDropdown(_leaderListCache, '');
   } catch(e) {
     document.getElementById('leader-list-items').innerHTML =
@@ -3152,8 +3165,15 @@ async function doLogin() {
           const mData = mSnap.val();
           if (mData) {
             userInfo.isAdmin = mData.isAdmin || false;
-            userInfo.name = mData.name || localUser.name;
-            userInfo.groupCode = mData.groupCode || userInfo.groupCode;
+            // Chỉ lấy name/groupCode từ Firebase nếu email khớp — tránh dùng nhầm data của người khác
+            if (!mData.email || mData.email.toLowerCase() === email.toLowerCase()) {
+              userInfo.name = mData.name || localUser.name;
+              userInfo.groupCode = mData.groupCode || userInfo.groupCode;
+            } else {
+              // Email không khớp → memberId trong uid_to_member bị sai, bỏ qua data này
+              console.warn('⚠️ uid_to_member trỏ sai memberId, email không khớp:', mData.email, '≠', email);
+              userInfo.name = localUser.name;
+            }
             // Chỉ ghi đè isLeader từ Firebase nếu Firebase nói true,
             // hoặc nếu không có /leaders/ path nào confirm
             const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
@@ -7185,6 +7205,29 @@ function loadMemberTeamData() {
           approved:     m.approved !== false,
         };
       });
+
+      // Self-inject: đảm bảo bản thân luôn xuất hiện trong danh sách
+      const selfInTeam = Object.values(_memberTeamData).some(m =>
+        m.email?.toLowerCase() === userInfo.email?.toLowerCase()
+      );
+      if (!selfInTeam && userInfo.memberId && userInfo.name) {
+        _memberTeamData[userInfo.memberId] = {
+          name:         userInfo.name,
+          phone:        userInfo.phone || '',
+          email:        userInfo.email || '',
+          referrer:     '',
+          registeredAt: '',
+          isLeader:     userInfo.isLeader || false,
+          approved:     true,
+        };
+        // Tự heal Firebase
+        db.ref('members/' + userInfo.memberId).update({
+          groupCode: userInfo.groupCode,
+          name: userInfo.name,
+          email: userInfo.email || '',
+        }).catch(() => {});
+      }
+
       // Cập nhật badge số thành viên
       const badge = document.getElementById('mt-total-members-badge');
       if (badge) badge.textContent = Object.keys(_memberTeamData).length;
@@ -7226,7 +7269,7 @@ function renderMemberTeamList() {
       <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;flex-shrink:0">${initials}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
-          <div style="font-weight:800;font-size:13.5px;color:var(--ink)">${m.name}</div>
+          <div style="font-weight:800;font-size:13.5px;color:var(--ink)">${m.name}${mid === userInfo.memberId ? ' <span style="font-size:10px;font-weight:700;color:var(--gold-dark)">(Tôi)</span>' : ''}</div>
           ${m.isLeader ? '<span style="background:rgba(201,168,76,0.15);color:var(--gold-dark);font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px">👑 TN</span>' : ''}
         </div>
         <div style="font-size:11.5px;color:var(--ink-muted);line-height:1.9">
@@ -7923,6 +7966,102 @@ async function rejectLeaderMember(memberId) {
 
 
 
+// ── Sửa tên nhóm (dành cho trưởng nhóm) ────────────────────────
+function openRenameGroup() {
+  const currentName = userInfo.groupCode || '';
+  const modal = document.createElement('div');
+  modal.id = 'rename-group-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:20px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.35)">
+      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">✏️ Sửa tên nhóm</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:16px">Tên nhóm mới sẽ được cập nhật cho tất cả thành viên.</div>
+      <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:6px">Tên nhóm mới</label>
+      <input type="text" id="rename-group-input" value="${currentName}"
+        style="width:100%;padding:11px 14px;border:2px solid rgba(201,168,76,0.4);border-radius:11px;
+        font-size:14px;font-weight:600;color:var(--ink);outline:none;font-family:'Nunito',sans-serif;
+        text-transform:uppercase;margin-bottom:16px"
+        oninput="this.value=this.value.toUpperCase()"
+        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='rgba(201,168,76,0.4)'">
+      <div id="rename-group-error" style="color:var(--rose);font-size:12px;font-weight:700;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('rename-group-modal').remove()"
+          style="flex:1;padding:11px;background:rgba(122,101,82,0.1);color:var(--ink-muted);border:1px solid var(--border);
+          border-radius:11px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Huỷ</button>
+        <button onclick="confirmRenameGroup('${currentName}')"
+          style="flex:2;padding:11px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;
+          border-radius:11px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✅ Xác nhận đổi tên</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => { const inp = document.getElementById('rename-group-input'); if(inp){inp.focus();inp.select();} }, 100);
+}
+
+async function confirmRenameGroup(oldGroupCode) {
+  const newName = (document.getElementById('rename-group-input')?.value || '').trim().toUpperCase();
+  const errEl = document.getElementById('rename-group-error');
+  if (!newName) { if(errEl){errEl.textContent='⚠️ Vui lòng nhập tên nhóm';errEl.style.display='block';} return; }
+  if (newName === oldGroupCode) { document.getElementById('rename-group-modal')?.remove(); return; }
+
+  const database = await loadFirebase();
+  if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
+
+  try {
+    showToast('⏳ Đang đổi tên nhóm...');
+
+    // 1. Cập nhật groupCode của tất cả thành viên trong nhóm
+    const mSnap = await database.ref('members').orderByChild('groupCode').equalTo(oldGroupCode).once('value');
+    const memberUpdates = {};
+    mSnap.forEach(child => { memberUpdates['members/' + child.key + '/groupCode'] = newName; });
+    if (Object.keys(memberUpdates).length) await database.ref().update(memberUpdates);
+
+    // 2. Copy groups stats sang tên mới
+    const gSnap = await database.ref('groups/' + oldGroupCode).once('value');
+    if (gSnap.val()) {
+      await database.ref('groups/' + newName).set(gSnap.val());
+      await database.ref('groups/' + oldGroupCode).remove();
+    }
+
+    // 3. Copy journals sang tên mới
+    const jSnap = await database.ref('journals/' + oldGroupCode).once('value');
+    if (jSnap.val()) {
+      await database.ref('journals/' + newName).set(jSnap.val());
+      await database.ref('journals/' + oldGroupCode).remove();
+    }
+
+    // 4. Copy leaders sang tên mới
+    const lSnap = await database.ref('leaders/' + oldGroupCode).once('value');
+    if (lSnap.val()) {
+      await database.ref('leaders/' + newName).set(lSnap.val());
+      await database.ref('leaders/' + oldGroupCode).remove();
+    }
+
+    // 5. Cập nhật leader_requests
+    const reqSnap = await database.ref('leader_requests').once('value');
+    const reqUpdates = {};
+    reqSnap.forEach(child => {
+      if (child.val()?.groupCode === oldGroupCode) reqUpdates['leader_requests/' + child.key + '/groupCode'] = newName;
+    });
+    if (Object.keys(reqUpdates).length) await database.ref().update(reqUpdates);
+
+    // 6. Cập nhật uid_to_member
+    const uidSnap = await database.ref('uid_to_member').orderByChild('groupCode').equalTo(oldGroupCode).once('value');
+    const uidUpdates = {};
+    uidSnap.forEach(child => { uidUpdates['uid_to_member/' + child.key + '/groupCode'] = newName; });
+    if (Object.keys(uidUpdates).length) await database.ref().update(uidUpdates);
+
+    // 7. Cập nhật userInfo local
+    userInfo.groupCode = newName;
+    save(USER_KEY, userInfo);
+    _leaderListCache = null; // Reset cache dropdown đăng ký
+
+    document.getElementById('rename-group-modal')?.remove();
+    document.getElementById('leader-group-name').textContent = newName;
+    showToast('✅ Đã đổi tên nhóm → ' + newName);
+    loadLeaderData();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
 let leaderAllData = {}; // { memberId: { name, stats, entries } }
 let _leaderGroupListener = null;
 
@@ -8049,8 +8188,9 @@ function loadLeaderData() {
             let memberSeeds = [];
 
             // Nếu đây là bản thân trưởng nhóm → bổ sung data từ localStorage
-            // để đảm bảo data luôn đầy đủ kể cả khi journal chưa sync lên Firebase
-            if (mid === userInfo.memberId) {
+            // Double-check bằng cả memberId lẫn email để tránh inject nhầm data
+            if (mid === userInfo.memberId && memberInfo && 
+                (!memberInfo.email || memberInfo.email.toLowerCase() === (userInfo.email||'').toLowerCase())) {
               try {
                 const localMain = JSON.parse(localStorage.getItem('nk5nn-main') || '{}');
                 Object.assign(dailyData, localMain);
@@ -9001,10 +9141,10 @@ function renderAdminGroups(groupsAll, membersAll, leaderByGroup, allGroupCodes) 
             style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:4px 10px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;flex-shrink:0;white-space:nowrap">
             Chi tiết ▼
           </button>
-          ${members.length === 0 ? `<button onclick="adminDeleteGroup('${groupCode}')"
+          <button onclick="adminDeleteGroup('${groupCode}', ${members.length})"
             style="font-size:10px;font-weight:700;color:var(--rose);background:rgba(192,96,106,0.08);border:1px solid rgba(192,96,106,0.25);border-radius:8px;padding:3px 9px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;white-space:nowrap">
             🗑 Xoá nhóm
-          </button>` : ''}
+          </button>
         </div>
       </div>
       <div id="admin-grp-detail-${groupCode}" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:8px"></div>
@@ -9199,11 +9339,16 @@ async function leaderDeleteMember(memberId, memberName) {
 
 
 // ══════ XOÁ NHÓM (Admin) ══════
-async function adminDeleteGroup(groupCode) {
+async function adminDeleteGroup(groupCode, memberCount) {
+  const hasMembers = memberCount > 0;
   const confirmed = confirm(
     '🗑 Xoá nhóm: ' + groupCode + '?\n\n' +
-    'Nhóm này không có thành viên nào.\n' +
-    'Sẽ xoá: dữ liệu stats nhóm, journal nhóm, leaders nhóm.\n\n' +
+    (hasMembers
+      ? '⚠️ Nhóm này còn ' + memberCount + ' thành viên.\n' +
+        'Thành viên sẽ bị xoá khỏi nhóm (groupCode trở thành trống).\n'
+      : 'Nhóm này không có thành viên.\n') +
+    'Sẽ xoá: stats nhóm, journals nhóm, leaders nhóm, leader_requests.\n' +
+    'Nhóm sẽ biến mất khỏi form đăng ký.\n\n' +
     'Tiếp tục xoá?'
   );
   if (!confirmed) return;
@@ -9213,18 +9358,38 @@ async function adminDeleteGroup(groupCode) {
 
   try {
     showToast('⏳ Đang xoá nhóm...');
+
+    // 1. Xoá stats, journals, leaders của nhóm
     await Promise.all([
       database.ref('groups/' + groupCode).remove().catch(() => {}),
       database.ref('journals/' + groupCode).remove().catch(() => {}),
       database.ref('leaders/' + groupCode).remove().catch(() => {}),
     ]);
-    // Xoá leader_requests của nhóm này
+
+    // 2. Xoá leader_requests của nhóm này
     const reqSnap = await database.ref('leader_requests').once('value');
     const removes = [];
     reqSnap.forEach(child => {
       if (child.val()?.groupCode === groupCode) removes.push(child.ref.remove().catch(()=>{}));
     });
     await Promise.all(removes);
+
+    // 3. Nếu có thành viên → xoá groupCode của họ trong /members/
+    if (hasMembers) {
+      const mSnap = await database.ref('members').orderByChild('groupCode').equalTo(groupCode).once('value');
+      const memberUpdates = {};
+      mSnap.forEach(child => {
+        memberUpdates['members/' + child.key + '/groupCode'] = '';
+        memberUpdates['members/' + child.key + '/isLeader'] = false;
+      });
+      if (Object.keys(memberUpdates).length) await database.ref().update(memberUpdates);
+    }
+
+    // 4. Ghi vào /deleted_groups/ để ẩn khỏi form đăng ký
+    await database.ref('deleted_groups/' + groupCode.replace(/[.#$\[\]]/g, '_')).set({
+      groupCode,
+      deletedAt: new Date().toISOString(),
+    });
 
     showToast('✅ Đã xoá nhóm ' + groupCode);
     loadAdminData();
