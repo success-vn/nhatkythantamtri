@@ -7960,18 +7960,10 @@ function loadLeaderData() {
         const allMemberEntries = Object.entries(membersData);
         const activeToday = Object.values(stats).filter(m => m.date === todayK).length;
 
-        const totalEl = document.getElementById('leader-total-members');
-        const activeEl = document.getElementById('leader-active-today');
-        if (totalEl) totalEl.textContent = allMemberEntries.length;
-        if (activeEl) activeEl.textContent = activeToday;
-
         leaderAllData = {};
 
         // Đảm bảo trưởng nhóm luôn có trong danh sách theo dõi
-        // Nếu /members/ chưa có entry cho trưởng nhóm (groupCode chưa sync),
-        // tự inject từ userInfo
-        // Đảm bảo trưởng nhóm luôn có trong danh sách
-        // Check bằng cả memberId lẫn email để tránh miss
+        // Check bằng cả key, memberId lẫn email để tránh miss
         const selfInMembers = allMemberEntries.some(([key, m]) =>
           key === userInfo.memberId ||
           (m.memberId || '') === userInfo.memberId ||
@@ -7988,7 +7980,25 @@ function loadLeaderData() {
             isLeader:     true,
             registeredAt: '',
           }]);
+          // Tự heal Firebase: ghi đúng groupCode để lần sau query tự tìm được
+          db.ref('members/' + userInfo.memberId).update({
+            groupCode: userInfo.groupCode,
+            isLeader: true,
+            name: userInfo.name,
+          }).catch(() => {});
+          if (userInfo.firebaseUid) {
+            db.ref('uid_to_member/' + userInfo.firebaseUid).update({
+              memberId: userInfo.memberId,
+              groupCode: userInfo.groupCode,
+            }).catch(() => {});
+          }
         }
+
+        // Cập nhật counter SAU khi đã inject self
+        const totalEl = document.getElementById('leader-total-members');
+        const activeEl = document.getElementById('leader-active-today');
+        if (totalEl) totalEl.textContent = allMemberEntries.length;
+        if (activeEl) activeEl.textContent = activeToday;
 
         if (!allMemberEntries.length) {
           if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm chưa có thành viên nào.</p></div>';
@@ -8851,14 +8861,37 @@ async function confirmAdminChangeGroup(memberId, memberName, currentGroup) {
   const database = await loadFirebase();
   if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
   try {
+    // 1. Cập nhật groupCode trong /members/
     await database.ref('members/' + memberId).update({ groupCode: newGroupCode });
+
+    // 2. Di chuyển stats từ /groups/{old} → /groups/{new}
     const statsSnap = await database.ref('groups/' + currentGroup + '/' + memberId).once('value');
     if (statsSnap.val()) {
       await database.ref('groups/' + newGroupCode + '/' + memberId).set(statsSnap.val());
       await database.ref('groups/' + currentGroup + '/' + memberId).remove();
     }
+
+    // 3. Di chuyển journals từ /journals/{old}/{memberId} → /journals/{new}/{memberId}
+    if (currentGroup) {
+      const journalSnap = await database.ref('journals/' + currentGroup + '/' + memberId).once('value');
+      if (journalSnap.val()) {
+        await database.ref('journals/' + newGroupCode + '/' + memberId).set(journalSnap.val());
+        await database.ref('journals/' + currentGroup + '/' + memberId).remove();
+      }
+    }
+
+    // 4. Cập nhật uid_to_member nếu có
+    const uidSnap = await database.ref('uid_to_member').orderByChild('memberId').equalTo(memberId).once('value');
+    if (uidSnap.val()) {
+      const updates = {};
+      Object.keys(uidSnap.val()).forEach(uid => {
+        updates['uid_to_member/' + uid + '/groupCode'] = newGroupCode;
+      });
+      await database.ref().update(updates);
+    }
+
     document.getElementById('admin-change-group-modal').remove();
-    showToast('✅ Đã đổi ' + memberName + ' → nhóm ' + newGroupCode);
+    showToast('✅ Đã chuyển ' + memberName + ' → nhóm ' + newGroupCode);
     loadAdminData();
   } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
 }
