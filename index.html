@@ -2221,10 +2221,29 @@ textarea { min-height: 80px; }
       <div id="leader-detail-content"></div>
     </div>
 
-    <!-- E: Xu hướng NL nhóm -->
+    <!-- E: Chart NL 5 Ngôi Nhà -->
     <div class="chart-card">
       <div class="chart-title">📊 So Sánh NL 5 Ngôi Nhà – Hôm Nay</div>
       <div class="chart-wrap" style="height:200px"><canvas id="leader-nn-chart"></canvas></div>
+    </div>
+
+    <!-- F: Xu hướng NL nhóm 7 ngày -->
+    <div class="chart-card">
+      <div class="chart-title">📈 Xu Hướng NL Trung Bình Nhóm – 7 Ngày Qua</div>
+      <div id="leader-nl-trend" style="padding:2px 0">
+        <div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:10px">Đang tải...</div>
+      </div>
+    </div>
+
+    <!-- G: Chuyển hóa hạt giống nhóm -->
+    <div class="section-card">
+      <div class="section-title">
+        <div class="section-icon" style="background:rgba(192,96,106,0.1)">😔</div>
+        Chuyển Hóa Hạt Giống – Tổng Nhóm
+      </div>
+      <div id="leader-seeds-summary">
+        <div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:8px">Chỉ hiển thị khi thành viên đã dùng tính năng Hạt Giống.</div>
+      </div>
     </div>
 
   </div>
@@ -3912,6 +3931,7 @@ async function pushLocalToFirebase() {
       kz:              kzData,
       r3m:             r3mData,
       ms:              msData,
+      seeds:           seedsData,
       'meta/syncedAt': nowTs,
       'meta/name':     userInfo.name,
     });
@@ -4098,6 +4118,30 @@ function _applyRemoteData(remote) {
       localStorage.setItem(MS_KEY, JSON.stringify(msData));
     }
 
+    // ── Seeds: merge by id, remote thắng nếu mới hơn ──────────────
+    if (Array.isArray(remote.seeds) && remote.seeds.length > 0) {
+      let seedsChanged = false;
+      remote.seeds.forEach(rSeed => {
+        const idx = seedsData.findIndex(s => s.id === rSeed.id);
+        if (idx === -1) {
+          seedsData.push(rSeed);
+          seedsChanged = true;
+        } else {
+          // Remote thắng nếu checkins nhiều hơn hoặc status khác
+          const localSeed = seedsData[idx];
+          if ((rSeed.checkins||[]).length > (localSeed.checkins||[]).length ||
+              rSeed.status !== localSeed.status) {
+            seedsData[idx] = rSeed;
+            seedsChanged = true;
+          }
+        }
+      });
+      if (seedsChanged) {
+        localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
+        if (typeof renderSeedsPage === 'function') renderSeedsPage();
+      }
+    }
+
     const syncedAt = remote.meta?.syncedAt || 0;
     if (syncedAt) {
       localStorage.setItem(SYNC_TS_KEY, String(syncedAt));
@@ -4158,7 +4202,7 @@ function mergeRituals(local={}, remote={}) {
 // Debounced push: mỗi lần lưu local sẽ tự push lên Firebase sau 3 giây
 let _syncDebounceTimer = null;
 function scheduleSyncPush(key) {
-  const syncKeys = [STORAGE_KEY, SP_KEY, KZ_KEY, R3M_KEY, MS_KEY];
+  const syncKeys = [STORAGE_KEY, SP_KEY, KZ_KEY, R3M_KEY, MS_KEY, SEEDS_KEY];
   if (!syncKeys.includes(key)) return;
   clearTimeout(_syncDebounceTimer);
   _syncDebounceTimer = setTimeout(() => {
@@ -6921,7 +6965,118 @@ function renderLeaderDashboard() {
         plugins:{legend:{position:'top',labels:{boxWidth:8,padding:6,font:{size:10}}}}}
     });
   }
+
+  // F: Xu hướng NL nhóm 7 ngày — dựa trên entries của từng thành viên
+  renderLeaderNLTrend(members);
+
+  // G: Tổng hợp hạt giống nhóm
+  renderLeaderSeedsSummary(members);
 }
+
+// ── Xu hướng NL nhóm 7 ngày ──────────────────────────────────────
+function renderLeaderNLTrend(members) {
+  const el = document.getElementById('leader-nl-trend');
+  if (!el) return;
+
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  // Với mỗi ngày, tính NL TB của các thành viên có ghi ngày đó
+  const dayAvgs = days.map(day => {
+    const vals = [];
+    members.forEach(([, m]) => {
+      const e = m.entries?.[day];
+      if (e) {
+        const nn = NN_LIST.map(n => e.nnEnergy?.[n.key] || null).filter(v=>v);
+        if (nn.length) vals.push(nn.reduce((a,b)=>a+b,0)/nn.length);
+        else if (e.energy) vals.push(e.energy);
+      }
+    });
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  });
+
+  const maxVal = 10;
+  const barH = 52; // max height px
+
+  const bars = days.map((day, i) => {
+    const val = dayAvgs[i];
+    const d = new Date(day);
+    const label = (d.getDate())+'/'+(d.getMonth()+1);
+    const isToday = i === 6;
+    if (val === null) {
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="font-size:10px;color:var(--ink-muted)">–</div>
+        <div style="width:100%;height:${barH}px;display:flex;align-items:flex-end">
+          <div style="width:100%;height:4px;background:rgba(201,168,76,0.1);border-radius:3px"></div>
+        </div>
+        <div style="font-size:10px;color:${isToday?'var(--gold-dark)':'var(--ink-muted)'};font-weight:${isToday?'800':'400'}">${label}</div>
+      </div>`;
+    }
+    const h = Math.round((val/maxVal)*barH);
+    const bg = val>=7?'var(--jade)':val>=5?'var(--gold)':'var(--rose)';
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:10px;font-weight:700;color:var(--ink-muted)">${val.toFixed(1)}</div>
+      <div style="width:100%;height:${barH}px;display:flex;align-items:flex-end">
+        <div style="width:100%;height:${h}px;background:${bg};border-radius:3px 3px 0 0;transition:height 0.4s;opacity:${isToday?'1':'0.7'}"></div>
+      </div>
+      <div style="font-size:10px;color:${isToday?'var(--gold-dark)':'var(--ink-muted)'};font-weight:${isToday?'800':'400'}">${label}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div style="display:flex;gap:4px;align-items:flex-end;padding:4px 0">${bars}</div>
+    <div style="font-size:10.5px;color:var(--ink-muted);margin-top:6px;text-align:center">
+      🟢 ≥7 · 🟡 ≥5 · 🔴 &lt;5 · Dựa trên dữ liệu thành viên đã đồng bộ
+    </div>`;
+}
+
+// ── Tổng hợp hạt giống nhóm ──────────────────────────────────────
+function renderLeaderSeedsSummary(members) {
+  const el = document.getElementById('leader-seeds-summary');
+  if (!el) return;
+
+  // Chỉ có seeds của chính mình (người khác không sync seeds lên /groups/)
+  // Hiển thị thống kê từ Firebase journals nếu có, hoặc chỉ hiển thị của mình
+  let totalActive = 0, totalDone = 0, totalReappear = 0;
+  const todayK = todayKey();
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekAgoStr = weekAgo.toISOString().split('T')[0];
+
+  // Lấy từ dữ liệu leader journals (nếu members có seeds trong entries)
+  // Hiện tại seeds chưa sync trong journal entries → chỉ note
+  // Nhưng mình có thể đọc seedsData của chính mình (admin/leader)
+  if (typeof seedsData !== 'undefined' && seedsData.length > 0) {
+    totalActive   = seedsData.filter(s=>s.status==='active').length;
+    totalDone     = seedsData.filter(s=>s.status==='done').length;
+    totalReappear = seedsData.filter(s=>s.status==='active' && s.checkins.some(c=>c.appeared && c.date>=weekAgoStr)).length;
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+        <div style="text-align:center;background:rgba(192,96,106,0.07);border-radius:10px;padding:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--rose)">${totalActive}</div>
+          <div style="font-size:11px;color:var(--ink-muted)">Đang theo dõi</div>
+        </div>
+        <div style="text-align:center;background:rgba(74,140,111,0.07);border-radius:10px;padding:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--jade)">${totalDone}</div>
+          <div style="font-size:11px;color:var(--ink-muted)">Đã chuyển hóa</div>
+        </div>
+        <div style="text-align:center;background:rgba(201,168,76,0.08);border-radius:10px;padding:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--gold-dark)">${totalReappear}</div>
+          <div style="font-size:11px;color:var(--ink-muted)">Tái phát tuần qua</div>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:var(--ink-muted);font-style:italic;line-height:1.6">
+        💡 Đây là dữ liệu hạt giống của bạn. Dữ liệu hạt giống của từng thành viên sẽ hiển thị khi họ đồng bộ lên cloud.
+      </div>`;
+  } else {
+    el.innerHTML = `<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">
+      Chưa có dữ liệu hạt giống. Thành viên cần ghi và đồng bộ từ tab Hạt Giống.
+    </div>`;
+  }
+
+} // end renderLeaderSeedsSummary
 
 // ── Cảnh báo tự động ─────────────────────────────────────────────
 function renderLeaderAlerts(members, todayK) {
@@ -8883,18 +9038,7 @@ showPage = function(name, btn) {
   if (name === 'seeds') renderSeedsPage();
 };
 
-// ── Thêm SEEDS_KEY vào scheduleSyncPush (nếu chưa có) ───────────
-const _origSchedule = scheduleSyncPush;
-scheduleSyncPush = function(key) {
-  if (key === SEEDS_KEY) {
-    clearTimeout(_syncDebounceTimer);
-    _syncDebounceTimer = setTimeout(() => {
-      if (db && userInfo) pushLocalToFirebase && pushLocalToFirebase();
-    }, 3000);
-    return;
-  }
-  _origSchedule(key);
-};
+
 
 </script>
 </body>
