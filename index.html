@@ -7970,8 +7970,12 @@ function loadLeaderData() {
         // Đảm bảo trưởng nhóm luôn có trong danh sách theo dõi
         // Nếu /members/ chưa có entry cho trưởng nhóm (groupCode chưa sync),
         // tự inject từ userInfo
-        const selfInMembers = allMemberEntries.some(([, m]) =>
-          (m.memberId || '') === userInfo.memberId || (m.email || '') === userInfo.email
+        // Đảm bảo trưởng nhóm luôn có trong danh sách
+        // Check bằng cả memberId lẫn email để tránh miss
+        const selfInMembers = allMemberEntries.some(([key, m]) =>
+          key === userInfo.memberId ||
+          (m.memberId || '') === userInfo.memberId ||
+          (m.email || '').toLowerCase() === (userInfo.email || '').toLowerCase()
         );
         if (!selfInMembers && userInfo.memberId && userInfo.name) {
           allMemberEntries.push([userInfo.memberId, {
@@ -8030,8 +8034,30 @@ function loadLeaderData() {
             // Merge tất cả daily snaps (có thể có từ firebaseUid và memberId)
             const journalData = jSnap ? (jSnap.val() || {}) : {};
             const dailyData   = {};
+
             // Collect seeds từ tất cả kết quả (tìm snap có val là array)
             let memberSeeds = [];
+
+            // Nếu đây là bản thân trưởng nhóm → bổ sung data từ localStorage
+            // để đảm bảo data luôn đầy đủ kể cả khi journal chưa sync lên Firebase
+            if (mid === userInfo.memberId) {
+              try {
+                const localMain = JSON.parse(localStorage.getItem('nk5nn-main') || '{}');
+                Object.assign(dailyData, localMain);
+              } catch(e) {}
+              // Seeds của bản thân từ localStorage
+              try {
+                const localSeeds = JSON.parse(localStorage.getItem('nk5nn-seeds') || '[]');
+                if (Array.isArray(localSeeds)) {
+                  localSeeds.forEach(s => { if (!memberSeeds.find(x=>x.id===s.id)) memberSeeds.push(s); });
+                }
+              } catch(e) {}
+              // Stats hôm nay từ localStorage
+              try {
+                const myStats = JSON.parse(localStorage.getItem('my-team-stats-' + userInfo.memberId) || 'null');
+                if (myStats) leaderAllData[mid].stats = { ...leaderAllData[mid].stats, ...myStats };
+              } catch(e) {}
+            }
             for (let ri = 1; ri < results.length; ri++) {
               const snap = results[ri];
               if (!snap || !snap.val()) continue;
