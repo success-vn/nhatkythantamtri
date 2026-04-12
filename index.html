@@ -7159,6 +7159,7 @@ function switchLeaderTab(tab) {
       btnEl.style.fontWeight   = (t===tab)?'800':'700';
     }
   });
+  if (tab === 'pending') loadLeaderMemberRequests();
 }
 
 // ── Render Leader Dashboard (sau khi loadLeaderData xong) ─────────
@@ -8322,6 +8323,7 @@ function switchAdminTab(tab) {
       btnEl.style.borderBottom = t === tab ? '3px solid var(--rose)' : '3px solid transparent';
     }
   });
+  if (tab === 'pending') loadAdminData();
   if (tab === 'groups') loadAdminGroups();
   if (tab === 'settings') loadAdminStats();
 }
