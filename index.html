@@ -964,7 +964,6 @@ textarea { min-height: 80px; }
   <button class="nav-tab" onclick="showPage('start',this)">🌱 Điểm Xuất Phát</button>
   <button class="nav-tab" onclick="showPage('milestones',this)">🏆 Đánh Giá Hành Trình</button>
   <button class="nav-tab" id="nav-leader" style="display:none;color:var(--gold-dark)" onclick="showPage('leader',this)">👑 Trưởng Nhóm</button>
-  <button class="nav-tab" id="nav-member-team" style="display:none;color:var(--jade)" onclick="showPage('member-team',this)">🧑‍🤝‍🧑 Thành Viên Nhóm</button>
   <button class="nav-tab" id="nav-admin" style="display:none;color:var(--rose)" onclick="showPage('admin',this)">🔐 Admin</button>
 </nav>
 
@@ -1079,11 +1078,11 @@ textarea { min-height: 80px; }
       Kaizen Ngày – Nhìn Lại & Cải Tiến
     </div>
     <div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;line-height:1.6;font-style:italic">
-      Cuối ngày — nhìn lại 1 phút: hôm nay mình đã làm tốt điều gì? Điều gì cần làm khác đi ngày mai?
+      Cuối ngày — nhìn lại 1 phút: hôm nay mình đã học được gì, làm tốt điều gì? Điều gì cần làm khác đi ngày mai?
     </div>
     <div class="field-row">
-      <label class="field-label" style="color:var(--jade)">✅ Hôm nay tôi đã làm tốt</label>
-      <textarea id="daily-good" placeholder="Tôi đã làm tốt điều... vì..." rows="2"
+      <label class="field-label" style="color:var(--jade)">✅ Bài học tôi đã học được & điều tôi đã làm tốt hôm nay</label>
+      <textarea id="daily-good" placeholder="Hôm nay tôi học được / đã làm tốt điều... vì..." rows="3"
         style="border-color:rgba(74,140,111,0.3);background:rgba(74,140,111,0.04)"></textarea>
     </div>
     <div class="field-row">
@@ -1093,44 +1092,46 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
+  <!-- QUÁN TÂM -->
   <div class="section-card">
     <div class="section-title">
-      <div class="section-icon" style="background:rgba(74,140,111,0.12)">📝</div>
-      Ghi Chú & Bài Học Hôm Nay
+      <div class="section-icon" style="background:rgba(74,140,111,0.12)">🌱</div>
+      Quán Tâm – Nhận Diện Hạt Giống
     </div>
-    <div class="field-row">
-      <label class="field-label">Bài học nhận được</label>
-      <textarea id="lesson-text" placeholder="Hôm nay tôi học được rằng..." rows="3"></textarea>
+    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;line-height:1.6;font-style:italic">
+      Hạt giống <strong style="color:var(--jade)">Xanh</strong> = NL tốt lành trồi lên, cần giữ & vun đắp. &nbsp;|&nbsp;
+      Hạt giống <strong style="color:var(--rose)">Đỏ</strong> = NL cần nhận diện, khiêm hạ & chuyển hóa.
     </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:10px">🌱 Quán Tâm – Nhận Diện Hạt Giống</div>
-      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;line-height:1.6;font-style:italic">
-        Hạt giống <strong style="color:var(--jade)">Xanh</strong> = NL tốt lành trồi lên, cần giữ & vun đắp. &nbsp;|&nbsp;
-        Hạt giống <strong style="color:var(--rose)">Đỏ</strong> = NL cần nhận diện, khiêm hạ & chuyển hóa.
-      </div>
-      <!-- Xanh -->
-      <div style="background:var(--jade-light);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid rgba(74,140,111,0.2)">
-        <label style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--jade);text-transform:uppercase;display:block;margin-bottom:7px">
-          🟢 Hạt Giống Xanh – Điều tốt lành bạn được rung động khi chứng kiến và cảm nhận được ở mình
-        </label>
-        <textarea id="seed-green" placeholder="Hôm nay tôi nhận ra hạt giống xanh là... (thuộc NN...) — Tôi sẽ vun đắp bằng cách..." rows="3"
-          style="background:rgba(255,255,255,0.7);border-color:rgba(74,140,111,0.3)"></textarea>
-      </div>
-      <!-- Đỏ -->
-      <div style="background:var(--rose-light);border-radius:12px;padding:14px;border:1px solid rgba(192,96,106,0.2)">
-        <label style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--rose);text-transform:uppercase;display:block;margin-bottom:7px">
-          🔴 Hạt Giống Đỏ – Điều cần nhận diện & khiêm hạ hôm nay
-        </label>
-        <textarea id="seed-red" placeholder="Tình huống → Hạt giống đỏ là... (thuộc NN...) → Tôi đã khiêm hạ / chưa khiêm hạ bằng cách..." rows="3"
-          style="background:rgba(255,255,255,0.7);border-color:rgba(192,96,106,0.3)"></textarea>
-        <button onclick="quickAddFromSeedRed()"
-          style="margin-top:8px;width:100%;padding:8px;border-radius:10px;
-          background:rgba(192,96,106,0.08);border:1.5px solid rgba(192,96,106,0.3);
-          color:var(--rose);font-size:12px;font-weight:800;cursor:pointer;
-          font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px">
-          📌 Thêm vào danh sách Theo Dõi Hạt Giống Đỏ
-        </button>
-      </div>
+
+    <!-- Thư gửi bản thân -->
+    <div class="field-row" style="margin-bottom:16px">
+      <label class="field-label" style="color:var(--ink-soft)">✍️ Thư gửi bản thân hôm nay</label>
+      <textarea id="self-letter" placeholder="Hôm nay tôi muốn nói với bản thân rằng..." rows="3"></textarea>
+    </div>
+
+    <!-- Hạt giống Xanh -->
+    <div style="background:var(--jade-light);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid rgba(74,140,111,0.2)">
+      <label style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--jade);text-transform:uppercase;display:block;margin-bottom:7px">
+        🟢 Hạt Giống Xanh – Điều tốt lành bạn được rung động khi chứng kiến và cảm nhận được ở mình
+      </label>
+      <textarea id="seed-green" placeholder="Hôm nay tôi nhận ra hạt giống xanh là... (thuộc NN...) — Tôi sẽ vun đắp bằng cách..." rows="3"
+        style="background:rgba(255,255,255,0.7);border-color:rgba(74,140,111,0.3)"></textarea>
+    </div>
+
+    <!-- Hạt giống Đỏ -->
+    <div style="background:var(--rose-light);border-radius:12px;padding:14px;border:1px solid rgba(192,96,106,0.2)">
+      <label style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:var(--rose);text-transform:uppercase;display:block;margin-bottom:7px">
+        🔴 Hạt Giống Đỏ – Điều cần nhận diện & khiêm hạ hôm nay
+      </label>
+      <textarea id="seed-red" placeholder="Tình huống → Hạt giống đỏ là... (thuộc NN...) → Tôi đã khiêm hạ / chưa khiêm hạ bằng cách..." rows="3"
+        style="background:rgba(255,255,255,0.7);border-color:rgba(192,96,106,0.3)"></textarea>
+      <button onclick="quickAddFromSeedRed()"
+        style="margin-top:8px;width:100%;padding:8px;border-radius:10px;
+        background:rgba(192,96,106,0.08);border:1.5px solid rgba(192,96,106,0.3);
+        color:var(--rose);font-size:12px;font-weight:800;cursor:pointer;
+        font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;align-items:center;justify-content:center;gap:6px">
+        📌 Thêm vào danh sách Theo Dõi Hạt Giống Đỏ
+      </button>
     </div>
   </div>
 
@@ -1330,20 +1331,8 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <div class="section-card">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(192,96,106,0.12)">✍️</div>
-      Viết Cho Chính Mình
-    </div>
-    <div class="field-row">
-      <label class="field-label">Thư gửi bản thân hôm nay</label>
-      <textarea id="self-letter" placeholder="Hôm nay tôi muốn nói với bản thân rằng..." rows="5"></textarea>
-    </div>
-    <div class="field-row">
-      <label class="field-label">Điều tôi tự hào về mình hôm nay</label>
-      <textarea id="self-proud" placeholder="Tôi tự hào vì hôm nay tôi đã..." rows="2"></textarea>
-    </div>
-  </div>
+  <!-- Ẩn để giữ tương thích dữ liệu cũ, không hiển thị -->
+  <textarea id="self-proud" style="display:none"></textarea>
 
   <button class="save-btn" onclick="saveGratitude()">💾 LƯU BIẾT ƠN</button>
 </div>
@@ -2397,29 +2386,6 @@ textarea { min-height: 80px; }
 </div>
 
 <!-- ══════ MEMBER TEAM — Thành Viên Nhóm (overview only) ══════ -->
-<div id="page-member-team" class="page">
-  <div class="date-bar">
-    <div>
-      <div class="date-label">Thành Viên Nhóm</div>
-      <div class="date-value" id="member-team-group-name">–</div>
-    </div>
-    <div class="day-badge" style="background:linear-gradient(135deg,var(--jade),#3d6b54)">🧑‍🤝‍🧑 <span id="mt-total-members-badge">0</span> TV</div>
-  </div>
-
-  <!-- Tìm kiếm -->
-  <div style="margin-bottom:14px">
-    <input type="text" id="mt-search" placeholder="🔍 Tìm tên thành viên..."
-      oninput="renderMemberTeamList()"
-      style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;outline:none;">
-  </div>
-
-  <div id="mt-member-list">
-    <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
-  </div>
-
-  <button class="btn-outline" onclick="initMemberTeamPage()" style="width:100%;margin-top:8px;font-size:12px">🔄 Làm mới</button>
-</div>
-
 <!-- ══════ KẾT QUẢ 3 THÁNG (giữ nguyên cho tương thích) ══════ -->
 
 <div id="page-result3m" class="page">
@@ -2563,11 +2529,13 @@ const STORAGE_KEY = 'nk5nn-main';
 const SP_KEY      = 'nk5nn-sp';
 const KZ_KEY      = 'nk5nn-kaizen';
 const USER_KEY    = 'nk5nn-user';
+const SEEDS_KEY   = 'nk5nn-seeds';
 
-let data   = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-let spData = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
-let kzData = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
-let userInfo = JSON.parse(localStorage.getItem(USER_KEY)  || 'null');
+let data      = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+let spData    = JSON.parse(localStorage.getItem(SP_KEY)      || '{}');
+let kzData    = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
+let userInfo  = JSON.parse(localStorage.getItem(USER_KEY)    || 'null');
+let seedsData = JSON.parse(localStorage.getItem(SEEDS_KEY)   || '[]');
 // userInfo = { name, groupCode, memberId }
 
 const RITUALS = [
@@ -3461,11 +3429,16 @@ function renderNNEnergySliders() {
 // ══════════════════════════════════════
 function saveToday() {
   const e=getTodayEntry();
-  e.lesson=document.getElementById('lesson-text').value;
+  // lesson-text đã được gộp vào daily-good — giữ tương thích ngược
+  const lessonEl = document.getElementById('lesson-text');
+  if (lessonEl) e.lesson = lessonEl.value;
   e.seedGreen=document.getElementById('seed-green').value;
   e.seedRed=document.getElementById('seed-red').value;
   e.dailyGood = document.getElementById('daily-good')?.value||'';
   e.dailyImprove = document.getElementById('daily-improve')?.value||'';
+  // Thư bản thân giờ ở tab Hôm Nay
+  const selfLetterEl = document.getElementById('self-letter');
+  if (selfLetterEl) e.selfLetter = selfLetterEl.value;
   // Tasks already saved on each change
   e.savedToday=true;
   save(STORAGE_KEY,data);
@@ -5443,8 +5416,6 @@ const MS_KEY = 'nk5nn-milestones';
 let msData = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
 
 // ── Hạt Giống Đỏ ──────────────────────────────────────────────────────────
-const SEEDS_KEY = 'nk5nn-seeds';
-let seedsData = JSON.parse(localStorage.getItem(SEEDS_KEY) || '[]');
 // seedsData = [{ id, name, nn, situation, commit, createdAt, status:'active'|'done',
 //               checkins:[{date,appeared,note}], doneAt }]
 // msData = [{ id, name, note, createdAt, khamNha, wheelAnswers, nn{}, rw_{}, finScore, energy, assets, debt, income, moneyMind, seedsChanged, proud, commit, savedAt }]
@@ -6603,9 +6574,7 @@ async function checkLeaderApproval() {
 
 function initLeaderUI() {
   const navLeader = document.getElementById('nav-leader');
-  const navMemberTeam = document.getElementById('nav-member-team');
   if (navLeader) navLeader.style.display = isLeader() ? 'flex' : 'none';
-  if (navMemberTeam) navMemberTeam.style.display = isLeader() ? 'flex' : 'none';
   if (isLeader()) {
     const badge = document.getElementById('team-group-badge');
     if (badge) badge.textContent = '👑 ' + userInfo.groupCode;
@@ -6769,7 +6738,6 @@ function showPage(name, btn) {
   if (name==='milestones')  { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('ms')) destroyChart(k); }); initMilestonesPage(); }
   if (name==='result3m')    { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('r3m')) destroyChart(k); }); initResult3mPage(); }
   if (name==='leader')      initLeaderPage();
-  if (name==='member-team') initMemberTeamPage();
   if (name==='admin')       initAdminPage();
 }
 
