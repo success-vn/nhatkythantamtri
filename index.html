@@ -3179,38 +3179,53 @@ async function doLogin() {
     save(USER_KEY, userInfo);
 
     // ── Kiểm tra trạng thái duyệt trước khi vào app ──────────────
-    // Tra member_requests theo memberId (chuẩn), và fallback tìm theo firebaseUid
-    if (database) {
+    // Chỉ chặn nếu: member_requests = pending VÀ members không có approved:true
+    // Điều này tránh chặn nhầm tài khoản cũ đã duyệt nhưng member_requests chưa được xóa
+    if (database && userInfo.memberId) {
       try {
-        let pendingReq = null;
+        // Kiểm tra trong /members/ trước — nguồn sự thật chính thức
+        const memberSnap = await database.ref('members/' + userInfo.memberId).once('value');
+        const memberData = memberSnap.val();
 
-        // Tìm trực tiếp theo memberId
-        if (userInfo.memberId) {
-          const snap = await database.ref('member_requests/' + userInfo.memberId).once('value');
-          const val = snap.val();
-          if (val && val.status === 'pending') pendingReq = val;
-        }
+        // Nếu members/{id} có approved:true, isLeader:true,
+        // HOẶC tài khoản đã có dữ liệu (registeredAt tồn tại trước ngày fix này)
+        // → coi như đã duyệt, cho vào
+        const isApprovedInMembers = memberData && (
+          memberData.approved === true ||
+          memberData.isLeader === true ||
+          memberData.isAdmin === true ||
+          // Tài khoản cũ đăng ký trước khi có hệ thống pending (không có approved field)
+          // nhận biết qua: có registeredAt nhưng không có approved field
+          (memberData.registeredAt && memberData.approved === undefined)
+        );
 
-        // Nếu không tìm thấy theo memberId → quét toàn bộ member_requests theo firebaseUid
-        // (trường hợp user đăng ký trên thiết bị khác với memberId format cũ)
-        if (!pendingReq) {
-          const allSnap = await database.ref('member_requests')
-            .orderByChild('firebaseUid').equalTo(firebaseUid).once('value');
-          const allVal = allSnap.val();
-          if (allVal) {
-            const found = Object.values(allVal).find(r => r.status === 'pending');
-            if (found) pendingReq = found;
+        if (!isApprovedInMembers) {
+          // Chưa approved trong /members/ → kiểm tra thêm member_requests
+          let pendingReq = null;
+
+          const reqSnap = await database.ref('member_requests/' + userInfo.memberId).once('value');
+          const reqVal = reqSnap.val();
+          if (reqVal && reqVal.status === 'pending') pendingReq = reqVal;
+
+          // Fallback: quét theo firebaseUid (cho tài khoản mới có firebaseUid trong request)
+          if (!pendingReq) {
+            const allSnap = await database.ref('member_requests')
+              .orderByChild('firebaseUid').equalTo(firebaseUid).once('value');
+            const allVal = allSnap.val();
+            if (allVal) {
+              const found = Object.values(allVal).find(r => r.status === 'pending');
+              if (found) pendingReq = found;
+            }
           }
-        }
 
-        if (pendingReq) {
-          // Chưa được duyệt → đăng xuất Firebase Auth và hiện màn chờ
-          if (loadEl) loadEl.style.display = 'none';
-          userInfo = null;
-          localStorage.removeItem(USER_KEY);
-          try { await auth.signOut(); } catch(e2) {}
-          showPendingStep(pendingReq.name || displayName, pendingReq.groupCode || '');
-          return;
+          if (pendingReq) {
+            if (loadEl) loadEl.style.display = 'none';
+            userInfo = null;
+            localStorage.removeItem(USER_KEY);
+            try { await auth.signOut(); } catch(e2) {}
+            showPendingStep(pendingReq.name || displayName, pendingReq.groupCode || '');
+            return;
+          }
         }
       } catch(e) { console.warn('pending check failed:', e.message); }
     }
