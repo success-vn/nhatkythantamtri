@@ -3179,18 +3179,37 @@ async function doLogin() {
     save(USER_KEY, userInfo);
 
     // ── Kiểm tra trạng thái duyệt trước khi vào app ──────────────
-    // Nếu member_requests vẫn còn ở trạng thái pending → chưa được duyệt
-    if (database && userInfo.memberId) {
+    // Tra member_requests theo memberId (chuẩn), và fallback tìm theo firebaseUid
+    if (database) {
       try {
-        const reqSnap = await database.ref('member_requests/' + userInfo.memberId).once('value');
-        const req = reqSnap.val();
-        if (req && req.status === 'pending') {
+        let pendingReq = null;
+
+        // Tìm trực tiếp theo memberId
+        if (userInfo.memberId) {
+          const snap = await database.ref('member_requests/' + userInfo.memberId).once('value');
+          const val = snap.val();
+          if (val && val.status === 'pending') pendingReq = val;
+        }
+
+        // Nếu không tìm thấy theo memberId → quét toàn bộ member_requests theo firebaseUid
+        // (trường hợp user đăng ký trên thiết bị khác với memberId format cũ)
+        if (!pendingReq) {
+          const allSnap = await database.ref('member_requests')
+            .orderByChild('firebaseUid').equalTo(firebaseUid).once('value');
+          const allVal = allSnap.val();
+          if (allVal) {
+            const found = Object.values(allVal).find(r => r.status === 'pending');
+            if (found) pendingReq = found;
+          }
+        }
+
+        if (pendingReq) {
           // Chưa được duyệt → đăng xuất Firebase Auth và hiện màn chờ
           if (loadEl) loadEl.style.display = 'none';
           userInfo = null;
           localStorage.removeItem(USER_KEY);
           try { await auth.signOut(); } catch(e2) {}
-          showPendingStep(req.name || displayName, req.groupCode || '');
+          showPendingStep(pendingReq.name || displayName, pendingReq.groupCode || '');
           return;
         }
       } catch(e) { console.warn('pending check failed:', e.message); }
@@ -6824,7 +6843,6 @@ async function doRegister() {
 
   const leaderWrap = document.getElementById('leader-request-wrap');
   const isLeaderReg = leaderWrap && leaderWrap.style.display !== 'none';
-  const memberId = 'u_' + btoa(encodeURIComponent(name+'|'+group)).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
 
   try {
     // 1. Tạo Firebase Auth account
@@ -6833,6 +6851,9 @@ async function doRegister() {
 
     const credential = await auth.createUserWithEmailAndPassword(email, password);
     const firebaseUid = credential.user.uid;
+
+    // memberId dựa trên firebaseUid — unique tuyệt đối, tránh trùng khi cùng tên + nhóm
+    const memberId = 'u_' + firebaseUid.slice(0, 20);
 
     // 2. Cập nhật display name
     await credential.user.updateProfile({ displayName: name });
@@ -6860,7 +6881,7 @@ async function doRegister() {
         });
       } else {
         await database.ref('member_requests/' + memberId).set({
-          memberId, name, phone, email, groupCode: group, referrer,
+          memberId, name, phone, email, groupCode: group, referrer, firebaseUid,
           status: 'pending', requestedAt: new Date().toISOString()
         });
       }
