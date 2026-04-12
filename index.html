@@ -1768,6 +1768,31 @@ textarea { min-height: 80px; }
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
   <button class="btn-outline" onclick="exportData()" style="width:100%">📤 Xuất Dữ Liệu (Backup)</button>
   <button class="btn-outline" onclick="importData()" style="width:100%;color:var(--sky);border-color:var(--sky)">📥 Nhập Dữ Liệu (Restore)</button>
+  </div>
+
+  <!-- Debug & Recovery Tool -->
+  <div class="section-card" style="margin-top:12px;border:2px solid rgba(192,96,106,0.3)">
+    <div class="section-title">
+      <div class="section-icon" style="background:rgba(192,96,106,0.1)">🔍</div>
+      Kiểm Tra & Phục Hồi Dữ Liệu
+    </div>
+    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;line-height:1.6">
+      Nếu tab Hạt Giống trống, bấm "Kiểm tra" để xem data còn trong thiết bị không.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <button onclick="debugCheckSeeds()" class="btn-sm" style="background:linear-gradient(135deg,#4a7fa8,#2d5a8a)">
+        🔍 Kiểm tra localStorage
+      </button>
+      <button onclick="debugCheckFirebase()" class="btn-sm" style="background:linear-gradient(135deg,var(--gold),var(--gold-dark))">
+        ☁️ Kiểm tra Firebase
+      </button>
+    </div>
+    <button onclick="debugForceRestoreSeeds()" class="btn-sm" style="width:100%;background:linear-gradient(135deg,var(--jade),#2d6a4f)">
+      🔄 Khôi phục từ tất cả nguồn có thể
+    </button>
+    <div id="debug-result" style="margin-top:10px;font-size:12px;line-height:1.8;color:var(--ink-soft);display:none;
+      background:rgba(201,168,76,0.06);border-radius:10px;padding:12px;border:1px solid var(--border)"></div>
+  </div>
 </div>
 <div style="font-size:11px;color:var(--ink-muted);text-align:center;margin-top:8px;line-height:1.6">
   💡 <strong>Lưu ý:</strong> Dữ liệu lưu trên trình duyệt này. Đổi trình duyệt / thiết bị → dùng Xuất/Nhập để chuyển dữ liệu.
@@ -9099,6 +9124,112 @@ async function syncSeedsFromCloud() {
   } catch(e) {
     showToast('⚠️ Lỗi đồng bộ: ' + e.message);
     console.error('syncSeedsFromCloud error:', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// DEBUG & RECOVERY TOOLS
+// ══════════════════════════════════════════════════════
+function _showDebug(html) {
+  const el = document.getElementById('debug-result');
+  if (el) { el.style.display = 'block'; el.innerHTML = html; }
+}
+
+function debugCheckSeeds() {
+  const raw = localStorage.getItem('nk5nn-seeds');
+  if (!raw || raw === '[]') {
+    _showDebug('❌ <strong>Không có dữ liệu hạt giống trong thiết bị này.</strong><br>localStorage trống hoặc đã bị xóa.<br><br>→ Thử bấm "☁️ Kiểm tra Firebase" để xem cloud có không.');
+    return;
+  }
+  try {
+    const arr = JSON.parse(raw);
+    if (!arr.length) {
+      _showDebug('⚠️ localStorage có nhưng mảng rỗng.');
+      return;
+    }
+    let html = `✅ <strong>Tìm thấy ${arr.length} hạt giống trong thiết bị này!</strong><br><br>`;
+    arr.forEach((s, i) => {
+      html += `${i+1}. <strong>${escHtml(s.name||'?')}</strong> — ${s.status==='done'?'✅ Đã chuyển hóa':'😔 Đang theo dõi'} · Tạo: ${s.createdAt||'?'}<br>`;
+    });
+    html += `<br><button onclick="debugForceRestoreSeeds()" style="padding:6px 14px;border-radius:8px;background:var(--jade);color:white;border:none;font-weight:800;cursor:pointer;font-size:12px">→ Khôi phục ngay</button>`;
+    _showDebug(html);
+  } catch(e) {
+    _showDebug('❌ Lỗi đọc data: ' + e.message);
+  }
+}
+
+async function debugCheckFirebase() {
+  _showDebug('⏳ Đang kết nối Firebase...');
+  try {
+    const database = await loadFirebase();
+    if (!database) { _showDebug('❌ Không kết nối được Firebase. Kiểm tra mạng.'); return; }
+    const uidKey = userInfo?.firebaseUid || userInfo?.memberId;
+    if (!uidKey) { _showDebug('❌ Chưa đăng nhập.'); return; }
+
+    const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
+    const val = snap.val();
+
+    if (!val) {
+      _showDebug('❌ <strong>Firebase không có dữ liệu hạt giống.</strong><br>Dữ liệu chưa bao giờ được đẩy lên cloud.<br><br>→ Nếu thiết bị gốc vẫn còn, mở app trên thiết bị đó và bấm "💾 Sao lưu ngay".');
+      return;
+    }
+
+    const arr = Array.isArray(val) ? val : Object.values(val);
+    let html = `✅ <strong>Firebase có ${arr.length} hạt giống!</strong><br><br>`;
+    arr.forEach((s, i) => {
+      html += `${i+1}. <strong>${escHtml(s.name||'?')}</strong> — ${s.status==='done'?'✅ Đã chuyển hóa':'😔 Đang theo dõi'}<br>`;
+    });
+    html += `<br><button onclick="debugRestoreFromFirebase()" style="padding:6px 14px;border-radius:8px;background:var(--jade);color:white;border:none;font-weight:800;cursor:pointer;font-size:12px">→ Khôi phục từ Firebase</button>`;
+    _showDebug(html);
+  } catch(e) {
+    _showDebug('❌ Lỗi Firebase: ' + e.message);
+  }
+}
+
+async function debugRestoreFromFirebase() {
+  _showDebug('⏳ Đang khôi phục từ Firebase...');
+  try {
+    const database = await loadFirebase();
+    const uidKey = userInfo?.firebaseUid || userInfo?.memberId;
+    const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
+    const val = snap.val();
+    if (!val) { _showDebug('❌ Firebase không có data.'); return; }
+    const arr = Array.isArray(val) ? val : Object.values(val);
+    arr.forEach(rSeed => {
+      if (!seedsData.find(s => s.id === rSeed.id)) seedsData.push(rSeed);
+      else {
+        const idx = seedsData.findIndex(s => s.id === rSeed.id);
+        seedsData[idx] = rSeed;
+      }
+    });
+    localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
+    renderSeedsPage();
+    _showDebug(`✅ <strong>Đã khôi phục ${arr.length} hạt giống từ Firebase!</strong><br>Chuyển sang tab 😔 Hạt Giống để xem.`);
+  } catch(e) {
+    _showDebug('❌ Lỗi: ' + e.message);
+  }
+}
+
+function debugForceRestoreSeeds() {
+  // Đọc lại từ localStorage một lần nữa (phòng trường hợp biến seedsData bị reset)
+  let restored = false;
+  try {
+    const raw = localStorage.getItem('nk5nn-seeds');
+    if (raw && raw !== '[]') {
+      const arr = JSON.parse(raw);
+      if (arr.length > 0) {
+        seedsData.length = 0;
+        arr.forEach(s => seedsData.push(s));
+        renderSeedsPage();
+        _showDebug(`✅ <strong>Đã khôi phục ${arr.length} hạt giống từ localStorage!</strong><br>Chuyển sang tab 😔 Hạt Giống để xem.`);
+        restored = true;
+      }
+    }
+  } catch(e) {}
+
+  if (!restored) {
+    // Thử kéo từ Firebase
+    debugRestoreFromFirebase();
   }
 }
 
