@@ -1152,6 +1152,22 @@ textarea { min-height: 80px; }
     "Mỗi hạt giống được nhận diện là một bước tiến — theo dõi đến khi nó chuyển hóa hoàn toàn."
   </div>
 
+  <!-- Nút sao lưu nhanh -->
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button onclick="exportData()" style="flex:1;padding:9px;border-radius:10px;
+      background:rgba(74,140,111,0.1);border:1.5px solid rgba(74,140,111,0.3);
+      color:var(--jade);font-size:12px;font-weight:800;cursor:pointer;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      💾 Sao lưu ngay
+    </button>
+    <button onclick="syncSeedsFromCloud()" style="flex:1;padding:9px;border-radius:10px;
+      background:rgba(74,127,168,0.1);border:1.5px solid rgba(74,127,168,0.3);
+      color:var(--sky);font-size:12px;font-weight:800;cursor:pointer;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      ☁️ Kéo từ cloud
+    </button>
+  </div>
+
   <!-- Thêm hạt giống mới -->
   <div class="section-card" style="border:2px solid rgba(192,96,106,0.3)">
     <div class="section-title">
@@ -3846,6 +3862,21 @@ async function initFirebaseBackground() {
   await pullLocalFromFirebase();
   await pushLocalToFirebase();
 
+  // ── Push seeds riêng nếu có data local mà cloud chưa có ──────────
+  if (seedsData.length > 0) {
+    const uidKey = userInfo.firebaseUid || userInfo.memberId;
+    try {
+      const snap = await db.ref('users/' + uidKey + '/seeds').once('value');
+      const remoteSeeds = snap.val();
+      const remoteArr = Array.isArray(remoteSeeds) ? remoteSeeds : [];
+      // Nếu local có nhiều hơn cloud → push lên ngay
+      if (seedsData.length > remoteArr.length) {
+        await db.ref('users/' + uidKey + '/seeds').set(seedsData);
+        console.log('✅ Seeds pushed to Firebase:', seedsData.length, 'items');
+      }
+    } catch(e) { console.warn('Seeds push on boot failed:', e.message); }
+  }
+
   // ── REALTIME LISTENER: tự động kéo dữ liệu khi thiết bị khác lưu ──
   startUserDataRealtimeListener();
 
@@ -4991,20 +5022,21 @@ function lockSPForm() {
 
 function exportData() {
   const exportObj = {
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     data,       // nhật ký hàng ngày
     spData,     // điểm xuất phát
     kzData,     // kaizen tuần
     r3mData,    // kết quả 3 tháng (tương thích ngược)
     msData,     // tất cả milestones
+    seedsData,  // hạt giống đang giải phóng
   };
   const blob=new Blob([JSON.stringify(exportObj,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='nhat-ky-5nn-backup-'+todayKey()+'.json';
   a.click();
-  showToast('📤 Đã xuất toàn bộ dữ liệu!');
+  showToast('📤 Đã xuất toàn bộ dữ liệu (bao gồm Hạt Giống)!');
 }
 
 function importData() {
@@ -5022,11 +5054,18 @@ function importData() {
         if (!obj.data && !obj.spData && !obj.msData) {
           showToast('⚠️ File không đúng định dạng!'); return;
         }
-        if (obj.data)    { Object.assign(data, obj.data);       save(STORAGE_KEY, data); }
-        if (obj.spData)  { Object.assign(spData, obj.spData);   save(SP_KEY, spData); }
-        if (obj.kzData)  { kzData.splice(0,kzData.length,...(obj.kzData||[])); save(KZ_KEY, kzData); }
-        if (obj.r3mData) { Object.assign(r3mData, obj.r3mData); save(R3M_KEY, r3mData); }
-        if (obj.msData)  { msData.splice(0,msData.length,...(obj.msData||[]));  save(MS_KEY, msData); }
+        if (obj.data)       { Object.assign(data, obj.data);       save(STORAGE_KEY, data); }
+        if (obj.spData)     { Object.assign(spData, obj.spData);   save(SP_KEY, spData); }
+        if (obj.kzData)     { kzData.splice(0,kzData.length,...(obj.kzData||[])); save(KZ_KEY, kzData); }
+        if (obj.r3mData)    { Object.assign(r3mData, obj.r3mData); save(R3M_KEY, r3mData); }
+        if (obj.msData)     { msData.splice(0,msData.length,...(obj.msData||[]));  save(MS_KEY, msData); }
+        if (Array.isArray(obj.seedsData) && obj.seedsData.length > 0) {
+          // Merge: giữ local, thêm từ file nếu chưa có
+          obj.seedsData.forEach(s => {
+            if (!seedsData.find(x => x.id === s.id)) seedsData.push(s);
+          });
+          localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
+        }
         showToast('✅ Đã khôi phục dữ liệu thành công!');
         setTimeout(() => location.reload(), 1200);
       } catch(err) {
