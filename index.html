@@ -1178,10 +1178,44 @@ textarea { min-height: 80px; }
       Đặt tên ngắn gọn cho hạt giống, ghi lại tình huống xảy ra và chọn Ngôi Nhà liên quan.
     </div>
 
+    <!-- Loại hạt giống -->
+    <div class="field-row" style="margin-bottom:14px">
+      <label class="field-label">Loại hạt giống <span style="color:var(--rose)">*</span></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+        <div id="ns-type-behavior" onclick="pickSeedType('behavior')"
+          style="border-radius:12px;border:2px solid rgba(192,96,106,0.5);background:rgba(192,96,106,0.07);
+          padding:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div style="font-size:15px;margin-bottom:4px">😔 Hành vi</div>
+          <div style="font-size:11px;color:var(--ink-muted);line-height:1.55">Lặp đi lặp lại hàng ngày — trì hoãn, dằn vặt chính mình, nóng giận, thờ ơ với người thân...</div>
+          <div id="ns-type-behavior-check" style="display:none;position:absolute;top:8px;right:10px;font-size:14px">✅</div>
+        </div>
+        <div id="ns-type-deeproot" onclick="pickSeedType('deeproot')"
+          style="border-radius:12px;border:2px solid rgba(124,92,191,0.35);background:rgba(124,92,191,0.05);
+          padding:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div style="font-size:15px;margin-bottom:4px">🌿 Gốc rễ ẩn ngầm</div>
+          <div style="font-size:11px;color:var(--ink-muted);line-height:1.55">Từ gia tộc, chứng kiến từ nhỏ — biểu hiện qua kết quả, không phải hành vi hàng ngày...</div>
+          <div id="ns-type-deeproot-check" style="display:none;position:absolute;top:8px;right:10px;font-size:14px">✅</div>
+        </div>
+      </div>
+      <input type="hidden" id="ns-type-val" value="behavior">
+    </div>
+
     <div class="field-row">
       <label class="field-label">Tên hạt giống <span style="color:var(--rose)">*</span></label>
       <input type="text" id="ns-name" placeholder="VD: Nổi cáu khi bị ngắt lời, Hay so sánh bản thân..."
         style="margin-bottom:0">
+    </div>
+
+    <!-- Gốc rễ: nguồn gốc -->
+    <div id="ns-origin-wrap" style="display:none">
+      <div class="field-row" style="margin-top:12px">
+        <label class="field-label">Nguồn gốc hình thành</label>
+        <textarea id="ns-origin" placeholder="VD: Chứng kiến bố mẹ không hạnh phúc khi còn nhỏ, Gia tộc có niềm tin... khiến tôi luôn cảm thấy..." rows="2"></textarea>
+      </div>
+      <div class="field-row">
+        <label class="field-label">Biểu hiện qua kết quả như thế nào?</label>
+        <textarea id="ns-result" placeholder="VD: Tôi luôn né tránh cam kết trong mối quan hệ, Tôi tự phá hoại khi sắp thành công..." rows="2"></textarea>
+      </div>
     </div>
 
     <div class="field-row" style="margin-top:12px">
@@ -1202,12 +1236,12 @@ textarea { min-height: 80px; }
     </div>
 
     <div class="field-row" style="margin-top:12px">
-      <label class="field-label">Tình huống / Bối cảnh / Biểu hiện</label>
+      <label class="field-label" id="ns-situation-label">Tình huống / Bối cảnh / Biểu hiện</label>
       <textarea id="ns-situation" placeholder="Khi... xảy ra, tôi cảm thấy... và phản ứng bằng cách..." rows="3"></textarea>
     </div>
 
     <div class="field-row">
-      <label class="field-label">Cam kết chuyển hóa (hành động cụ thể)</label>
+      <label class="field-label" id="ns-commit-label">Cam kết chuyển hóa (hành động cụ thể)</label>
       <textarea id="ns-commit" placeholder="Lần tới khi hạt giống này xuất hiện, tôi sẽ..." rows="2"></textarea>
     </div>
 
@@ -2578,7 +2612,11 @@ let kzData    = JSON.parse(localStorage.getItem(KZ_KEY)      || '[]');
 let userInfo  = JSON.parse(localStorage.getItem(USER_KEY)    || 'null');
 let seedsData = JSON.parse(localStorage.getItem(SEEDS_KEY)   || '[]');
 // Đảm bảo mọi seed đều có trường checkins (phòng data cũ/cloud thiếu trường này)
-seedsData = seedsData.map(s => { if (!Array.isArray(s.checkins)) s.checkins = []; return s; });
+seedsData = seedsData.map(s => {
+  if (!Array.isArray(s.checkins)) s.checkins = [];
+  if (!Array.isArray(s.humbleLog)) s.humbleLog = [];
+  return s;
+});
 // userInfo = { name, groupCode, memberId }
 
 const RITUALS = [
@@ -4152,8 +4190,9 @@ function _applyRemoteData(remote) {
     if (Array.isArray(remote.seeds) && remote.seeds.length > 0) {
       let seedsChanged = false;
       remote.seeds.forEach(rSeed => {
-        // Đảm bảo seed từ cloud luôn có trường checkins hợp lệ
+        // Đảm bảo seed từ cloud luôn có trường checkins và humbleLog hợp lệ
         if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
+        if (!Array.isArray(rSeed.humbleLog)) rSeed.humbleLog = [];
         const idx = seedsData.findIndex(s => s.id === rSeed.id);
         if (idx === -1) {
           seedsData.push(rSeed);
@@ -8829,11 +8868,58 @@ function pickSeedNN(btn) {
 }
 
 // ── Thêm hạt giống mới ──────────────────────────────────────────
+// ── Chọn loại hạt giống ─────────────────────────────────────────
+function pickSeedType(type) {
+  document.getElementById('ns-type-val').value = type;
+
+  const bEl = document.getElementById('ns-type-behavior');
+  const dEl = document.getElementById('ns-type-deeproot');
+  const bChk = document.getElementById('ns-type-behavior-check');
+  const dChk = document.getElementById('ns-type-deeproot-check');
+  const originWrap = document.getElementById('ns-origin-wrap');
+  const situationLabel = document.getElementById('ns-situation-label');
+  const commitLabel    = document.getElementById('ns-commit-label');
+  const nameInput      = document.getElementById('ns-name');
+  const situationInput = document.getElementById('ns-situation');
+  const commitInput    = document.getElementById('ns-commit');
+
+  if (type === 'behavior') {
+    bEl.style.border = '2px solid rgba(192,96,106,0.85)';
+    bEl.style.background = 'rgba(192,96,106,0.12)';
+    dEl.style.border = '2px solid rgba(124,92,191,0.25)';
+    dEl.style.background = 'rgba(124,92,191,0.04)';
+    bChk.style.display = 'block';
+    dChk.style.display = 'none';
+    originWrap.style.display = 'none';
+    if (situationLabel) situationLabel.textContent = 'Tình huống / Bối cảnh / Biểu hiện';
+    if (commitLabel) commitLabel.textContent = 'Cam kết chuyển hóa (hành động cụ thể)';
+    if (nameInput) nameInput.placeholder = 'VD: Nổi cáu khi bị ngắt lời, Hay so sánh bản thân...';
+    if (situationInput) situationInput.placeholder = 'Khi... xảy ra, tôi cảm thấy... và phản ứng bằng cách...';
+    if (commitInput) commitInput.placeholder = 'Lần tới khi hạt giống này xuất hiện, tôi sẽ...';
+  } else {
+    dEl.style.border = '2px solid rgba(124,92,191,0.85)';
+    dEl.style.background = 'rgba(124,92,191,0.1)';
+    bEl.style.border = '2px solid rgba(192,96,106,0.25)';
+    bEl.style.background = 'rgba(192,96,106,0.04)';
+    dChk.style.display = 'block';
+    bChk.style.display = 'none';
+    originWrap.style.display = 'block';
+    if (situationLabel) situationLabel.textContent = 'Cảm xúc / Niềm tin lõi đi kèm';
+    if (commitLabel) commitLabel.textContent = 'Cam kết khiêm hạ (thực hành nội tâm)';
+    if (nameInput) nameInput.placeholder = 'VD: Chứng kiến bố mẹ không hạnh phúc, Niềm tin "mình không xứng"...';
+    if (situationInput) situationInput.placeholder = 'Tôi mang trong mình cảm giác... / niềm tin rằng...';
+    if (commitInput) commitInput.placeholder = 'Tôi sẽ khiêm hạ hạt giống này bằng cách...';
+  }
+}
+
 function addNewSeed() {
   const name      = (document.getElementById('ns-name').value || '').trim();
   const nn        = document.getElementById('ns-nn-val').value;
   const situation = (document.getElementById('ns-situation').value || '').trim();
   const commit    = (document.getElementById('ns-commit').value || '').trim();
+  const seedType  = document.getElementById('ns-type-val').value || 'behavior';
+  const origin    = (document.getElementById('ns-origin')?.value || '').trim();
+  const result    = (document.getElementById('ns-result')?.value || '').trim();
 
   if (!name) { showToast('⚠️ Hãy đặt tên cho hạt giống!'); return; }
 
@@ -8841,11 +8927,15 @@ function addNewSeed() {
     id:        'seed_' + Date.now(),
     name,
     nn:        nn || '',
+    seedType,                    // 'behavior' | 'deeproot'
     situation,
     commit,
+    origin:    origin || '',     // chỉ deeproot
+    result:    result || '',     // chỉ deeproot
     createdAt: todayKey(),
     status:    'active',
-    checkins:  [],
+    checkins:  [],               // behavior: {date, appeared, note} | deeproot: {date, note, humbled}
+    humbleLog: [],               // deeproot: [{date, note}] — nhật ký khiêm hạ
     doneAt:    null,
   };
   seedsData.unshift(seed);
@@ -8856,7 +8946,11 @@ function addNewSeed() {
   document.getElementById('ns-nn-val').value = '';
   document.getElementById('ns-situation').value = '';
   document.getElementById('ns-commit').value = '';
+  if (document.getElementById('ns-origin')) document.getElementById('ns-origin').value = '';
+  if (document.getElementById('ns-result')) document.getElementById('ns-result').value = '';
   document.querySelectorAll('.ns-nn-btn').forEach(b => { b.style.opacity = '1'; b.style.fontWeight = '700'; });
+  // Reset về mặc định behavior
+  pickSeedType('behavior');
 
   showToast('🌱 Đã thêm hạt giống vào danh sách theo dõi!');
   renderSeedsPage();
@@ -8930,71 +9024,152 @@ function renderSeedsList(containerId, seeds, isDone) {
 
   el.innerHTML = seeds.map(s => {
     if (!s.checkins) s.checkins = [];
-    const checkedToday = s.checkins.some(c => c.date === todayKey());
-    const streak       = calcNoAppearStreak(s);
-    const totalDays    = Math.floor((Date.now() - new Date(s.createdAt).getTime()) / 86400000) + 1;
-    const appearedDays = s.checkins.filter(c => c.appeared).length;
-    const barW         = totalDays > 0 ? Math.round((1 - appearedDays / totalDays) * 100) : 0;
-    const canDone      = !isDone && streak >= 7;
+    if (!s.humbleLog) s.humbleLog = [];
+    const isDeeproot = s.seedType === 'deeproot';
 
-    return `
-    <div style="border:1.5px solid ${isDone ? 'rgba(74,140,111,0.3)' : 'rgba(192,96,106,0.2)'};
-      border-radius:12px;padding:14px;margin-bottom:10px;background:var(--card);
-      ${isDone ? 'opacity:0.8' : ''}">
+    // ── Badge loại ──
+    const typeBadge = isDeeproot
+      ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,92,191,0.12);color:#7c5cbf;margin-left:6px">🌿 Gốc rễ ẩn ngầm</span>`
+      : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(192,96,106,0.1);color:var(--rose);margin-left:6px">😔 Hành vi</span>`;
 
-      <!-- Header -->
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-        <div style="flex:1">
-          <div style="font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-            ${isDone ? '✅' : '😔'} ${escHtml(s.name)}
-            ${nnBadge(s.nn)}
+    if (isDeeproot) {
+      // ── CARD: GỐC RỄ ẨN NGẦM ──────────────────────────────────
+      const humbleCount = s.humbleLog.length;
+      const lastHumble  = humbleCount > 0 ? [...s.humbleLog].sort((a,b)=>b.date.localeCompare(a.date))[0] : null;
+      const checkedThisWeek = (()=>{
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+        const wStr = weekAgo.toISOString().split('T')[0];
+        return s.humbleLog.some(h => h.date >= wStr);
+      })();
+
+      return `
+      <div style="border:1.5px solid ${isDone ? 'rgba(124,92,191,0.25)' : 'rgba(124,92,191,0.3)'};
+        border-radius:12px;padding:14px;margin-bottom:10px;background:var(--card);
+        ${isDone ? 'opacity:0.8' : ''}">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+              ${isDone ? '✅' : '🌿'} ${escHtml(s.name)}
+              ${nnBadge(s.nn)}
+              ${typeBadge}
+            </div>
+            <div style="font-size:11px;color:var(--ink-muted);margin-top:3px">
+              Bắt đầu theo dõi: ${s.createdAt}
+              ${isDone ? ` · ✅ Đã chuyển hóa: ${s.doneAt}` : ''}
+            </div>
           </div>
-          <div style="font-size:11px;color:var(--ink-muted);margin-top:3px">
-            Bắt đầu theo dõi: ${s.createdAt}
-            ${isDone ? ` · ✅ Chuyển hóa: ${s.doneAt}` : ''}
+          <button onclick="openSeedDetail('${s.id}')"
+            style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);
+            background:transparent;font-size:11px;font-weight:700;color:var(--ink-muted);
+            cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;flex-shrink:0">Chi tiết</button>
+        </div>
+
+        <!-- Thống kê khiêm hạ -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;
+          background:rgba(124,92,191,0.06);border-radius:10px;padding:10px 12px">
+          <div style="text-align:center;flex:1">
+            <div style="font-size:20px;font-weight:800;color:#7c5cbf">${humbleCount}</div>
+            <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Lần khiêm hạ</div>
+          </div>
+          <div style="width:1px;height:32px;background:rgba(124,92,191,0.15)"></div>
+          <div style="flex:2;min-width:0">
+            <div style="font-size:11px;color:var(--ink-muted);font-weight:700;margin-bottom:2px">Lần khiêm hạ gần nhất</div>
+            <div style="font-size:12px;color:var(--ink-soft)">${lastHumble ? lastHumble.date + (lastHumble.note ? ' — ' + escHtml(lastHumble.note.slice(0,50)+(lastHumble.note.length>50?'…':'')) : '') : 'Chưa có — hãy bắt đầu hôm nay'}</div>
           </div>
         </div>
-        <button onclick="openSeedDetail('${s.id}')"
-          style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);
-          background:transparent;font-size:11px;font-weight:700;color:var(--ink-muted);
-          cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;flex-shrink:0">Chi tiết</button>
-      </div>
 
-      <!-- Thanh tiến trình -->
-      <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-muted);margin-bottom:4px">
-          <span>Ngày không tái phát liên tiếp: <strong style="color:${streak>=7?'var(--jade)':'var(--rose)'}">${streak} ngày</strong></span>
-          <span>Đã check-in: ${s.checkins.length}/${totalDays} ngày</span>
+        <!-- Nút hành động -->
+        ${!isDone ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="openDeepRootCheckin('${s.id}')"
+            style="flex:1;padding:9px;border-radius:10px;
+            background:linear-gradient(135deg,#7c5cbf,#4a3580);color:white;border:none;
+            font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+            ${checkedThisWeek ? '🌿 Ghi nhận khiêm hạ thêm' : '🙏 Tôi đã khiêm hạ hạt giống này chưa?'}</button>
+          ${humbleCount >= 10 ? `<button onclick="markSeedDone('${s.id}')"
+            style="padding:9px 14px;border-radius:10px;background:linear-gradient(135deg,var(--jade),#2d6a4f);
+            color:white;border:none;font-size:12px;font-weight:800;cursor:pointer;
+            font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+            🎉 Chuyển hóa</button>` : ''}
         </div>
-        <div style="height:6px;background:rgba(201,168,76,0.12);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${barW}%;background:${barW>=80?'var(--jade)':barW>=50?'var(--gold)':'var(--rose)'};border-radius:4px;transition:width 0.4s"></div>
+        ` : `
+        <div style="font-size:12px;color:#7c5cbf;font-style:italic;font-weight:700">
+          🌿 Đã khiêm hạ ${humbleCount} lần — hạt giống đã được chuyển hóa!
         </div>
-        <div style="font-size:10px;color:var(--ink-muted);margin-top:3px;text-align:right">${barW}% ngày sạch</div>
-      </div>
+        `}
+      </div>`;
 
-      <!-- Nút check-in hôm nay (chỉ active) -->
-      ${!isDone ? `
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${checkedToday
-          ? `<div style="flex:1;padding:9px;border-radius:10px;background:rgba(74,140,111,0.1);
-              border:1px solid rgba(74,140,111,0.3);text-align:center;font-size:12px;font-weight:700;color:var(--jade)">
-              ✓ Đã check-in hôm nay</div>`
-          : `<button onclick="openSeedCheckin('${s.id}')" style="flex:1;padding:9px;border-radius:10px;
-              background:linear-gradient(135deg,var(--rose),#8a2a2a);color:white;border:none;
-              font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-              Hôm nay hạt giống có xuất hiện? →</button>`
-        }
-        ${canDone ? `<button onclick="markSeedDone('${s.id}')" style="padding:9px 14px;border-radius:10px;
-          background:linear-gradient(135deg,var(--jade),#2d6a4f);color:white;border:none;
-          font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-          🎉 Đánh dấu đã chuyển hóa</button>` : ''}
-      </div>
-      ` : `
-      <div style="font-size:12px;color:var(--jade);font-style:italic;font-weight:700">
-        🌿 Không tái phát ${streak} ngày — đã chuyển hóa thành công!
-      </div>
-      `}
-    </div>`;
+    } else {
+      // ── CARD: HÀNH VI (như cũ) ─────────────────────────────────
+      const checkedToday = s.checkins.some(c => c.date === todayKey());
+      const streak       = calcNoAppearStreak(s);
+      const totalDays    = Math.floor((Date.now() - new Date(s.createdAt).getTime()) / 86400000) + 1;
+      const appearedDays = s.checkins.filter(c => c.appeared).length;
+      const barW         = totalDays > 0 ? Math.round((1 - appearedDays / totalDays) * 100) : 0;
+      const canDone      = !isDone && streak >= 7;
+
+      return `
+      <div style="border:1.5px solid ${isDone ? 'rgba(74,140,111,0.3)' : 'rgba(192,96,106,0.2)'};
+        border-radius:12px;padding:14px;margin-bottom:10px;background:var(--card);
+        ${isDone ? 'opacity:0.8' : ''}">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+              ${isDone ? '✅' : '😔'} ${escHtml(s.name)}
+              ${nnBadge(s.nn)}
+              ${typeBadge}
+            </div>
+            <div style="font-size:11px;color:var(--ink-muted);margin-top:3px">
+              Bắt đầu theo dõi: ${s.createdAt}
+              ${isDone ? ` · ✅ Chuyển hóa: ${s.doneAt}` : ''}
+            </div>
+          </div>
+          <button onclick="openSeedDetail('${s.id}')"
+            style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);
+            background:transparent;font-size:11px;font-weight:700;color:var(--ink-muted);
+            cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;flex-shrink:0">Chi tiết</button>
+        </div>
+
+        <!-- Thanh tiến trình -->
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-muted);margin-bottom:4px">
+            <span>Ngày không tái phát liên tiếp: <strong style="color:${streak>=7?'var(--jade)':'var(--rose)'}">${streak} ngày</strong></span>
+            <span>Đã check-in: ${s.checkins.length}/${totalDays} ngày</span>
+          </div>
+          <div style="height:6px;background:rgba(201,168,76,0.12);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${barW}%;background:${barW>=80?'var(--jade)':barW>=50?'var(--gold)':'var(--rose)'};border-radius:4px;transition:width 0.4s"></div>
+          </div>
+          <div style="font-size:10px;color:var(--ink-muted);margin-top:3px;text-align:right">${barW}% ngày sạch</div>
+        </div>
+
+        <!-- Nút check-in hôm nay (chỉ active) -->
+        ${!isDone ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${checkedToday
+            ? `<div style="flex:1;padding:9px;border-radius:10px;background:rgba(74,140,111,0.1);
+                border:1px solid rgba(74,140,111,0.3);text-align:center;font-size:12px;font-weight:700;color:var(--jade)">
+                ✓ Đã check-in hôm nay</div>`
+            : `<button onclick="openSeedCheckin('${s.id}')" style="flex:1;padding:9px;border-radius:10px;
+                background:linear-gradient(135deg,var(--rose),#8a2a2a);color:white;border:none;
+                font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+                Hôm nay hạt giống có xuất hiện? →</button>`
+          }
+          ${canDone ? `<button onclick="markSeedDone('${s.id}')" style="padding:9px 14px;border-radius:10px;
+            background:linear-gradient(135deg,var(--jade),#2d6a4f);color:white;border:none;
+            font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+            🎉 Đánh dấu đã chuyển hóa</button>` : ''}
+        </div>
+        ` : `
+        <div style="font-size:12px;color:var(--jade);font-style:italic;font-weight:700">
+          🌿 Không tái phát ${streak} ngày — đã chuyển hóa thành công!
+        </div>
+        `}
+      </div>`;
+    }
   }).join('');
 }
 
@@ -9066,6 +9241,71 @@ function closeSeedCheckin() {
   document.getElementById('seed-checkin-modal').style.display = 'none';
 }
 
+// ── Modal khiêm hạ cho hạt giống GỐC RỄ ẨN NGẦM ────────────────
+function openDeepRootCheckin(seedId) {
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+  if (!Array.isArray(seed.humbleLog)) seed.humbleLog = [];
+
+  document.getElementById('seed-checkin-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:13px;color:#7c5cbf;font-weight:700;margin-bottom:4px">🌿 Gốc Rễ Ẩn Ngầm</div>
+      <div style="font-size:18px;font-weight:800;color:var(--ink)">${escHtml(seed.name)}</div>
+      ${seed.nn ? `<div style="margin-top:4px">${nnBadge(seed.nn)}</div>` : ''}
+    </div>
+
+    <div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;
+      color:var(--ink);text-align:center;margin-bottom:16px;line-height:1.7">
+      Gần đây bạn đã nhận ra<br>hoặc khiêm hạ hạt giống này chưa?
+    </div>
+
+    ${seed.commit ? `
+    <div style="font-size:11.5px;color:var(--ink-muted);background:rgba(124,92,191,0.07);
+      border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.6;
+      border-left:3px solid rgba(124,92,191,0.4)">
+      💜 Cam kết: ${escHtml(seed.commit)}
+    </div>` : ''}
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px">
+        Tôi đã khiêm hạ bằng cách: <span style="font-weight:400">(ghi cụ thể)</span>
+      </div>
+      <textarea id="deeproot-humble-note" rows="4"
+        placeholder="VD: Tôi nhận ra mình đang lặp lại khuôn mẫu đó khi... và tôi đã dừng lại, khiêm hạ bằng cách...&#10;&#10;Hoặc: Tôi thấy kết quả của hạt giống này qua... và tôi đã..."
+        style="width:100%;border:1.5px solid rgba(124,92,191,0.35);border-radius:10px;
+        padding:10px;font-size:13px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+        resize:vertical;background:rgba(255,255,255,0.7);color:var(--ink);line-height:1.6"></textarea>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="closeSeedCheckin()"
+        style="padding:12px;border-radius:12px;background:transparent;
+        border:1.5px solid var(--border);font-size:13px;font-weight:700;
+        color:var(--ink-muted);cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        Chưa — để sau</button>
+      <button onclick="saveDeepRootHumble('${seedId}')"
+        style="padding:12px;border-radius:12px;background:linear-gradient(135deg,#7c5cbf,#4a3580);
+        color:white;border:none;font-size:13px;font-weight:800;cursor:pointer;
+        font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        💜 Ghi nhận khiêm hạ</button>
+    </div>
+  `;
+  document.getElementById('seed-checkin-modal').style.display = 'block';
+}
+
+function saveDeepRootHumble(seedId) {
+  const note = (document.getElementById('deeproot-humble-note')?.value || '').trim();
+  if (!note) { showToast('⚠️ Hãy ghi lại bạn đã khiêm hạ bằng cách nào!'); return; }
+  const seed = seedsData.find(s => s.id === seedId);
+  if (!seed) return;
+  if (!Array.isArray(seed.humbleLog)) seed.humbleLog = [];
+  seed.humbleLog.push({ date: todayKey(), note });
+  saveSeedsData();
+  closeSeedCheckin();
+  showToast('💜 Đã ghi nhận! Mỗi lần khiêm hạ là một bước chuyển hóa.');
+  renderSeedsPage();
+}
+
 function submitSeedCheckin(seedId, appeared) {
   if (!appeared) {
     // Không xuất hiện → lưu ngay
@@ -9125,78 +9365,162 @@ function markSeedDone(seedId) {
 function openSeedDetail(seedId) {
   const seed = seedsData.find(s => s.id === seedId);
   if (!seed) return;
+  if (!Array.isArray(seed.checkins)) seed.checkins = [];
+  if (!Array.isArray(seed.humbleLog)) seed.humbleLog = [];
 
-  const streak   = calcNoAppearStreak(seed);
-  const appeared = (seed.checkins||[]).filter(c => c.appeared).length;
-  const clean    = (seed.checkins||[]).filter(c => !c.appeared).length;
-  // 7 check-in gần nhất
-  const recent   = [...(seed.checkins||[])].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+  const isDeeproot = seed.seedType === 'deeproot';
 
-  document.getElementById('seed-detail-content').innerHTML = `
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:4px">Hạt giống đang giải phóng</div>
-      <div style="font-size:20px;font-weight:800;color:var(--ink)">${escHtml(seed.name)}</div>
-      ${seed.nn ? `<div style="margin-top:5px">${nnBadge(seed.nn)}</div>` : ''}
-    </div>
+  if (isDeeproot) {
+    // ── Chi tiết: GỐC RỄ ẨN NGẦM ──────────────────────────────
+    const humbleCount = seed.humbleLog.length;
+    const recentLog   = [...seed.humbleLog].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
 
-    <!-- Thống kê nhanh -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-      <div style="background:rgba(74,140,111,0.08);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--jade)">${streak}</div>
-        <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày sạch<br>liên tiếp</div>
+    document.getElementById('seed-detail-content').innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:0.8px;color:#7c5cbf;text-transform:uppercase;margin-bottom:4px">🌿 Gốc Rễ Ẩn Ngầm</div>
+        <div style="font-size:20px;font-weight:800;color:var(--ink)">${escHtml(seed.name)}</div>
+        ${seed.nn ? `<div style="margin-top:5px">${nnBadge(seed.nn)}</div>` : ''}
       </div>
-      <div style="background:rgba(201,168,76,0.08);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--gold-dark)">${clean}</div>
-        <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày<br>sạch</div>
+
+      <!-- Thống kê -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <div style="background:rgba(124,92,191,0.08);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:26px;font-weight:800;color:#7c5cbf">${humbleCount}</div>
+          <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Lần khiêm hạ<br>đã ghi nhận</div>
+        </div>
+        <div style="background:rgba(201,168,76,0.08);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:13px;font-weight:800;color:var(--gold-dark)">${recentLog[0]?.date || '—'}</div>
+          <div style="font-size:10px;color:var(--ink-muted);font-weight:700;margin-top:2px">Lần gần nhất</div>
+        </div>
       </div>
-      <div style="background:rgba(192,96,106,0.08);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--rose)">${appeared}</div>
-        <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày<br>tái phát</div>
-      </div>
-    </div>
 
-    ${seed.situation ? `
-    <div style="margin-bottom:12px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Tình huống ban đầu</div>
-      <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(192,96,106,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.situation)}</div>
-    </div>` : ''}
+      ${seed.origin ? `
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Nguồn gốc hình thành</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(124,92,191,0.06);border-radius:10px;padding:10px 12px;border-left:3px solid rgba(124,92,191,0.3)">${escHtml(seed.origin)}</div>
+      </div>` : ''}
 
-    ${seed.commit ? `
-    <div style="margin-bottom:12px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Cam kết chuyển hóa</div>
-      <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(74,140,111,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.commit)}</div>
-    </div>` : ''}
+      ${seed.result ? `
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Biểu hiện qua kết quả</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(192,96,106,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.result)}</div>
+      </div>` : ''}
 
-    <!-- Lịch sử 10 ngày gần nhất -->
-    ${recent.length ? `
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">10 Ngày Gần Nhất</div>
-      <div style="display:flex;flex-direction:column;gap:5px">
-        ${recent.map(c => `
-          <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;
-            border-radius:8px;background:${c.appeared ? 'rgba(192,96,106,0.07)' : 'rgba(74,140,111,0.07)'}">
-            <span style="font-size:14px;flex-shrink:0">${c.appeared ? '🔴' : '🟢'}</span>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:700;color:var(--ink)">${c.date}
-                <span style="font-weight:400;color:${c.appeared ? 'var(--rose)' : 'var(--jade)'};margin-left:4px">
-                  ${c.appeared ? 'Có xuất hiện' : 'Không tái phát'}
-                </span>
-              </div>
-              ${c.note ? `<div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px;line-height:1.5">${escHtml(c.note)}</div>` : ''}
-            </div>
+      ${seed.situation ? `
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Cảm xúc / Niềm tin lõi</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(192,96,106,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.situation)}</div>
+      </div>` : ''}
+
+      ${seed.commit ? `
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Cam kết khiêm hạ</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(74,140,111,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.commit)}</div>
+      </div>` : ''}
+
+      <!-- Nhật ký khiêm hạ -->
+      ${recentLog.length ? `
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">Nhật Ký Khiêm Hạ (${humbleCount} lần)</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${recentLog.map(h => `
+          <div style="padding:10px 12px;border-radius:10px;background:rgba(124,92,191,0.06);
+            border-left:3px solid rgba(124,92,191,0.4)">
+            <div style="font-size:11px;font-weight:800;color:#7c5cbf;margin-bottom:3px">💜 ${h.date}</div>
+            <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.55">${escHtml(h.note)}</div>
           </div>`).join('')}
-      </div>
-    </div>` : ''}
+        </div>
+      </div>` : `
+      <div style="text-align:center;padding:16px;background:rgba(124,92,191,0.05);border-radius:10px;margin-bottom:14px">
+        <div style="font-size:13px;color:var(--ink-muted)">Chưa có lần khiêm hạ nào được ghi nhận.<br><span style="font-size:11.5px">Bấm nút bên dưới để bắt đầu.</span></div>
+      </div>`}
 
-    <!-- Nút xóa -->
-    ${seed.status === 'active' ? `
-    <button onclick="deleteSeed('${seed.id}')"
-      style="width:100%;padding:10px;border-radius:10px;background:transparent;
-      border:1.5px solid rgba(192,96,106,0.4);color:var(--rose);font-size:13px;
-      font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;margin-top:4px">
-      🗑 Xóa hạt giống này
-    </button>` : ''}
-  `;
+      <button onclick="closeSeedDetail();openDeepRootCheckin('${seed.id}')"
+        style="width:100%;padding:11px;border-radius:10px;
+        background:linear-gradient(135deg,#7c5cbf,#4a3580);color:white;border:none;
+        font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;margin-bottom:8px">
+        💜 Ghi nhận lần khiêm hạ mới
+      </button>
+
+      ${seed.status === 'active' ? `
+      <button onclick="deleteSeed('${seed.id}')"
+        style="width:100%;padding:10px;border-radius:10px;background:transparent;
+        border:1.5px solid rgba(192,96,106,0.4);color:var(--rose);font-size:13px;
+        font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        🗑 Xóa hạt giống này
+      </button>` : ''}
+    `;
+
+  } else {
+    // ── Chi tiết: HÀNH VI (như cũ) ──────────────────────────────
+    const streak   = calcNoAppearStreak(seed);
+    const appeared = seed.checkins.filter(c => c.appeared).length;
+    const clean    = seed.checkins.filter(c => !c.appeared).length;
+    const recent   = [...seed.checkins].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+
+    document.getElementById('seed-detail-content').innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:4px">😔 Hạt giống Hành Vi</div>
+        <div style="font-size:20px;font-weight:800;color:var(--ink)">${escHtml(seed.name)}</div>
+        ${seed.nn ? `<div style="margin-top:5px">${nnBadge(seed.nn)}</div>` : ''}
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        <div style="background:rgba(74,140,111,0.08);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--jade)">${streak}</div>
+          <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày sạch<br>liên tiếp</div>
+        </div>
+        <div style="background:rgba(201,168,76,0.08);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--gold-dark)">${clean}</div>
+          <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày<br>sạch</div>
+        </div>
+        <div style="background:rgba(192,96,106,0.08);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--rose)">${appeared}</div>
+          <div style="font-size:10px;color:var(--ink-muted);font-weight:700">Ngày<br>tái phát</div>
+        </div>
+      </div>
+
+      ${seed.situation ? `
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Tình huống ban đầu</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(192,96,106,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.situation)}</div>
+      </div>` : ''}
+
+      ${seed.commit ? `
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:5px">Cam kết chuyển hóa</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;background:rgba(74,140,111,0.06);border-radius:10px;padding:10px 12px">${escHtml(seed.commit)}</div>
+      </div>` : ''}
+
+      ${recent.length ? `
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--ink-muted);text-transform:uppercase;margin-bottom:8px">10 Ngày Gần Nhất</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${recent.map(c => `
+            <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;
+              border-radius:8px;background:${c.appeared ? 'rgba(192,96,106,0.07)' : 'rgba(74,140,111,0.07)'}">
+              <span style="font-size:14px;flex-shrink:0">${c.appeared ? '🔴' : '🟢'}</span>
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:700;color:var(--ink)">${c.date}
+                  <span style="font-weight:400;color:${c.appeared ? 'var(--rose)' : 'var(--jade)'};margin-left:4px">
+                    ${c.appeared ? 'Có xuất hiện' : 'Không tái phát'}
+                  </span>
+                </div>
+                ${c.note ? `<div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px;line-height:1.5">${escHtml(c.note)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${seed.status === 'active' ? `
+      <button onclick="deleteSeed('${seed.id}')"
+        style="width:100%;padding:10px;border-radius:10px;background:transparent;
+        border:1.5px solid rgba(192,96,106,0.4);color:var(--rose);font-size:13px;
+        font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;margin-top:4px">
+        🗑 Xóa hạt giống này
+      </button>` : ''}
+    `;
+  }
 
   document.getElementById('seed-detail-modal').style.display = 'block';
 }
@@ -9252,6 +9576,7 @@ async function syncSeedsFromCloud() {
         if (arr.length > 0) {
           arr.forEach(rSeed => {
             if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
+            if (!Array.isArray(rSeed.humbleLog)) rSeed.humbleLog = [];
             if (!seedsData.find(s => s.id === rSeed.id)) seedsData.push(rSeed);
           });
           localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
@@ -9266,6 +9591,7 @@ async function syncSeedsFromCloud() {
     let added = 0;
     remoteSeedsArr.forEach(rSeed => {
       if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
+      if (!Array.isArray(rSeed.humbleLog)) rSeed.humbleLog = [];
       if (!seedsData.find(s => s.id === rSeed.id)) {
         seedsData.push(rSeed);
         added++;
@@ -9390,8 +9716,21 @@ function debugForceRestoreSeeds() {
 const _origShowPage = showPage;
 showPage = function(name, btn) {
   _origShowPage(name, btn);
-  if (name === 'seeds') renderSeedsPage();
+  if (name === 'seeds') {
+    renderSeedsPage();
+    // Khởi tạo mặc định loại hạt giống nếu chưa chọn
+    if (!document.getElementById('ns-type-val')?.value) {
+      pickSeedType('behavior');
+    }
+  }
 };
+
+// Khởi tạo mặc định khi load trang
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof pickSeedType === 'function') pickSeedType('behavior');
+  }, 300);
+});
 
 
 
