@@ -713,6 +713,28 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
+  <!-- STEP PENDING: Chờ trưởng nhóm/admin duyệt -->
+  <div id="step-pending" style="display:none;background:var(--card);border-radius:24px;padding:32px 26px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.45);text-align:center">
+    <div style="font-size:52px;margin-bottom:14px">⏳</div>
+    <div class="serif-title" style="font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;color:var(--ink);margin-bottom:10px">Đăng ký thành công!</div>
+    <div style="font-size:13.5px;color:var(--ink-muted);line-height:1.8;margin-bottom:20px">
+      Tài khoản của bạn đang chờ <strong style="color:var(--ink)">Trưởng Nhóm</strong> hoặc <strong style="color:var(--ink)">Admin</strong> xét duyệt.<br>
+      Sau khi được duyệt, bạn có thể đăng nhập và bắt đầu rèn luyện.
+    </div>
+    <div id="pending-member-info" style="background:rgba(74,140,111,0.07);border-radius:12px;padding:14px;margin-bottom:20px;font-size:13px;color:var(--ink-soft);line-height:1.8"></div>
+    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:20px">
+      💡 Vui lòng liên hệ Trưởng Nhóm để được duyệt sớm hơn.
+    </div>
+    <button onclick="showLoginStep()" style="
+      width:100%;padding:13px;
+      background:linear-gradient(135deg,#1a2818,#2d4a2a);
+      color:white;border:none;border-radius:13px;
+      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+      font-size:14px;font-weight:800;cursor:pointer">
+      Đăng nhập khi đã được duyệt →
+    </button>
+  </div>
+
   <!-- STEP 2: LOGIN (returning user) -->
   <div id="step-login" style="display:none;background:var(--card);border-radius:24px;padding:32px 26px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.45);">
     <div style="text-align:center;margin-bottom:24px">
@@ -2987,11 +3009,25 @@ function showToast(msg='✓ Đã lưu!') {
 // ══════════════════════════════════════
 function showLoginStep() {
   document.getElementById('step-register').style.display='none';
+  document.getElementById('step-pending').style.display='none';
   document.getElementById('step-login').style.display='block';
 }
 function showRegisterStep() {
   document.getElementById('step-login').style.display='none';
+  document.getElementById('step-pending').style.display='none';
   document.getElementById('step-register').style.display='block';
+}
+function showPendingStep(name, groupCode) {
+  document.getElementById('step-register').style.display='none';
+  document.getElementById('step-login').style.display='none';
+  document.getElementById('step-pending').style.display='block';
+  const infoEl = document.getElementById('pending-member-info');
+  if (infoEl) {
+    infoEl.innerHTML = `
+      👤 <strong>${escHtml(name)}</strong><br>
+      👥 Nhóm: <strong>${escHtml(groupCode)}</strong>
+    `;
+  }
 }
 
 
@@ -3141,6 +3177,25 @@ async function doLogin() {
       }
     }
     save(USER_KEY, userInfo);
+
+    // ── Kiểm tra trạng thái duyệt trước khi vào app ──────────────
+    // Nếu member_requests vẫn còn ở trạng thái pending → chưa được duyệt
+    if (database && userInfo.memberId) {
+      try {
+        const reqSnap = await database.ref('member_requests/' + userInfo.memberId).once('value');
+        const req = reqSnap.val();
+        if (req && req.status === 'pending') {
+          // Chưa được duyệt → đăng xuất Firebase Auth và hiện màn chờ
+          if (loadEl) loadEl.style.display = 'none';
+          userInfo = null;
+          localStorage.removeItem(USER_KEY);
+          try { await auth.signOut(); } catch(e2) {}
+          showPendingStep(req.name || displayName, req.groupCode || '');
+          return;
+        }
+      } catch(e) { console.warn('pending check failed:', e.message); }
+    }
+
     document.getElementById('login-screen').style.display = 'none';
     bootApp();
   } catch(e) {
@@ -3348,7 +3403,12 @@ function doLogout() {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(ADMIN_KEY);
   sessionStorage.setItem('nk_show_login', '1');
-  location.reload();
+  // Đăng xuất Firebase Auth để tránh session cũ ảnh hưởng tài khoản mới
+  if (typeof auth !== 'undefined' && auth && auth.currentUser) {
+    auth.signOut().catch(e => console.warn('signOut error:', e.message)).finally(() => location.reload());
+  } else {
+    location.reload();
+  }
 }
 
 function bootApp() {
@@ -6777,38 +6837,42 @@ async function doRegister() {
     // 2. Cập nhật display name
     await credential.user.updateProfile({ displayName: name });
 
-    // 3. Lưu userInfo local
-    userInfo = { name, groupCode: group, memberId, isLeader: false, email, firebaseUid };
-    save(USER_KEY, userInfo);
+    // 3. Lưu tạm tên để hiện màn chờ duyệt (KHÔNG lưu userInfo, KHÔNG bootApp)
     if (loadEl) loadEl.style.display = 'none';
-    document.getElementById('login-screen').style.display = 'none';
-    bootApp();
 
-    // 4. Ghi dữ liệu lên Firebase
+    // 4. Ghi dữ liệu lên Firebase TRƯỚC khi đăng xuất
     if (database) {
       const memberBase = { name, phone, email, groupCode: group, referrer,
         isLeader: isLeaderReg, firebaseUid,
         registeredAt: new Date().toISOString(), memberId };
 
       // Liên kết firebaseUid → memberId để sau này tra cứu
-      database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode: group });
-      database.ref('members/' + memberId).set(
+      await database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode: group });
+      await database.ref('members/' + memberId).set(
         Object.assign(memberBase, { isLeader: false, isLeaderPending: isLeaderReg })
       );
 
       if (isLeaderReg) {
         const requestId = 'req_' + memberId + '_' + Date.now();
-        database.ref('leader_requests/' + requestId).set({
+        await database.ref('leader_requests/' + requestId).set({
           memberId, name, phone, email, groupCode: group,
           status: 'pending', requestedAt: new Date().toISOString()
-        }).then(() => showToast('👑 Đã gửi yêu cầu Trưởng Nhóm!'));
+        });
       } else {
-        database.ref('member_requests/' + memberId).set({
+        await database.ref('member_requests/' + memberId).set({
           memberId, name, phone, email, groupCode: group, referrer,
           status: 'pending', requestedAt: new Date().toISOString()
         });
       }
     }
+
+    // 5. Đăng xuất Firebase Auth ngay để tránh session cũ còn lưu lại
+    if (auth) {
+      try { await auth.signOut(); } catch(e) { console.warn('signOut after register:', e.message); }
+    }
+
+    // 6. Hiển thị màn hình chờ duyệt (KHÔNG bootApp)
+    showPendingStep(name, group);
   } catch(e) {
     if (loadEl) loadEl.style.display = 'none';
     let msg = '⚠️ Đăng ký thất bại. Vui lòng thử lại.';
