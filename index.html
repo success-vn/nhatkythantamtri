@@ -2452,7 +2452,7 @@ textarea { min-height: 80px; }
       <div id="admin-pending-list">
         <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
       </div>
-      <button class="btn-outline" onclick="loadAdminData()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
+      <button class="btn-outline" id="admin-refresh-btn" onclick="adminRefresh()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
     </div>
 
     <!-- Tab: Trưởng nhóm đã duyệt -->
@@ -8328,8 +8328,22 @@ function switchAdminTab(tab) {
   if (tab === 'settings') loadAdminStats();
 }
 
+async function adminRefresh() {
+  const btn = document.getElementById('admin-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tải...'; }
+  await loadAdminData();
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Làm mới'; }
+}
+
 async function loadAdminData() {
-  if (!adminAuthed) return;
+  if (!adminAuthed && localStorage.getItem(ADMIN_KEY) === 'true') {
+    adminAuthed = true;
+  }
+  if (!adminAuthed) {
+    const el = document.getElementById('admin-pending-list');
+    if (el) el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><p>Phiên làm việc hết hạn. Vui lòng tải lại trang.</p></div>';
+    return;
+  }
   const database = await loadFirebase();
   if (!database) {
     document.getElementById('admin-pending-list').innerHTML =
