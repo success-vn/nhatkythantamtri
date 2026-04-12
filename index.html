@@ -4003,21 +4003,20 @@ function startUserDataRealtimeListener() {
   if (!db || !userInfo) return;
   const uidKey = userInfo.firebaseUid || userInfo.memberId;
   const ref = db.ref('users/' + uidKey);
-  // Hủy listener cũ nếu có
   if (_userDataListener) { try { _userDataListener.off(); } catch(e){} }
   _userDataListener = ref;
 
   let _firstCall = true;
   ref.on('value', snap => {
-    if (_firstCall) { _firstCall = false; return; } // Bỏ qua lần đầu (đã pull trong initFirebaseBackground)
-    if (_isSyncingToFirebase) return; // Bỏ qua nếu chính mình đang push
+    if (_firstCall) { _firstCall = false; return; }
+    if (_isSyncingToFirebase) return;
     const remote = snap.val();
     if (!remote) return;
-    // Kiểm tra xem dữ liệu remote có thực sự mới hơn không
+    // Chỉ bỏ qua nếu remote HOÀN TOÀN không mới hơn (dùng > thay vì <=)
     const remoteSyncedAt = remote.meta?.syncedAt || 0;
     const localSyncedAt  = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
-    if (remoteSyncedAt <= localSyncedAt) return; // Remote không mới hơn → bỏ qua
-    console.log('🔄 Realtime: Phát hiện dữ liệu mới từ thiết bị khác, đang merge...');
+    if (remoteSyncedAt > 0 && remoteSyncedAt <= localSyncedAt) return;
+    console.log('🔄 Realtime: data mới từ thiết bị khác, merge...');
     _applyRemoteData(remote);
     setSyncStatus('🔄', 'Vừa đồng bộ', 'rgba(74,140,111,0.85)');
     setTimeout(() => {
@@ -7069,45 +7068,66 @@ function renderLeaderSeedsSummary(members) {
   const el = document.getElementById('leader-seeds-summary');
   if (!el) return;
 
-  // Chỉ có seeds của chính mình (người khác không sync seeds lên /groups/)
-  // Hiển thị thống kê từ Firebase journals nếu có, hoặc chỉ hiển thị của mình
-  let totalActive = 0, totalDone = 0, totalReappear = 0;
-  const todayK = todayKey();
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
   const weekAgoStr = weekAgo.toISOString().split('T')[0];
 
-  // Lấy từ dữ liệu leader journals (nếu members có seeds trong entries)
-  // Hiện tại seeds chưa sync trong journal entries → chỉ note
-  // Nhưng mình có thể đọc seedsData của chính mình (admin/leader)
-  if (typeof seedsData !== 'undefined' && seedsData.length > 0) {
-    totalActive   = seedsData.filter(s=>s.status==='active').length;
-    totalDone     = seedsData.filter(s=>s.status==='done').length;
-    totalReappear = seedsData.filter(s=>s.status==='active' && s.checkins.some(c=>c.appeared && c.date>=weekAgoStr)).length;
+  // Tổng hợp từ seeds của TẤT CẢ thành viên (đã load từ Firebase)
+  let totalActive = 0, totalDone = 0, totalReappear = 0;
+  const memberStats = []; // [{name, active, done, reappear}]
 
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-        <div style="text-align:center;background:rgba(192,96,106,0.07);border-radius:10px;padding:10px">
-          <div style="font-size:22px;font-weight:800;color:var(--rose)">${totalActive}</div>
-          <div style="font-size:11px;color:var(--ink-muted)">Đang theo dõi</div>
-        </div>
-        <div style="text-align:center;background:rgba(74,140,111,0.07);border-radius:10px;padding:10px">
-          <div style="font-size:22px;font-weight:800;color:var(--jade)">${totalDone}</div>
-          <div style="font-size:11px;color:var(--ink-muted)">Đã chuyển hóa</div>
-        </div>
-        <div style="text-align:center;background:rgba(201,168,76,0.08);border-radius:10px;padding:10px">
-          <div style="font-size:22px;font-weight:800;color:var(--gold-dark)">${totalReappear}</div>
-          <div style="font-size:11px;color:var(--ink-muted)">Tái phát tuần qua</div>
-        </div>
-      </div>
-      <div style="font-size:11.5px;color:var(--ink-muted);font-style:italic;line-height:1.6">
-        💡 Đây là dữ liệu hạt giống của bạn. Dữ liệu hạt giống của từng thành viên sẽ hiển thị khi họ đồng bộ lên cloud.
-      </div>`;
-  } else {
+  members.forEach(([mid, m]) => {
+    const seeds = m.seeds || [];
+    if (!seeds.length) return;
+    const active   = seeds.filter(s => s.status === 'active').length;
+    const done     = seeds.filter(s => s.status === 'done').length;
+    const reappear = seeds.filter(s =>
+      s.status === 'active' &&
+      (s.checkins||[]).some(c => c.appeared && c.date >= weekAgoStr)
+    ).length;
+    totalActive   += active;
+    totalDone     += done;
+    totalReappear += reappear;
+    if (seeds.length > 0) memberStats.push({ name: m.name, active, done, reappear });
+  });
+
+  if (totalActive === 0 && totalDone === 0) {
     el.innerHTML = `<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">
-      Chưa có dữ liệu hạt giống. Thành viên cần ghi và đồng bộ từ tab Hạt Giống.
+      Chưa có dữ liệu hạt giống từ thành viên. Hạt giống cần được lưu và đồng bộ từ tab 😔 Hạt Giống.
     </div>`;
+    return;
   }
 
+  // Bảng thống kê 3 ô
+  let html = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="text-align:center;background:rgba(192,96,106,0.07);border-radius:10px;padding:10px">
+        <div style="font-size:22px;font-weight:800;color:var(--rose)">${totalActive}</div>
+        <div style="font-size:11px;color:var(--ink-muted)">Đang theo dõi</div>
+      </div>
+      <div style="text-align:center;background:rgba(74,140,111,0.07);border-radius:10px;padding:10px">
+        <div style="font-size:22px;font-weight:800;color:var(--jade)">${totalDone}</div>
+        <div style="font-size:11px;color:var(--ink-muted)">Đã chuyển hóa</div>
+      </div>
+      <div style="text-align:center;background:rgba(201,168,76,0.08);border-radius:10px;padding:10px">
+        <div style="font-size:22px;font-weight:800;color:var(--gold-dark)">${totalReappear}</div>
+        <div style="font-size:11px;color:var(--ink-muted)">Tái phát tuần qua</div>
+      </div>
+    </div>`;
+
+  // Chi tiết từng thành viên có seeds
+  if (memberStats.length > 0) {
+    html += `<div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">Theo từng thành viên</div>`;
+    memberStats.forEach(ms => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)">
+        <span style="font-size:13px;font-weight:700;color:var(--ink);flex:1">${escHtml(ms.name)}</span>
+        <span style="font-size:11px;background:rgba(192,96,106,0.1);color:var(--rose);padding:2px 8px;border-radius:8px;font-weight:700">😔 ${ms.active}</span>
+        <span style="font-size:11px;background:rgba(74,140,111,0.1);color:var(--jade);padding:2px 8px;border-radius:8px;font-weight:700">✅ ${ms.done}</span>
+        ${ms.reappear>0?`<span style="font-size:11px;background:rgba(201,168,76,0.1);color:var(--gold-dark);padding:2px 8px;border-radius:8px;font-weight:700">⚠️ ${ms.reappear}</span>`:''}
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
 } // end renderLeaderSeedsSummary
 
 // ── Cảnh báo tự động ─────────────────────────────────────────────
@@ -7536,19 +7556,32 @@ function loadLeaderData() {
           // Luôn load cả 2 path: /journals/ và /users/ để có data đầy đủ nhất
           if (firebaseUid && firebaseUid !== mid) {
             promises.push(db.ref('users/' + firebaseUid + '/daily').once('value'));
+            promises.push(db.ref('users/' + firebaseUid + '/seeds').once('value'));
           }
           // Luôn thêm path memberId làm fallback
           promises.push(db.ref('users/' + mid + '/daily').once('value'));
+          promises.push(db.ref('users/' + mid + '/seeds').once('value'));
 
           Promise.all(promises).then((results) => {
             const jSnap     = results[0];
             // Merge tất cả daily snaps (có thể có từ firebaseUid và memberId)
             const journalData = jSnap ? (jSnap.val() || {}) : {};
             const dailyData   = {};
+            // Collect seeds từ tất cả kết quả (tìm snap có val là array)
+            let memberSeeds = [];
             for (let ri = 1; ri < results.length; ri++) {
               const snap = results[ri];
-              if (snap && snap.val()) Object.assign(dailyData, snap.val());
+              if (!snap || !snap.val()) continue;
+              const val = snap.val();
+              if (Array.isArray(val)) {
+                // Đây là seeds array
+                val.forEach(s => { if (!memberSeeds.find(x=>x.id===s.id)) memberSeeds.push(s); });
+              } else if (typeof val === 'object') {
+                // Đây là daily data
+                Object.assign(dailyData, val);
+              }
             }
+            leaderAllData[mid].seeds = memberSeeds;
 
             // Merge: /users/ làm base (nhiều ngày), /journals/ override từng ngày
             const merged = Object.assign({}, dailyData);
@@ -8669,7 +8702,19 @@ async function adminDeleteGroup(groupCode) {
 
 function saveSeedsData() {
   localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
-  if (typeof scheduleSyncPush === 'function') scheduleSyncPush(SEEDS_KEY);
+  // Push ngay lên Firebase (không chờ debounce để tránh mất data)
+  if (db && userInfo) {
+    const uidKey = userInfo.firebaseUid || userInfo.memberId;
+    db.ref('users/' + uidKey + '/seeds').set(seedsData)
+      .then(() => console.log('✅ Seeds synced to Firebase:', seedsData.length))
+      .catch(e => {
+        console.warn('Seeds sync failed, fallback to scheduleSyncPush:', e.message);
+        if (typeof scheduleSyncPush === 'function') scheduleSyncPush(SEEDS_KEY);
+      });
+  } else {
+    // Chưa có Firebase → dùng debounce để push sau
+    if (typeof scheduleSyncPush === 'function') scheduleSyncPush(SEEDS_KEY);
+  }
 }
 
 // ── Chọn NN khi thêm hạt giống mới ──────────────────────────────
