@@ -1500,11 +1500,11 @@ textarea { min-height: 80px; }
 
       <em>Cảm ơn Vũ trụ, cảm ơn Tâm thức, luôn hậu thuẫn, nâng đỡ con trên từng bước chân con đi, trong tất cả mọi việc con làm;</em><br><br>
 
-      <em>Người bạn cho con óc hài hước; bạn cho con sức mạnh phi thường, trí tuệ thông thái, sự giác ngộ, sự tập trung, sự kỷ luật, sự nhất quán, sự uy tín; sự kiên nhẫn; sự yêu thương, sự sẻ chia, cho con tư duy trí tuệ đỉnh cao, học đến đâu thì hiểu sâu đến đó, học đến đâu thì ngộ sâu đến đó và biết ứng dụng vào cuộc sống và công việc.</em><br><br>
+      <em>Người ban cho con óc hài hước; ban cho con sức mạnh phi thường, trí tuệ thông thái, sự giác ngộ, sự tập trung, sự kỷ luật, sự nhất quán, sự uy tín; sự kiên nhẫn; sự yêu thương, sự sẻ chia, cho con tư duy trí tuệ đỉnh cao, học đến đâu thì hiểu sâu đến đó, học đến đâu thì ngộ sâu đến đó và biết ứng dụng vào cuộc sống và công việc.</em><br><br>
 
       <em>Để bất cứ ai con chạm vào đều thành công rực rỡ, họ đồng hành cùng con về sâu với gốc 5NN có độ tăng tiến xanh thịnh vượng, tuần chảy và họ quay trở lại giúp đỡ cộng đồng kiến tạo nên 1 cuộc sống phi thường ngoại hạng.</em><br><br>
 
-      <em>Người bạn cho con quyền năng vô hạn để con cống hiến, phụng sự và nhân rộng giá trị của Người lên cho 1 triệu người, 1 triệu gia đình trên thế giới; cho gia đình con, cho đội nhóm của con, cho những người con có duyên nhận được mà con được gặp gỡ trên cuộc đời hạnh phúc này;</em><br><br>
+      <em>Người ban cho con quyền năng vô hạn để con cống hiến, phụng sự và nhân rộng giá trị của Người lên cho 1 triệu người, 1 triệu gia đình trên thế giới; cho gia đình con, cho đội nhóm của con, cho những người con có duyên nhận được mà con được gặp gỡ trên cuộc đời hạnh phúc này;</em><br><br>
 
       <em>Trí tuệ của người chính là trí tuệ của con; con biết ơn Người, biết ơn Mẹ Vũ trụ tuyệt vời.</em><br><br>
 
@@ -8652,6 +8652,17 @@ function addNewSeed() {
 
 // ── Render toàn bộ trang Hạt Giống ──────────────────────────────
 function renderSeedsPage() {
+  // Luôn đọc lại từ localStorage để bắt kịp data mới nhất
+  const stored = localStorage.getItem(SEEDS_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > seedsData.length) {
+        seedsData = parsed;
+      }
+    } catch(e) {}
+  }
+
   // Set date
   const dateEl = document.getElementById('seeds-date');
   if (dateEl) dateEl.textContent = formatDate(new Date());
@@ -8692,7 +8703,16 @@ function renderSeedsList(containerId, seeds, isDone) {
   if (!seeds.length) {
     el.innerHTML = isDone
       ? `<div style="text-align:center;padding:12px;color:var(--ink-muted);font-size:12px">Chưa có — hãy tiếp tục rèn luyện!</div>`
-      : `<div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px">Chưa có hạt giống nào đang theo dõi.<br><span style="font-size:12px">Thêm từ phần bên trên hoặc từ tab Hôm Nay.</span></div>`;
+      : `<div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px">
+          Chưa có hạt giống nào đang theo dõi.<br>
+          <span style="font-size:12px">Thêm từ phần bên trên hoặc từ tab Hôm Nay.</span><br><br>
+          <button onclick="syncSeedsFromCloud()" style="padding:8px 18px;border-radius:10px;
+            background:rgba(74,140,111,0.1);border:1.5px solid rgba(74,140,111,0.3);
+            color:var(--jade);font-size:12px;font-weight:800;cursor:pointer;
+            font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+            ☁️ Kéo dữ liệu từ cloud
+          </button>
+        </div>`;
     return;
   }
 
@@ -8997,6 +9017,50 @@ function quickAddSeedFromToday(name, nn) {
   seedsData.unshift(seed);
   saveSeedsData();
   showToast('🌱 Đã thêm "' + seed.name + '" vào danh sách theo dõi!');
+}
+
+// ── Kéo seeds từ cloud về (dùng khi local trống) ────────────────
+async function syncSeedsFromCloud() {
+  showToast('☁️ Đang kéo dữ liệu từ cloud...');
+  try {
+    const database = await loadFirebase();
+    if (!database) { showToast('⚠️ Không kết nối được Firebase.'); return; }
+    const uidKey = userInfo?.firebaseUid || userInfo?.memberId;
+    if (!uidKey) { showToast('⚠️ Chưa đăng nhập.'); return; }
+    const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
+    const remoteSeedsArr = snap.val();
+    if (!remoteSeedsArr || !Array.isArray(remoteSeedsArr) || remoteSeedsArr.length === 0) {
+      // Thử dạng object
+      const snapObj = snap.val();
+      if (snapObj && typeof snapObj === 'object') {
+        const arr = Object.values(snapObj);
+        if (arr.length > 0) {
+          arr.forEach(rSeed => {
+            if (!seedsData.find(s => s.id === rSeed.id)) seedsData.push(rSeed);
+          });
+          localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
+          renderSeedsPage();
+          showToast('✅ Đã đồng bộ ' + arr.length + ' hạt giống từ cloud!');
+          return;
+        }
+      }
+      showToast('ℹ️ Cloud chưa có dữ liệu hạt giống. Hãy thêm mới từ đầu.');
+      return;
+    }
+    let added = 0;
+    remoteSeedsArr.forEach(rSeed => {
+      if (!seedsData.find(s => s.id === rSeed.id)) {
+        seedsData.push(rSeed);
+        added++;
+      }
+    });
+    localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
+    renderSeedsPage();
+    showToast('✅ Đã đồng bộ ' + added + ' hạt giống từ cloud!');
+  } catch(e) {
+    showToast('⚠️ Lỗi đồng bộ: ' + e.message);
+    console.error('syncSeedsFromCloud error:', e);
+  }
 }
 
 // ── Hook vào showPage để render khi vào trang ────────────────────
