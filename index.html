@@ -878,7 +878,8 @@ textarea { min-height: 80px; }
       font-size:10.5px;font-weight:700;color:white;
       background:rgba(74,140,111,0.85);border-radius:20px;
       padding:5px 10px;display:flex;align-items:center;gap:4px;
-      transition:background 0.3s">☁️ –</div>
+      transition:background 0.3s;cursor:pointer"
+      onclick="showSyncDetail()" title="Bấm để xem chi tiết đồng bộ">☁️ –</div>
     <div id="user-badge" style="
       font-size:11px;font-weight:700;color:rgba(253,248,240,0.65);
       background:rgba(255,255,255,0.08);border-radius:20px;
@@ -3207,14 +3208,20 @@ async function doLogin() {
           const reqVal = reqSnap.val();
           if (reqVal && reqVal.status === 'pending') pendingReq = reqVal;
 
-          // Fallback: quét theo firebaseUid (cho tài khoản mới có firebaseUid trong request)
-          if (!pendingReq) {
-            const allSnap = await database.ref('member_requests')
-              .orderByChild('firebaseUid').equalTo(firebaseUid).once('value');
-            const allVal = allSnap.val();
-            if (allVal) {
-              const found = Object.values(allVal).find(r => r.status === 'pending');
-              if (found) pendingReq = found;
+          // Fallback: đọc toàn bộ member_requests rồi filter phía client
+          // (không dùng orderByChild để tránh cần .indexOn trong Firebase Rules)
+          if (!pendingReq && firebaseUid) {
+            try {
+              const allSnap = await database.ref('member_requests').once('value');
+              const allVal = allSnap.val();
+              if (allVal) {
+                const found = Object.values(allVal).find(r =>
+                  r.status === 'pending' && r.firebaseUid === firebaseUid
+                );
+                if (found) pendingReq = found;
+              }
+            } catch(e2) {
+              console.warn('member_requests scan failed:', e2.message);
             }
           }
 
@@ -3243,7 +3250,8 @@ async function doLogin() {
       msg = '⚠️ Quá nhiều lần thử. Vui lòng thử lại sau.';
     }
     if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
-    console.error('Login error:', e.code, e.message);
+    console.error('Login error:', e.code, e.message, e.stack);
+    _lastSyncError = 'Login: ' + (e.code || '') + ' ' + e.message;
   }
 }
 
@@ -3978,6 +3986,39 @@ function setSyncStatus(icon, msg, color) {
   if (el) { el.innerHTML = `<span>${icon}</span> ${msg}`; el.style.background = color||'rgba(74,140,111,0.85)'; }
 }
 
+// Hàm chuẩn lấy key dùng để lưu dữ liệu cá nhân trên Firebase
+// Luôn ưu tiên firebaseUid (unique tuyệt đối), fallback về memberId
+// Tất cả các hàm push/pull/listen phải dùng hàm này
+function getUidKey() {
+  // Ưu tiên 1: firebaseUid từ userInfo
+  if (userInfo?.firebaseUid) return userInfo.firebaseUid;
+  // Ưu tiên 2: uid từ auth session hiện tại (trường hợp userInfo chưa cập nhật)
+  if (typeof auth !== 'undefined' && auth?.currentUser?.uid) {
+    const uid = auth.currentUser.uid;
+    // Tự động cập nhật userInfo để lần sau không cần fallback
+    if (userInfo) { userInfo.firebaseUid = uid; save(USER_KEY, userInfo); }
+    return uid;
+  }
+  // Fallback: memberId (chỉ xảy ra với tài khoản rất cũ chưa có email/auth)
+  return userInfo?.memberId || null;
+}
+
+let _lastSyncError = null;
+function showSyncDetail() {
+  const uid = getUidKey() || '?';
+  const authUser = (typeof auth !== 'undefined' && auth?.currentUser) ? auth.currentUser.email || auth.currentUser.uid : 'Chưa đăng nhập Firebase';
+  const msg = [
+    '📡 Trạng thái đồng bộ',
+    '─────────────────────',
+    `👤 User: ${userInfo?.name || '?'}`,
+    `🔑 memberId: ${userInfo?.memberId || '?'}`,
+    `🔥 Firebase Auth: ${authUser}`,
+    `🗝 uidKey sync: ${uid}`,
+    _lastSyncError ? `⚠️ Lỗi cuối: ${_lastSyncError}` : '✅ Không có lỗi gần đây',
+  ].join('\n');
+  alert(msg);
+}
+
 // Load Firebase trong nền và sync 2 chiều
 async function initFirebaseBackground() {
   setSyncStatus('⏳','Đang kết nối...','rgba(201,168,76,0.7)');
@@ -4017,13 +4058,56 @@ async function initFirebaseBackground() {
   if (auth && auth.currentUser) {
     try { await auth.currentUser.getIdToken(true); } catch(e) { console.warn('Token refresh:', e.message); }
   }
+
+  // ── QUAN TRỌNG: Đảm bảo userInfo.firebaseUid luôn đúng trước khi sync ──
+  // Trường hợp: local cache cũ không có firebaseUid, hoặc thiết bị chưa đăng nhập lại
+  if (auth && auth.currentUser && auth.currentUser.uid) {
+    const authUid = auth.currentUser.uid;
+    if (!userInfo.firebaseUid || userInfo.firebaseUid !== authUid) {
+      userInfo.firebaseUid = authUid;
+      save(USER_KEY, userInfo);
+      console.log('🔑 firebaseUid resolved from auth session:', authUid);
+      // Cũng cập nhật uid_to_member nếu chưa có
+      try {
+        await db.ref('uid_to_member/' + authUid).once('value').then(snap => {
+          if (!snap.val()) {
+            db.ref('uid_to_member/' + authUid).set({
+              memberId: userInfo.memberId,
+              groupCode: userInfo.groupCode
+            });
+          }
+        });
+      } catch(e) { console.warn('uid_to_member update failed:', e.message); }
+    }
+  }
   // Luôn pull trước (merge remote → local), sau đó push local lên (merge local → remote)
   await pullLocalFromFirebase();
+
+  // ── Migration một lần: nếu data ở path firebaseUid trống nhưng path memberId có data cũ ──
+  // Xảy ra với tài khoản cũ: data bị lưu ở users/memberId, giờ chuyển sang users/firebaseUid
+  const uidKey = getUidKey();
+  if (uidKey && userInfo.memberId && uidKey !== userInfo.memberId) {
+    try {
+      const newSnap = await db.ref('users/' + uidKey + '/meta').once('value');
+      if (!newSnap.val()) {
+        // Path mới trống → kéo data từ path cũ (memberId) về
+        const oldSnap = await db.ref('users/' + userInfo.memberId).once('value');
+        const oldData = oldSnap.val();
+        if (oldData) {
+          await db.ref('users/' + uidKey).update(oldData);
+          console.log('✅ Migrated data from memberId path to firebaseUid path');
+          // Pull lại để áp dụng data vừa migrate
+          await pullLocalFromFirebase();
+        }
+      }
+    } catch(e) { console.warn('Migration check failed:', e.message); }
+  }
+
   await pushLocalToFirebase();
 
   // ── Push seeds riêng nếu có data local mà cloud chưa có ──────────
   if (seedsData.length > 0) {
-    const uidKey = userInfo.firebaseUid || userInfo.memberId;
+    const uidKey = getUidKey();
     try {
       const snap = await db.ref('users/' + uidKey + '/seeds').once('value');
       const remoteSeeds = snap.val();
@@ -4075,7 +4159,7 @@ async function checkFirebaseAuthState() {
 // Đẩy dữ liệu lên Firebase
 async function pushLocalToFirebase() {
   if (!db || !userInfo) return;
-  const uidKey = userInfo.firebaseUid || userInfo.memberId;
+  const uidKey = getUidKey();
   const base = 'users/' + uidKey;
   try {
     _isSyncingToFirebase = true; // Lock: tránh listener của mình bị trigger
@@ -4107,6 +4191,7 @@ async function pushLocalToFirebase() {
     console.error('🔴 Push failed — code:', e.code, '| msg:', e.message);
 
     if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
+      _lastSyncError = 'PERMISSION_DENIED — Firebase Rules chặn. Auth: ' + (auth?.currentUser?.email || auth?.currentUser?.uid || 'none');
       setSyncStatus('🔒','Rules chặn','rgba(192,96,106,0.8)');
       if (auth && !auth.currentUser) {
         auth.signInAnonymously()
@@ -4118,8 +4203,10 @@ async function pushLocalToFirebase() {
           .catch(e2 => console.warn('Token refresh failed:', e2.message));
       }
     } else if (e.message?.includes('network') || e.message?.includes('fetch')) {
+      _lastSyncError = 'Mất mạng: ' + e.message;
       setSyncStatus('📶','Mất mạng','rgba(201,168,76,0.7)');
     } else {
+      _lastSyncError = e.code + ': ' + e.message;
       setSyncStatus('⚠️','Lỗi sync','rgba(192,96,106,0.7)');
     }
     setTimeout(() => { if(db && userInfo) pushLocalToFirebase(); }, 20000);
@@ -4135,7 +4222,7 @@ let _isSyncingToFirebase = false; // Lock: tránh push của mình trigger liste
 
 function startUserDataRealtimeListener() {
   if (!db || !userInfo) return;
-  const uidKey = userInfo.firebaseUid || userInfo.memberId;
+  const uidKey = getUidKey();
   const ref = db.ref('users/' + uidKey);
   if (_userDataListener) { try { _userDataListener.off(); } catch(e){} }
   _userDataListener = ref;
@@ -4164,7 +4251,7 @@ function startUserDataRealtimeListener() {
 async function pullLocalFromFirebase() {
   if (!db || !userInfo) return;
   try {
-    const uidKey = userInfo.firebaseUid || userInfo.memberId;
+    const uidKey = getUidKey();
     const snap = await db.ref('users/' + uidKey).once('value');
     const remote = snap.val();
     if (!remote) { console.log('No remote data yet'); return; }
@@ -8946,7 +9033,7 @@ function saveSeedsData() {
   localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
   // Push ngay lên Firebase (không chờ debounce để tránh mất data)
   if (db && userInfo) {
-    const uidKey = userInfo.firebaseUid || userInfo.memberId;
+    const uidKey = getUidKey();
     db.ref('users/' + uidKey + '/seeds').set(seedsData)
       .then(() => console.log('✅ Seeds synced to Firebase:', seedsData.length))
       .catch(e => {
@@ -9664,7 +9751,7 @@ async function syncSeedsFromCloud() {
   try {
     const database = await loadFirebase();
     if (!database) { showToast('⚠️ Không kết nối được Firebase.'); return; }
-    const uidKey = userInfo?.firebaseUid || userInfo?.memberId;
+    const uidKey = getUidKey();
     if (!uidKey) { showToast('⚠️ Chưa đăng nhập.'); return; }
     const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
     const remoteSeedsArr = snap.val();
@@ -9742,7 +9829,7 @@ async function debugCheckFirebase() {
   try {
     const database = await loadFirebase();
     if (!database) { _showDebug('❌ Không kết nối được Firebase. Kiểm tra mạng.'); return; }
-    const uidKey = userInfo?.firebaseUid || userInfo?.memberId;
+    const uidKey = getUidKey();
     if (!uidKey) { _showDebug('❌ Chưa đăng nhập.'); return; }
 
     const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
@@ -9769,7 +9856,7 @@ async function debugRestoreFromFirebase() {
   _showDebug('⏳ Đang khôi phục từ Firebase...');
   try {
     const database = await loadFirebase();
-    const uidKey = userInfo?.firebaseUid || userInfo?.memberId;
+    const uidKey = getUidKey();
     const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
     const val = snap.val();
     if (!val) { _showDebug('❌ Firebase không có data.'); return; }
