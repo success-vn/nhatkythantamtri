@@ -2457,6 +2457,10 @@ textarea { min-height: 80px; }
         style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         👥 Tất Cả Nhóm
       </button>
+      <button class="admin-tab" id="atab-expiry" onclick="switchAdminTab('expiry')"
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        🗓 Gia Hạn <span id="expiry-count-badge" style="display:none;background:#d4872a;color:white;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:4px">0</span>
+      </button>
       <button class="admin-tab" id="atab-settings" onclick="switchAdminTab('settings')"
         style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         ⚙️ Cài Đặt
@@ -2485,6 +2489,16 @@ textarea { min-height: 80px; }
     <div id="admin-tab-groups" style="display:none">
       <div id="admin-groups-list">
         <div class="empty-state"><div class="empty-icon">👥</div><p>Đang tải...</p></div>
+      </div>
+    </div>
+
+    <!-- Tab: Gia hạn -->
+    <div id="admin-tab-expiry" style="display:none">
+      <div class="note-quote" style="margin-bottom:14px">
+        Danh sách thành viên sắp hết hạn (≤ 30 ngày) hoặc đã hết hạn.
+      </div>
+      <div id="admin-expiry-list">
+        <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
       </div>
     </div>
 
@@ -2966,6 +2980,22 @@ function save(key, obj) {
     if (key === SP_KEY && obj && typeof obj === 'object') {
       obj._updatedAt = Date.now();
     }
+    // Cập nhật _updatedAt cho R3M khi lưu
+    if (key === R3M_KEY && obj && typeof obj === 'object') {
+      obj._updatedAt = Date.now();
+    }
+    // Cập nhật _updatedAt cho từng item kz, ms khi lưu
+    if (key === KZ_KEY && Array.isArray(obj)) {
+      const w = getWeekKey ? getWeekKey() : null;
+      if (w) { const cur = obj.find(k => k.week === w); if (cur) cur._updatedAt = Date.now(); }
+    }
+    if (key === MS_KEY && Array.isArray(obj) && obj.length > 0) {
+      // Update _updatedAt cho milestone đang được chỉnh sửa (dùng currentMsId nếu có)
+      const targetMs = (typeof currentMsId !== 'undefined' && currentMsId)
+        ? obj.find(m => m.id === currentMsId)
+        : obj[0];
+      if (targetMs) targetMs._updatedAt = Date.now();
+    }
     localStorage.setItem(key, JSON.stringify(obj));
     // Tự động đẩy lên Firebase sau khi lưu local
     if (typeof scheduleSyncPush === 'function') scheduleSyncPush(key);
@@ -3000,14 +3030,25 @@ function isExpired() {
 }
 
 function getExpiryDate() {
-  if (!userInfo || !userInfo.approvedAt) return null;
+  if (!userInfo) return null;
+  if (userInfo.expiryDate) {
+    return new Date(userInfo.expiryDate).toLocaleDateString('vi', {day:'2-digit', month:'2-digit', year:'numeric'});
+  }
+  if (!userInfo.approvedAt) return null;
   const d = new Date(new Date(userInfo.approvedAt).getTime() + 365 * 24 * 60 * 60 * 1000);
   return d.toLocaleDateString('vi', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
 
 function getDaysUntilExpiry() {
-  if (!userInfo || !userInfo.approvedAt) return null;
-  const expiry = new Date(userInfo.approvedAt).getTime() + 365 * 24 * 60 * 60 * 1000;
+  if (!userInfo) return null;
+  let expiry;
+  if (userInfo.expiryDate) {
+    expiry = new Date(userInfo.expiryDate).getTime();
+  } else if (userInfo.approvedAt) {
+    expiry = new Date(userInfo.approvedAt).getTime() + 365 * 24 * 60 * 60 * 1000;
+  } else {
+    return null;
+  }
   return Math.ceil((expiry - Date.now()) / (24 * 60 * 60 * 1000));
 }
 
@@ -3041,6 +3082,33 @@ function showExpiryWarningBanner(daysLeft) {
   document.body.prepend(banner);
 }
 
+function showRenewalGuide() {
+  var existing = document.getElementById('account-info-popup');
+  if (existing) existing.remove();
+  var modal = document.createElement('div');
+  modal.id = 'renewal-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML =
+    '<div style="background:var(--card);border-radius:20px;padding:24px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.25)">' +
+      '<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px">🔄 Gia hạn gói 1 năm</div>' +
+      '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:16px">366.000đ / năm</div>' +
+      '<div style="font-size:12.5px;color:var(--ink);line-height:1.9;margin-bottom:16px">' +
+        '<div style="font-weight:700;margin-bottom:6px">Hướng dẫn chuyển khoản:</div>' +
+        '<div>🏦 Ngân hàng: <strong>Vietcombank</strong></div>' +
+        '<div>👤 Chủ TK: <strong>NGUYEN THI NGA</strong></div>' +
+        '<div>💳 Số TK: <strong>1234567890</strong></div>' +
+        '<div>💰 Số tiền: <strong>366.000đ</strong></div>' +
+        '<div>📝 Nội dung: <strong>' + escHtml((userInfo && userInfo.name) ? userInfo.name + ' gia han' : 'Gia han') + '</strong></div>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--ink-muted);background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:10px 12px;margin-bottom:16px">' +
+        '💡 Sau khi chuyển khoản, admin sẽ gia hạn tài khoản cho bạn trong vòng 24 giờ.' +
+      '</div>' +
+      '<button onclick="document.getElementById(\'renewal-modal\').remove()" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;font-family:Nunito,-apple-system,sans-serif">Đã hiểu</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+}
+
 function showAccountInfo() {
   if (!userInfo) return;
   var existing = document.getElementById('account-info-popup');
@@ -3052,14 +3120,14 @@ function showAccountInfo() {
     ? new Date(userInfo.approvedAt).toLocaleDateString('vi', {day:'2-digit',month:'2-digit',year:'numeric'})
     : null;
 
-  var statusColor = 'var(--ink-muted)', statusIcon = '&#9203;', statusText = 'Chua xac dinh';
-  if (userInfo.approvedAt) {
+  var statusColor = 'var(--ink-muted)', statusIcon = '⏳', statusText = 'Chưa xác định';
+  if (daysLeft !== null) {
     if (daysLeft <= 0) {
-      statusColor = 'var(--rose)'; statusIcon = '&#128308;'; statusText = 'Da het han';
+      statusColor = 'var(--rose)'; statusIcon = '🔴'; statusText = 'Đã hết hạn';
     } else if (daysLeft <= 30) {
-      statusColor = '#c9a84c'; statusIcon = '&#9203;'; statusText = 'Con ' + daysLeft + ' ngay';
+      statusColor = '#c9a84c'; statusIcon = '⚠️'; statusText = 'Còn ' + daysLeft + ' ngày';
     } else {
-      statusColor = 'var(--jade)'; statusIcon = '&#9989;'; statusText = 'Con ' + daysLeft + ' ngay';
+      statusColor = 'var(--jade)'; statusIcon = '✅'; statusText = 'Còn ' + daysLeft + ' ngày';
     }
   }
 
@@ -3067,28 +3135,36 @@ function showAccountInfo() {
   var bdColor = (daysLeft !== null && daysLeft <= 0) ? 'rgba(192,96,106,0.25)' : (daysLeft !== null && daysLeft <= 30 ? 'rgba(201,168,76,0.3)' : 'rgba(74,140,111,0.2)');
 
   var rows = '';
-  rows += '<div><span style="color:var(--ink-muted)">Ten:</span> <strong style="color:var(--ink)">' + escHtml(userInfo.name || '-') + '</strong></div>';
-  rows += '<div><span style="color:var(--ink-muted)">Nhom:</span> <strong style="color:var(--ink)">' + escHtml(userInfo.groupCode || '-') + '</strong></div>';
-  if (approvedDate) rows += '<div><span style="color:var(--ink-muted)">Kich hoat:</span> <strong style="color:var(--ink)">' + approvedDate + '</strong></div>';
-  if (expiryDate)   rows += '<div><span style="color:var(--ink-muted)">Het han:</span> <strong style="color:var(--ink)">' + expiryDate + '</strong></div>';
+  rows += '<div><span style="color:var(--ink-muted)">Tên:</span> <strong style="color:var(--ink)">' + escHtml(userInfo.name || '-') + '</strong></div>';
+  rows += '<div><span style="color:var(--ink-muted)">Nhóm:</span> <strong style="color:var(--ink)">' + escHtml(userInfo.groupCode || '-') + '</strong></div>';
+  if (approvedDate) rows += '<div><span style="color:var(--ink-muted)">Kích hoạt:</span> <strong style="color:var(--ink)">' + approvedDate + '</strong></div>';
+  if (expiryDate)   rows += '<div><span style="color:var(--ink-muted)">Hết hạn:</span> <strong style="color:var(--ink)">' + expiryDate + '</strong></div>';
+
+  var renewBtn = '';
+  if (daysLeft !== null && daysLeft <= 30) {
+    renewBtn = '<button onclick="showRenewalGuide()" style="width:100%;margin-top:10px;padding:10px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:12px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:Nunito,-apple-system,sans-serif">🔄 Gia hạn ngay</button>';
+  } else if (daysLeft !== null && daysLeft > 30) {
+    renewBtn = '<button onclick="showRenewalGuide()" style="width:100%;margin-top:10px;padding:8px;background:none;color:var(--jade);border:1px solid var(--jade);border-radius:10px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:Nunito,-apple-system,sans-serif">Xem hướng dẫn gia hạn</button>';
+  }
 
   var statusExtra = '';
-  if (daysLeft !== null && daysLeft > 0) statusExtra = '<div style="font-size:10.5px;color:var(--ink-muted);margin-top:2px">Het han ngay ' + expiryDate + '</div>';
-  if (daysLeft !== null && daysLeft <= 0) statusExtra = '<div style="font-size:10.5px;color:var(--rose);margin-top:2px">Lien he de gia han</div>';
+  if (daysLeft !== null && daysLeft > 0) statusExtra = '<div style="font-size:10.5px;color:var(--ink-muted);margin-top:2px">Hết hạn ngày ' + expiryDate + '</div>';
+  if (daysLeft !== null && daysLeft <= 0) statusExtra = '<div style="font-size:10.5px;color:var(--rose);margin-top:2px">Liên hệ admin để gia hạn</div>';
 
   var popup = document.createElement('div');
   popup.id = 'account-info-popup';
-  popup.style.cssText = 'position:fixed;top:52px;right:12px;z-index:99990;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;min-width:240px;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
+  popup.style.cssText = 'position:fixed;top:52px;right:12px;z-index:99990;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;min-width:250px;max-width:310px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
   popup.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
-      '<div style="font-size:13px;font-weight:800;color:var(--ink)">&#128100; Tai khoan</div>' +
-      '<button id="close-account-popup" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--ink-muted);padding:0;line-height:1">&#10005;</button>' +
+      '<div style="font-size:13px;font-weight:800;color:var(--ink)">👤 Tài khoản</div>' +
+      '<button id="close-account-popup" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--ink-muted);padding:0;line-height:1">✕</button>' +
     '</div>' +
     '<div style="font-size:12px;color:var(--ink-muted);line-height:2.1">' + rows + '</div>' +
-    '<div style="margin-top:10px;padding:8px 12px;border-radius:10px;background:' + bgColor + ';border:1px solid ' + bdColor + '">' +
-      '<div style="font-size:12px;font-weight:800;color:' + statusColor + '">' + statusIcon + ' ' + statusText + '</div>' +
+    '<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:' + bgColor + ';border:1px solid ' + bdColor + '">' +
+      '<div style="font-size:13px;font-weight:800;color:' + statusColor + '">' + statusIcon + ' ' + statusText + '</div>' +
       statusExtra +
-    '</div>';
+    '</div>' +
+    renewBtn;
 
   document.body.appendChild(popup);
   document.getElementById('close-account-popup').onclick = function() { popup.remove(); };
@@ -3421,6 +3497,17 @@ async function doLogin() {
       } catch(e) { console.warn('pending check failed:', e.message); }
     }
 
+    // Pull dữ liệu từ Firebase TRƯỚC khi bootApp — tránh render UI trống trên thiết bị mới
+    if (database) {
+      try {
+        db = database; // Gán db TRƯỚC khi pull — pullLocalFromFirebase cần db != null
+        await pullLocalFromFirebase();
+        console.log('✅ Pre-login pull complete');
+      } catch(pullErr) {
+        console.warn('Pre-login pull failed:', pullErr.message);
+      }
+    }
+
     document.getElementById('login-screen').style.display = 'none';
     bootApp();
   } catch(e) {
@@ -3583,10 +3670,8 @@ async function doActivateAccount() {
         const oldSnap = await database.ref('users/' + memberId).once('value');
         const oldData = oldSnap.val();
         if (oldData && memberId !== firebaseUid) {
-          // Copy dữ liệu cũ sang path mới
           await database.ref('users/' + firebaseUid).set(oldData);
           console.log('✅ Migrated user data from memberId path to firebaseUid path');
-          // Giữ path cũ lại để không mất, chỉ thêm pointer
         }
       } catch(migrateErr) {
         console.warn('Data migration skipped:', migrateErr.message);
@@ -3597,9 +3682,20 @@ async function doActivateAccount() {
     userInfo = {
       name, groupCode, memberId,
       isLeader: _activateMemberData.isLeader || false,
-      email, firebaseUid
+      email, firebaseUid,
+      approvedAt: _activateMemberData.approvedAt || null
     };
     save(USER_KEY, userInfo);
+
+    // Pull dữ liệu cũ từ Firebase về localStorage TRƯỚC khi bootApp
+    // (migration đã copy /users/memberId → /users/firebaseUid ở trên)
+    try {
+      db = database;
+      await pullLocalFromFirebase();
+      console.log('✅ Pulled migrated data before bootApp');
+    } catch(pullErr) {
+      console.warn('Pre-boot pull failed:', pullErr.message);
+    }
 
     if (loadEl) loadEl.style.display = 'none';
     document.getElementById('login-screen').style.display = 'none';
@@ -4288,15 +4384,16 @@ async function initFirebaseBackground() {
   const uidKey = getUidKey();
   if (uidKey && userInfo.memberId && uidKey !== userInfo.memberId) {
     try {
-      const newSnap = await db.ref('users/' + uidKey + '/meta').once('value');
-      if (!newSnap.val()) {
-        // Path mới trống → kéo data từ path cũ (memberId) về
-        const oldSnap = await db.ref('users/' + userInfo.memberId).once('value');
-        const oldData = oldSnap.val();
+      // Check nếu path mới không có /daily (dữ liệu rèn luyện) dù path cũ có
+      const newSnap = await db.ref('users/' + uidKey + '/daily').once('value');
+      const oldSnap2 = await db.ref('users/' + userInfo.memberId + '/daily').once('value');
+      if (!newSnap.val() && oldSnap2.val()) {
+        // Path mới chưa có daily → copy toàn bộ data từ path cũ
+        const fullOldSnap = await db.ref('users/' + userInfo.memberId).once('value');
+        const oldData = fullOldSnap.val();
         if (oldData) {
           await db.ref('users/' + uidKey).update(oldData);
-          console.log('✅ Migrated data from memberId path to firebaseUid path');
-          // Pull lại để áp dụng data vừa migrate
+          console.log('✅ Migrated daily data from memberId path to firebaseUid path');
           await pullLocalFromFirebase();
         }
       }
@@ -4304,6 +4401,9 @@ async function initFirebaseBackground() {
   }
 
   await pushLocalToFirebase();
+
+  // Sau khi push xong, pull thêm 1 lần nữa để lấy data từ thiết bị khác có thể mới hơn
+  await pullLocalFromFirebase();
 
   // ── Push seeds riêng nếu có data local mà cloud chưa có ──────────
   if (seedsData.length > 0) {
@@ -4363,6 +4463,20 @@ async function pushLocalToFirebase() {
   const base = 'users/' + uidKey;
   try {
     _isSyncingToFirebase = true; // Lock: tránh listener của mình bị trigger
+
+    // SAFETY: Không push nếu local data trống — tránh xóa Firebase khi thiết bị mới chưa pull xong
+    // Kiểm tra có dữ liệu thực (không phải object rỗng hoặc chỉ có meta)
+    const hasLocalData = Object.keys(data).length > 0 ||
+      (Object.keys(spData).some(k => k !== '_updatedAt' && spData[k])) ||
+      kzData.length > 0 ||
+      msData.length > 0 ||
+      seedsData.length > 0;
+    if (!hasLocalData) {
+      console.log('⏭ Push skipped: local data trống, pull trước');
+      _isSyncingToFirebase = false;
+      return;
+    }
+
     // Đẩy toàn bộ daily + kz + r3m + ms
     const dailyBatch = {};
     Object.keys(data).sort().forEach(date => {
@@ -4372,16 +4486,19 @@ async function pushLocalToFirebase() {
     });
 
     const nowTs = Date.now();
-    await db.ref(base).update({
-      daily:           dailyBatch,
-      sp:              spData,
-      kz:              kzData,
-      r3m:             r3mData,
-      ms:              msData,
-      seeds:           seedsData,
+    const updatePayload = {
       'meta/syncedAt': nowTs,
       'meta/name':     userInfo.name,
-    });
+    };
+    // Chỉ push các field có data thực — tránh ghi đè remote bằng object rỗng
+    if (Object.keys(dailyBatch).length > 0) updatePayload.daily = dailyBatch;
+    if (Object.keys(spData).length > 1)      updatePayload.sp    = spData;
+    if (kzData.length > 0)                   updatePayload.kz    = kzData;
+    if (Object.keys(r3mData).length > 0)     updatePayload.r3m   = r3mData;
+    if (msData.length > 0)                   updatePayload.ms    = msData;
+    if (seedsData.length > 0)                updatePayload.seeds = seedsData;
+
+    await db.ref(base).update(updatePayload);
 
     localStorage.setItem(SYNC_TS_KEY, String(nowTs));
     const timeStr = new Date(nowTs).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
@@ -4456,6 +4573,27 @@ async function pullLocalFromFirebase() {
     const remote = snap.val();
     if (!remote) { console.log('No remote data yet'); return; }
     _applyRemoteData(remote);
+    // Reload biến global từ localStorage sau khi merge — đảm bảo pushLocalToFirebase dùng data đúng
+    try {
+      const freshData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      Object.keys(freshData).forEach(k => { data[k] = freshData[k]; });
+      const freshSp = JSON.parse(localStorage.getItem(SP_KEY) || '{}');
+      Object.assign(spData, freshSp);
+      const freshKz = JSON.parse(localStorage.getItem(KZ_KEY) || '[]');
+      if (freshKz.length > 0) { kzData.splice(0, kzData.length, ...freshKz); }
+      if (typeof R3M_KEY !== 'undefined') {
+        const freshR3m = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
+        Object.assign(r3mData, freshR3m);
+      }
+      if (typeof MS_KEY !== 'undefined') {
+        const freshMs = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
+        if (freshMs.length > 0) { msData.splice(0, msData.length, ...freshMs); }
+      }
+      if (typeof SEEDS_KEY !== 'undefined') {
+        const freshSeeds = JSON.parse(localStorage.getItem(SEEDS_KEY) || '[]');
+        if (freshSeeds.length > 0) { seedsData.splice(0, seedsData.length, ...freshSeeds); }
+      }
+    } catch(reloadErr) { console.warn('Reload vars failed:', reloadErr.message); }
   } catch(e) {
     console.warn('Pull failed:', e.message);
     setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');
@@ -4559,12 +4697,22 @@ function _applyRemoteData(remote) {
       if (changed) localStorage.setItem(R3M_KEY, JSON.stringify(r3mData));
     }
 
-    // ── Milestones (merge by id) ──────────────────
-    if (Array.isArray(remote.ms)) {
+    // ── Milestones (merge by id, remote thắng nếu mới hơn) ──────────────────
+    if (Array.isArray(remote.ms) && remote.ms.length > 0) {
+      let msChanged = false;
       remote.ms.forEach(rMs => {
-        if (!msData.find(m => m.id === rMs.id)) msData.unshift(rMs);
+        const idx = msData.findIndex(m => m.id === rMs.id);
+        if (idx === -1) {
+          msData.unshift(rMs);
+          msChanged = true;
+        } else {
+          // Update nếu remote mới hơn
+          const rT = rMs._updatedAt || 0;
+          const lT = msData[idx]._updatedAt || 0;
+          if (rT > lT) { msData[idx] = rMs; msChanged = true; }
+        }
       });
-      localStorage.setItem(MS_KEY, JSON.stringify(msData));
+      if (msChanged) localStorage.setItem(MS_KEY, JSON.stringify(msData));
     }
 
     // ── Seeds: merge by id, remote thắng nếu mới hơn ──────────────
@@ -4631,8 +4779,10 @@ function _applyRemoteData(remote) {
       if (pid==='history')    renderHistory();
       if (pid==='team')       { renderTeam(); }
       if (pid==='start')      initStartPage();
+      if (pid==='result3m')   { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('r3m')) destroyChart(k); }); initResult3mPage(); }
       if (pid==='milestones') initMilestonesPage();
       if (pid==='finance')    { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
+      if (pid==='seeds')      { if (typeof renderSeedsPage === 'function') renderSeedsPage(); }
     }
     console.log('✅ Merge OK — ' + Object.keys(remote.daily||{}).length + ' ngày từ cloud');
     const t = new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});
@@ -8739,7 +8889,7 @@ async function verifyAdminPassword() {
 }
 
 function switchAdminTab(tab) {
-  ['pending','leaders','groups','settings'].forEach(t => {
+  ['pending','leaders','groups','expiry','settings'].forEach(t => {
     const tabEl = document.getElementById('admin-tab-' + t);
     const btnEl = document.getElementById('atab-' + t);
     if (tabEl) tabEl.style.display = t === tab ? 'block' : 'none';
@@ -8751,6 +8901,7 @@ function switchAdminTab(tab) {
   if (tab === 'pending') loadAdminData();
   if (tab === 'leaders') loadAdminData();
   if (tab === 'groups') loadAdminGroups();
+  if (tab === 'expiry') loadAdminExpiry();
   if (tab === 'settings') loadAdminStats();
 }
 
@@ -8822,6 +8973,17 @@ async function loadAdminData() {
     const badge = document.getElementById('pending-count-badge');
     if (badge) badge.textContent = pending.length;
 
+    // Badge sắp hết hạn
+    const expiryCount = Object.values(membersAll).filter(m => {
+      const exp = getExpiryInfo(m.expiryDate || m.approvedAt);
+      return exp.daysLeft !== null && exp.daysLeft <= 30;
+    }).length;
+    const expiryBadge = document.getElementById('expiry-count-badge');
+    if (expiryBadge) {
+      expiryBadge.textContent = expiryCount;
+      expiryBadge.style.display = expiryCount > 0 ? 'inline' : 'none';
+    }
+
     // ── Tab Chờ duyệt ─────────────────────────────
     renderAdminPending(pending);
 
@@ -8878,6 +9040,39 @@ async function loadAdminData() {
       }
     });
   }
+}
+
+// ══════════════════════════════════════
+// EXPIRY / GIA HẠN — tính hết hạn 1 năm từ approvedAt
+// ══════════════════════════════════════
+function getExpiryInfo(approvedAt) {
+  if (!approvedAt) return { label: '–', color: 'var(--ink-muted)', daysLeft: null, expired: false };
+  const start = new Date(approvedAt);
+  const expiry = new Date(start.getTime() + 365 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const daysLeft = Math.ceil((expiry - now) / (24 * 60 * 60 * 1000));
+  const expiryStr = expiry.toLocaleDateString('vi');
+  if (daysLeft < 0) return { label: `Hết hạn ${expiryStr}`, color: 'var(--rose)', daysLeft, expired: true };
+  if (daysLeft <= 30) return { label: `⚠️ Còn ${daysLeft} ngày (${expiryStr})`, color: '#d4872a', daysLeft, expired: false };
+  return { label: `✅ Còn ${daysLeft} ngày (${expiryStr})`, color: 'var(--jade)', daysLeft, expired: false };
+}
+
+async function adminRenewMember(memberId, memberName) {
+  if (!confirm(`Gia hạn thêm 1 năm cho ${memberName}?`)) return;
+  const database = await loadFirebase();
+  if (!database) return;
+  try {
+    const snap = await database.ref('members/' + memberId).once('value');
+    const m = snap.val();
+    if (!m) { showToast('⚠️ Không tìm thấy thành viên'); return; }
+    const oldExpiry = m.expiryDate ? new Date(m.expiryDate) : new Date(m.approvedAt || Date.now());
+    // Nếu đã hết hạn → tính từ hôm nay, chưa hết hạn → cộng thêm từ ngày hết hạn cũ
+    const base = oldExpiry < new Date() ? new Date() : oldExpiry;
+    const newExpiry = new Date(base.getTime() + 365 * 24 * 60 * 60 * 1000);
+    await database.ref('members/' + memberId).update({ expiryDate: newExpiry.toISOString() });
+    showToast(`✅ Đã gia hạn ${memberName} đến ${newExpiry.toLocaleDateString('vi')}`);
+    loadAdminData();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
 }
 
 function renderAdminPending(pending) {
@@ -8948,7 +9143,9 @@ function renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCod
           ${hasLeader
             ? `<div style="font-size:12px;color:var(--ink);font-weight:700;margin-bottom:2px">👑 TN: ${leader.name}</div>
                <div style="font-size:11px;color:var(--ink-muted)">📱 ${leader.phone||'–'} ${leader.email ? '· 📧 ' + leader.email : ''}</div>
-               <div style="font-size:10.5px;color:var(--jade);margin-top:2px">✅ Duyệt: ${leader.approvedAt ? new Date(leader.approvedAt).toLocaleDateString('vi') : '–'}</div>`
+               <div style="font-size:10.5px;color:var(--jade);margin-top:2px">✅ Duyệt: ${leader.approvedAt ? new Date(leader.approvedAt).toLocaleDateString('vi') : '–'}</div>
+               ${(() => { const exp = getExpiryInfo(leader.approvedAt); return `<div style="font-size:11px;font-weight:700;color:${exp.color};margin-top:3px">🗓 ${exp.label}</div>`; })()}
+               ${(() => { const exp = getExpiryInfo(leader.approvedAt); return exp.daysLeft !== null && exp.daysLeft <= 30 ? `<button onclick="adminRenewMember('${leader.memberId||leader.id}','${leader.name}')" style="margin-top:5px;padding:4px 10px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">🔄 Gia hạn</button>` : ''; })()}`
             : `<div style="font-size:11.5px;color:rgba(201,168,76,0.9);font-weight:700">⚠️ Chưa có trưởng nhóm được duyệt</div>`
           }
         </div>
@@ -9012,7 +9209,8 @@ async function loadGroupMembers(groupCode, targetEl) {
       const stats = Object.entries(todayStats).find(([id]) => id === m.memberId);
       const isActive = stats && stats[1].date === todayK;
       const rituals = stats ? stats[1].rituals||0 : '–';
-      return `<div style="padding:10px 12px;background:rgba(245,237,224,0.4);border-radius:10px;margin-bottom:8px">
+      const exp = getExpiryInfo(m.expiryDate || m.approvedAt);
+      return `<div style="padding:10px 12px;background:rgba(245,237,224,0.4);border-radius:10px;margin-bottom:8px;${exp.expired ? 'border:1.5px solid rgba(192,96,106,0.4)' : ''}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:3px">${m.name}</div>
@@ -9022,14 +9220,19 @@ async function loadGroupMembers(groupCode, targetEl) {
               🕐 Đăng ký: ${m.registeredAt ? new Date(m.registeredAt).toLocaleDateString('vi') : '–'}
               ${m.referrer ? `<br>👋 Người gieo duyên: ${m.referrer}` : ''}
             </div>
+            <div style="font-size:11px;font-weight:700;color:${exp.color};margin-top:4px">🗓 ${exp.label}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:10.5px;font-weight:700;margin-bottom:4px;${isActive?'color:var(--jade)':'color:var(--ink-muted)'}">
               ${isActive ? '✅ Hoạt động hôm nay' : 'Chưa hoạt động hôm nay'}
             </div>
             <div style="font-size:10px;color:var(--sky);font-weight:700">✅ ${rituals}/9 nghi thức</div>
+            <button onclick="adminRenewMember('${m.memberId}','${m.name}')"
+              style="margin-top:6px;padding:4px 8px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+              🔄 Gia hạn
+            </button>
             <button onclick="adminChangeMemberGroup('${m.memberId}','${m.name}','${groupCode}')"
-              style="margin-top:6px;padding:4px 8px;background:rgba(74,127,168,0.1);color:var(--sky);border:1px solid rgba(74,127,168,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+              style="margin-top:4px;padding:4px 8px;background:rgba(74,127,168,0.1);color:var(--sky);border:1px solid rgba(74,127,168,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
               Đổi nhóm
             </button>
             <button onclick="adminDeleteMember('${m.memberId}','${m.name}','${groupCode}')"
@@ -9351,6 +9554,45 @@ function toggleGroupMembersGrp(groupCode) {
 // loadAdminGroups: giờ chỉ gọi lại loadAdminData để đảm bảo luôn đồng bộ
 async function loadAdminGroups() {
   await loadAdminData();
+}
+
+async function loadAdminExpiry() {
+  const el = document.getElementById('admin-expiry-list');
+  if (!el) return;
+  el.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>';
+  const database = await loadFirebase();
+  if (!database) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối Firebase</p></div>'; return; }
+  try {
+    const snap = await database.ref('members').once('value');
+    const members = Object.values(snap.val() || {});
+    const now = new Date();
+    // Lọc: hết hạn hoặc còn ≤ 30 ngày — chỉ member đã được duyệt (có approvedAt)
+    const expiring = members
+      .filter(m => m.approvedAt || m.expiryDate)
+      .map(m => ({ ...m, exp: getExpiryInfo(m.expiryDate || m.approvedAt) }))
+      .filter(m => m.exp.daysLeft !== null && m.exp.daysLeft <= 30)
+      .sort((a, b) => a.exp.daysLeft - b.exp.daysLeft);
+
+    if (!expiring.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><p>Không có ai sắp hết hạn trong 30 ngày tới.</p></div>';
+      return;
+    }
+    el.innerHTML = `<div style="font-size:11px;color:var(--ink-muted);margin-bottom:10px">${expiring.length} thành viên cần gia hạn</div>` +
+      expiring.map(m => `
+        <div style="padding:12px 14px;background:var(--card);border:1.5px solid ${m.exp.expired ? 'rgba(192,96,106,0.4)' : 'rgba(212,135,42,0.3)'};border-radius:12px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:14px;color:var(--ink)">${m.name}</div>
+              <div style="font-size:11.5px;color:var(--ink-muted);margin-top:2px">📱 ${m.phone||'–'} · 👥 ${m.groupCode||'–'}</div>
+              <div style="font-size:12px;font-weight:700;color:${m.exp.color};margin-top:4px">🗓 ${m.exp.label}</div>
+            </div>
+            <button onclick="adminRenewMember('${m.memberId}','${m.name}')"
+              style="padding:8px 14px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;white-space:nowrap;flex-shrink:0">
+              🔄 Gia hạn
+            </button>
+          </div>
+        </div>`).join('');
+  } catch(e) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi: ${e.message}</p></div>`; }
 }
 
 async function loadAdminStats() {
