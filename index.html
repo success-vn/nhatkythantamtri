@@ -8757,6 +8757,11 @@ function switchAdminTab(tab) {
 async function adminRefresh() {
   const btn = document.getElementById('admin-refresh-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tải...'; }
+  // Reset loading state cho tất cả lists
+  ['admin-pending-list','admin-leaders-list','admin-groups-list'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>';
+  });
   await loadAdminData();
   if (btn) { btn.disabled = false; btn.textContent = '🔄 Làm mới'; }
 }
@@ -8775,6 +8780,22 @@ async function loadAdminData() {
     document.getElementById('admin-pending-list').innerHTML =
       '<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase</p></div>';
     return;
+  }
+
+  // ── Đảm bảo có auth session trước khi đọc Firebase ──
+  if (typeof auth !== 'undefined' && auth) {
+    try {
+      if (!auth.currentUser) {
+        await new Promise(resolve => {
+          const timer = setTimeout(resolve, 3000);
+          const unsub = auth.onAuthStateChanged(user => { clearTimeout(timer); unsub(); resolve(user); });
+        });
+      }
+      if (!auth.currentUser) {
+        await auth.signInAnonymously().catch(() => {});
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    } catch(e) { console.warn('Auth wait:', e.message); }
   }
 
   try {
