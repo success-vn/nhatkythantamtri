@@ -5048,8 +5048,9 @@ function openHistoryDetail(k, externalEntry, memberName) {
   const modal = document.getElementById('history-modal');
   const mc = document.getElementById('modal-content');
 
+  // Khi trưởng nhóm xem (isViewing=true): chỉ hiển thị chỉ số, không hiển thị nội dung riêng tư
   mc.innerHTML = `
-    ${isViewing ? `<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(74,127,168,0.1);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:4px 10px;margin-bottom:10px"><span style="font-size:11px;font-weight:800;color:var(--sky)">👁 Đang xem nhật ký của: ${memberName}</span></div>` : ''}
+    ${isViewing ? `<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(74,127,168,0.1);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:4px 10px;margin-bottom:10px"><span style="font-size:11px;font-weight:800;color:var(--sky)">👁 Đang xem chỉ số của: ${memberName}</span></div>` : ''}
     <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:4px">${formatDate(d)}</div>
     <div style="font-size:12px;color:var(--ink-muted);margin-bottom:20px">Nhật ký rèn luyện · ${done.length}/9 nghi thức · NL: ${e.energy||'–'}/10</div>
 
@@ -5063,6 +5064,29 @@ function openHistoryDetail(k, externalEntry, memberName) {
 
     <div style="height:1px;background:var(--border);margin-bottom:18px"></div>
 
+    ${e.nnEnergy && Object.values(e.nnEnergy).some(v=>v&&v!==5) ? `
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">🏠 Năng Lượng 5 Ngôi Nhà</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+        ${NN_LIST.map(nn=>{const v=e.nnEnergy?.[nn.key]||5;const c=v>=8?'var(--jade)':v>=5?'var(--gold)':'var(--rose)';return '<div style="text-align:center;background:'+nn.color+'12;border-radius:10px;padding:8px 4px"><div style="font-size:16px">'+nn.icon+'</div><div style="font-size:9px;color:'+nn.color+';font-weight:800;margin:2px 0">'+nn.label.split('·')[0]+'</div><div style="font-size:20px;font-weight:800;color:'+c+'">'+v+'</div><div style="font-size:9px;color:var(--ink-muted)">/10</div></div>';}).join('')}
+      </div>
+    </div>` : ''}
+
+    ${(e.recvGreen||e.recvRed||e.spendGreen||e.spendRed) ? `
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--jade);margin-bottom:8px">💰 Tài Chính</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${e.recvGreen?`<div style="background:var(--jade-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--jade)">NHẬN XANH</div><div style="font-size:18px;font-weight:800;color:var(--jade)">${(+e.recvGreen).toLocaleString('vi')}</div></div>`:''}
+        ${e.recvRed?`<div style="background:var(--rose-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--rose)">NHẬN ĐỎ</div><div style="font-size:18px;font-weight:800;color:var(--rose)">${(+e.recvRed).toLocaleString('vi')}</div></div>`:''}
+        ${e.spendGreen?`<div style="background:var(--jade-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--jade)">CHI XANH</div><div style="font-size:18px;font-weight:800;color:var(--jade)">${(+e.spendGreen).toLocaleString('vi')}</div></div>`:''}
+        ${e.spendRed?`<div style="background:var(--rose-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--rose)">CHI ĐỎ</div><div style="font-size:18px;font-weight:800;color:var(--rose)">${(+e.spendRed).toLocaleString('vi')}</div></div>`:''}
+      </div>
+    </div>` : ''}
+
+    ${isViewing ? `
+    <div style="padding:12px 14px;background:rgba(74,127,168,0.07);border:1px solid rgba(74,127,168,0.2);border-radius:10px;margin-bottom:18px">
+      <div style="font-size:11.5px;color:var(--sky);font-weight:700;text-align:center">🔒 Nội dung nhật ký riêng tư của thành viên được bảo mật</div>
+    </div>` : `
     ${e.tasks && e.tasks.some(t=>t.text) ? `
     <div style="margin-bottom:18px">
       <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--sky);margin-bottom:8px">📋 4 Việc Quan Trọng</div>
@@ -5080,14 +5104,6 @@ function openHistoryDetail(k, externalEntry, memberName) {
     ${section('📝','Bài Học & Nhận Diện', e.lesson)}
     ${section('🌱','Hạt Giống Xanh (Cần Tưới)', e.seedGreen, 'var(--jade)')}
     ${section('🔴','Hạt Giống Đỏ (Cần Nhổ)', e.seedRed, 'var(--rose)')}
-    ${e.nnEnergy && Object.values(e.nnEnergy).some(v=>v&&v!==5) ? `
-    <div style="margin-bottom:18px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">🏠 Năng Lượng 5 Ngôi Nhà</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
-        ${NN_LIST.map(nn=>{const v=e.nnEnergy?.[nn.key]||5;const c=v>=8?'var(--jade)':v>=5?'var(--gold)':'var(--rose)';return '<div style="text-align:center;background:'+nn.color+'12;border-radius:10px;padding:8px 4px"><div style="font-size:16px">'+nn.icon+'</div><div style="font-size:9px;color:'+nn.color+';font-weight:800;margin:2px 0">'+nn.label.split('·')[0]+'</div><div style="font-size:20px;font-weight:800;color:'+c+'">'+v+'</div><div style="font-size:9px;color:var(--ink-muted)">/10</div></div>';}).join('')}
-      </div>
-    </div>` : ''}
-
     ${(e.gratitude1||e.gratitude2||e.gratitude3) ? `
     <div style="margin-bottom:18px">
       <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold-dark);margin-bottom:7px">🙏 Biết Ơn</div>
@@ -5095,24 +5111,11 @@ function openHistoryDetail(k, externalEntry, memberName) {
       ${e.gratitude2?`<div style="font-size:13px;line-height:1.8;color:var(--ink-soft);padding:6px 0;border-bottom:1px solid var(--border)">💝 ${e.gratitude2}</div>`:''}
       ${e.gratitude3?`<div style="font-size:13px;line-height:1.8;color:var(--ink-soft);padding:6px 0">🌸 ${e.gratitude3}</div>`:''}
     </div>` : ''}
-
     ${section('✍️','Thư Gửi Bản Thân', e.selfLetter)}
     ${section('🏆','Điều Tự Hào Hôm Nay', e.selfProud)}
-
-    ${(e.recvGreen||e.recvRed||e.spendGreen||e.spendRed) ? `
-    <div style="margin-bottom:18px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--jade);margin-bottom:8px">💰 Tài Chính</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${e.recvGreen?`<div style="background:var(--jade-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--jade)">NHẬN XANH</div><div style="font-size:18px;font-weight:800;color:var(--jade)">${(+e.recvGreen).toLocaleString('vi')}</div></div>`:''}
-        ${e.recvRed?`<div style="background:var(--rose-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--rose)">NHẬN ĐỎ</div><div style="font-size:18px;font-weight:800;color:var(--rose)">${(+e.recvRed).toLocaleString('vi')}</div></div>`:''}
-        ${e.spendGreen?`<div style="background:var(--jade-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--jade)">CHI XANH</div><div style="font-size:18px;font-weight:800;color:var(--jade)">${(+e.spendGreen).toLocaleString('vi')}</div></div>`:''}
-        ${e.spendRed?`<div style="background:var(--rose-light);border-radius:9px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:700;color:var(--rose)">CHI ĐỎ</div><div style="font-size:18px;font-weight:800;color:var(--rose)">${(+e.spendRed).toLocaleString('vi')}</div></div>`:''}
-      </div>
-      ${e.finNote?`<div style="margin-top:10px;font-size:13px;color:var(--ink-soft);line-height:1.7;background:rgba(245,237,224,0.4);border-radius:9px;padding:11px 13px">${e.finNote}</div>`:''}
-      ${e.moneySeed?section('🌱','Hạt Giống Tiền', e.moneySeed):''}
-      ${e.moneyHumble?section('🙏','Khiêm Hạ Với Tiền', e.moneyHumble):''}
-    </div>` : ''}
-
+    ${e.finNote?`<div style="margin-top:10px;font-size:13px;color:var(--ink-soft);line-height:1.7;background:rgba(245,237,224,0.4);border-radius:9px;padding:11px 13px">${e.finNote}</div>`:''}
+    ${e.moneySeed?section('🌱','Hạt Giống Tiền', e.moneySeed):''}
+    ${e.moneyHumble?section('🙏','Khiêm Hạ Với Tiền', e.moneyHumble):''}
     ${e.wishContent ? `
     <div style="background:linear-gradient(135deg,#1a1410,#2d1f0e);border-radius:14px;padding:20px;margin-bottom:18px">
       <div style="font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--gold);margin-bottom:10px;font-style:italic">✦ Xin Quà Vũ Trụ</div>
@@ -5121,6 +5124,7 @@ function openHistoryDetail(k, externalEntry, memberName) {
       ${e.wishReceived?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(201,168,76,0.2)"><div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:5px">🎁 ĐÃ NHẬN ĐƯỢC</div><div style="font-size:13px;color:rgba(253,248,240,0.85);line-height:1.7">${e.wishReceived}</div></div>`:''}
       ${e.wishFeeling?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(201,168,76,0.15)"><div style="font-size:11px;font-weight:700;color:var(--gold-light);margin-bottom:4px">💛 CẢM NHẬN</div><div style="font-size:13px;color:rgba(253,248,240,0.8);line-height:1.7">${e.wishFeeling}</div></div>`:''}
     </div>` : ''}
+    `}
 
     <button onclick="closeHistoryModal()" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;border-radius:12px;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-top:4px">
       ← Đóng
@@ -7633,7 +7637,7 @@ function renderLeaderAlerts(members, todayK) {
         const seedTags = recentSeeds.map(s => {
           const lastCheckin = (s.checkins||[]).filter(c=>c.appeared).sort((a,b)=>b.date.localeCompare(a.date))[0];
           return `<div style="font-size:11px;padding:3px 7px;background:rgba(192,96,106,0.08);border-left:3px solid var(--rose);border-radius:0 6px 6px 0;margin:2px 0;color:var(--ink-soft)">
-            😔 <strong>${escHtml(s.name)}</strong>${lastCheckin?' · '+lastCheckin.date:''}${lastCheckin?.note?' — "'+escHtml(lastCheckin.note.slice(0,40)+(lastCheckin.note.length>40?'…':''))+'"':''}
+            😔 <strong>${escHtml(s.name)}</strong>${lastCheckin?' · '+lastCheckin.date:''}
           </div>`;
         }).join('');
         parts.push(`
@@ -8474,29 +8478,19 @@ function closeLeaderModal() {
 // KHÔNG ghi vào /users/ — việc đó do pushLocalToFirebase đảm nhận (tránh xung đột)
 // Tạo object entry chuẩn để ghi lên /journals/
 function _makeJournalEntry(e) {
+  // Chỉ sync các CHỈ SỐ lên /journals/ để trưởng nhóm theo dõi
+  // Các nội dung riêng tư (bài học, biết ơn, thư gửi bản thân, ước nguyện,
+  // hạt giống, tasks, ghi chú tài chính) KHÔNG được sync — chỉ lưu local
   return {
-    rituals:     e.rituals||{},
-    energy:      e.energy||5,
-    lesson:      e.lesson||'',
-    seedGreen:   e.seedGreen||'',
-    seedRed:     e.seedRed||'',
-    gratitude1:  e.gratitude1||'',
-    gratitude2:  e.gratitude2||'',
-    gratitude3:  e.gratitude3||'',
-    selfLetter:  e.selfLetter||'',
-    selfProud:   e.selfProud||'',
-    dailyGood:   e.dailyGood||'',
-    dailyImprove:e.dailyImprove||'',
-    wishContent: e.wishContent||'',
-    nnEnergy:    e.nnEnergy||{},
-    recvGreen:   e.recvGreen||0,
-    recvRed:     e.recvRed||0,
-    spendGreen:  e.spendGreen||0,
-    spendRed:    e.spendRed||0,
-    moneySeed:   e.moneySeed||'',
-    tasks:       (e.tasks||[]).filter(t=>t&&t.text),
-    _updatedAt:  e._updatedAt || Date.now(),
-    syncedAt:    Date.now(),
+    rituals:    e.rituals||{},
+    energy:     e.energy||5,
+    nnEnergy:   e.nnEnergy||{},
+    recvGreen:  e.recvGreen||0,
+    recvRed:    e.recvRed||0,
+    spendGreen: e.spendGreen||0,
+    spendRed:   e.spendRed||0,
+    _updatedAt: e._updatedAt || Date.now(),
+    syncedAt:   Date.now(),
   };
 }
 
