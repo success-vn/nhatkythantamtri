@@ -892,11 +892,10 @@ textarea { min-height: 80px; }
       padding:5px 10px;display:flex;align-items:center;gap:4px;
       transition:background 0.3s;cursor:pointer"
       onclick="showSyncDetail()" title="Bấm để xem chi tiết đồng bộ">☁️ –</div>
-    <div id="user-badge" onclick="showAccountInfo()" style="
+    <div id="user-badge" style="
       font-size:11px;font-weight:700;color:rgba(253,248,240,0.65);
       background:rgba(255,255,255,0.08);border-radius:20px;
-      padding:5px 11px;display:flex;align-items:center;gap:5px;cursor:pointer"
-      title="Xem thông tin tài khoản">
+      padding:5px 11px;display:flex;align-items:center;gap:5px">
       <span>👤</span><span id="header-username">–</span>
     </div>
     <button id="header-admin-btn" onclick="openAdminFromHeader()" style="
@@ -2976,166 +2975,6 @@ function save(key, obj) {
     }
   }
 }
-
-// ══════════════════════════════════════
-// SUBSCRIPTION EXPIRY — kiểm tra hết hạn 1 năm kể từ approvedAt
-// ══════════════════════════════════════
-
-// Helper: render badge hết hạn — tránh nested backtick trong template literal
-function renderExpiryBadge(approvedAt, showDate) {
-  if (!approvedAt) return '';
-  const expiry = new Date(new Date(approvedAt).getTime() + 365*24*60*60*1000);
-  const daysLeft = Math.ceil((expiry - Date.now()) / (24*60*60*1000));
-  const expiryStr = expiry.toLocaleDateString('vi', {day:'2-digit',month:'2-digit',year:'numeric'});
-  const color = daysLeft <= 0 ? 'var(--rose)' : daysLeft <= 30 ? '#c9a84c' : 'var(--jade)';
-  const label = daysLeft <= 0 ? 'Đã hết hạn' : ('Còn ' + daysLeft + ' ngày');
-  if (showDate) {
-    return '<br>📅 Hết hạn: <strong style="color:' + color + '">' + expiryStr + ' (' + label + ')</strong>';
-  }
-  return '<br>📅 Hết hạn: <strong style="color:' + color + '">' + label + '</strong>';
-}
-
-function isExpired() {
-  if (!userInfo || userInfo.isAdmin) return false; // Admin không hết hạn
-  const approvedAt = userInfo.approvedAt;
-  if (!approvedAt) return false; // Chưa có approvedAt → chưa xác định, cho qua
-  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-  return (Date.now() - new Date(approvedAt).getTime()) > ONE_YEAR_MS;
-}
-
-function getExpiryDate() {
-  if (!userInfo?.approvedAt) return null;
-  const d = new Date(new Date(userInfo.approvedAt).getTime() + 365 * 24 * 60 * 60 * 1000);
-  return d.toLocaleDateString('vi', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function getDaysUntilExpiry() {
-  if (!userInfo?.approvedAt) return null;
-  const expiry = new Date(userInfo.approvedAt).getTime() + 365 * 24 * 60 * 60 * 1000;
-  return Math.ceil((expiry - Date.now()) / (24 * 60 * 60 * 1000));
-}
-
-function showExpiredBanner() {
-  if (document.getElementById('expired-banner')) return;
-  const banner = document.createElement('div');
-  banner.id = 'expired-banner';
-  banner.style.cssText = [
-    'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
-    'background:linear-gradient(135deg,#c0606a,#8a2a2a)',
-    'color:white', 'padding:10px 16px',
-    'font-family:Nunito,-apple-system,sans-serif',
-    'font-size:13px', 'font-weight:700',
-    'display:flex', 'align-items:center', 'justify-content:space-between', 'gap:10px',
-    'box-shadow:0 2px 12px rgba(0,0,0,0.3)'
-  ].join(';');
-  banner.innerHTML = [
-    '<span>🔒 Tài khoản đã hết hạn sử dụng (1 năm kể từ ' + (userInfo.approvedAt ? new Date(userInfo.approvedAt).toLocaleDateString('vi') : '?') + ')',
-    ' — Bạn vẫn xem được nhật ký cũ nhưng không thể thêm mới.',
-    ' Liên hệ để gia hạn.</span>',
-    '<a href="mailto:support@example.com" style="color:white;font-weight:800;text-decoration:underline;white-space:nowrap;flex-shrink:0">Gia hạn →</a>'
-  ].join('');
-  document.body.prepend(banner);
-  // Đẩy toàn bộ nội dung xuống để không bị che
-  const appEl = document.getElementById('app') || document.querySelector('.app-container');
-  if (appEl) appEl.style.paddingTop = (appEl.style.paddingTop ? '' : '48px');
-}
-
-function closeExpiryWarning() { var b = document.getElementById("expiry-warning-banner"); if (b) b.remove(); }
-
-
-function showAccountInfo() {
-  if (!userInfo) return;
-  var existing = document.getElementById('account-info-popup');
-  if (existing) { existing.remove(); return; }
-
-  var daysLeft = getDaysUntilExpiry();
-  var expiryDate = getExpiryDate();
-  var approvedDate = userInfo.approvedAt
-    ? new Date(userInfo.approvedAt).toLocaleDateString('vi', {day:'2-digit',month:'2-digit',year:'numeric'})
-    : null;
-
-  var statusColor = 'var(--ink-muted)', statusIcon = '⏳', statusText = 'Chưa xác định';
-  if (userInfo.approvedAt) {
-    if (daysLeft <= 0) {
-      statusColor = 'var(--rose)'; statusIcon = '🔴'; statusText = 'Đã hết hạn';
-    } else if (daysLeft <= 30) {
-      statusColor = '#c9a84c'; statusIcon = '⏳'; statusText = 'Còn ' + daysLeft + ' ngày';
-    } else {
-      statusColor = 'var(--jade)'; statusIcon = '✅'; statusText = 'Còn ' + daysLeft + ' ngày';
-    }
-  }
-
-  var bgColor = daysLeft <= 0 ? 'rgba(192,96,106,0.1)' : (daysLeft !== null && daysLeft <= 30 ? 'rgba(201,168,76,0.1)' : 'rgba(74,140,111,0.1)');
-  var bdColor = daysLeft <= 0 ? 'rgba(192,96,106,0.25)' : (daysLeft !== null && daysLeft <= 30 ? 'rgba(201,168,76,0.3)' : 'rgba(74,140,111,0.2)');
-
-  var rows = '';
-  rows += '<div><span style="color:var(--ink-muted)">Tên:</span> <strong style="color:var(--ink)">' + escHtml(userInfo.name || '–') + '</strong></div>';
-  rows += '<div><span style="color:var(--ink-muted)">Nhóm:</span> <strong style="color:var(--ink)">' + escHtml(userInfo.groupCode || '–') + '</strong></div>';
-  if (approvedDate) rows += '<div><span style="color:var(--ink-muted)">Kích hoạt:</span> <strong style="color:var(--ink)">' + approvedDate + '</strong></div>';
-  if (expiryDate)   rows += '<div><span style="color:var(--ink-muted)">Hết hạn:</span> <strong style="color:var(--ink)">' + expiryDate + '</strong></div>';
-
-  var statusExtra = '';
-  if (daysLeft !== null && daysLeft > 0) statusExtra = '<div style="font-size:10.5px;color:var(--ink-muted);margin-top:2px">Hết hạn ngày ' + expiryDate + '</div>';
-  if (daysLeft !== null && daysLeft <= 0) statusExtra = '<div style="font-size:10.5px;color:var(--rose);margin-top:2px">Liên hệ để gia hạn</div>';
-
-  var popup = document.createElement('div');
-  popup.id = 'account-info-popup';
-  popup.style.cssText = 'position:fixed;top:52px;right:12px;z-index:99990;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;min-width:240px;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
-  popup.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
-      '<div style="font-size:13px;font-weight:800;color:var(--ink)">👤 Tài khoản</div>' +
-      '<button id="close-account-popup" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--ink-muted);padding:0;line-height:1">✕</button>' +
-    '</div>' +
-    '<div style="font-size:12px;color:var(--ink-muted);line-height:2.1">' + rows + '</div>' +
-    '<div style="margin-top:10px;padding:8px 12px;border-radius:10px;background:' + bgColor + ';border:1px solid ' + bdColor + '">' +
-      '<div style="font-size:12px;font-weight:800;color:' + statusColor + '">' + statusIcon + ' ' + statusText + '</div>' +
-      statusExtra +
-    '</div>';
-
-  document.body.appendChild(popup);
-
-  document.getElementById('close-account-popup').onclick = function() { popup.remove(); };
-
-  setTimeout(function() {
-    function closeOnOutside(e) {
-      var badge = document.getElementById('user-badge');
-      if (!popup.contains(e.target) && badge && !badge.contains(e.target)) {
-        popup.remove();
-        document.removeEventListener('click', closeOnOutside);
-      }
-    }
-    document.addEventListener('click', closeOnOutside);
-  }, 100);
-}
-
-function showExpiryWarningBanner(daysLeft) {
-  if (document.getElementById('expiry-warning-banner')) return;
-  const banner = document.createElement('div');
-  banner.id = 'expiry-warning-banner';
-  banner.style.cssText = [
-    'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99998',
-    'background:linear-gradient(135deg,#c9a84c,#a07820)',
-    'color:white', 'padding:10px 16px',
-    'font-family:Nunito,-apple-system,sans-serif',
-    'font-size:13px', 'font-weight:700',
-    'display:flex', 'align-items:center', 'justify-content:space-between', 'gap:10px',
-    'box-shadow:0 2px 12px rgba(0,0,0,0.25)'
-  ].join(';');
-  banner.innerHTML = [
-    '<span>⏳ Tài khoản còn <strong>' + daysLeft + ' ngày</strong> sử dụng (hết hạn ' + getExpiryDate() + '). Liên hệ để gia hạn sớm.</span>',
-    '<button onclick="closeExpiryWarning()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:13px;font-weight:800;cursor:pointer;padding:4px 10px;border-radius:8px;flex-shrink:0">✕</button>'
-  ].join('');
-  document.body.prepend(banner);
-}
-
-// Chặn thao tác khi hết hạn — gọi ở đầu mỗi hàm save/toggle
-function checkExpiredAndAlert() {
-  if (!isExpired()) return false; // không hết hạn → cho qua
-  showExpiredBanner();
-  showToast('🔒 Tài khoản đã hết hạn — không thể thêm mới. Liên hệ để gia hạn.');
-  return true; // đã hết hạn → chặn
-}
-
 function todayKey() { return new Date().toISOString().split('T')[0]; }
 function getTodayEntry() {
   const k = todayKey();
@@ -3332,7 +3171,6 @@ async function doLogin() {
           const mData = mSnap.val();
           if (mData) {
             userInfo.isAdmin = mData.isAdmin || false;
-            userInfo.approvedAt = mData.approvedAt || userInfo.approvedAt || null;
             // Chỉ lấy name/groupCode từ Firebase nếu email khớp — tránh dùng nhầm data của người khác
             if (!mData.email || mData.email.toLowerCase() === email.toLowerCase()) {
               userInfo.name = mData.name || localUser.name;
@@ -3377,7 +3215,6 @@ async function doLogin() {
           memberId: mapping.memberId,
           isLeader: isApprovedLeader,
           isAdmin: member.isAdmin || false,
-          approvedAt: member.approvedAt || null,
           email, firebaseUid
         };
         if (userInfo.isAdmin) localStorage.setItem(ADMIN_KEY, 'true');
@@ -3700,16 +3537,6 @@ function bootApp() {
   // Check admin access
   checkAdminAccess();
 
-  // Kiểm tra hết hạn subscription
-  if (isExpired()) {
-    showExpiredBanner();
-  } else {
-    const daysLeft = getDaysUntilExpiry();
-    if (daysLeft !== null && daysLeft <= 30 && daysLeft > 0) {
-      showExpiryWarningBanner(daysLeft);
-    }
-  }
-
   // Init leader UI dựa trên local state trước (nhanh)
   initLeaderUI();
 
@@ -3768,7 +3595,6 @@ function renderRituals() {
   updateRitualProgress();
 }
 function toggleRitual(id) {
-  if (checkExpiredAndAlert()) return;
   const entry=getTodayEntry();
   entry.rituals[id]=!entry.rituals[id];
   save(STORAGE_KEY,data);
@@ -3835,7 +3661,6 @@ function renderNNEnergySliders() {
 // SAVE FUNCTIONS
 // ══════════════════════════════════════
 function saveToday() {
-  if (checkExpiredAndAlert()) return;
   const e=getTodayEntry();
   // lesson-text đã được gộp vào daily-good — giữ tương thích ngược
   const lessonEl = document.getElementById('lesson-text');
@@ -3880,7 +3705,6 @@ function quickAddFromSeedRed() {
   }, 150);
 }
 function saveEnergy() {
-  if (checkExpiredAndAlert()) return;
   const e=getTodayEntry();
   e.energy=+document.getElementById('overall-energy').value;
   if (!e.nnEnergy) e.nnEnergy = {};
@@ -3898,7 +3722,6 @@ function saveEnergy() {
   if (db) setTimeout(syncJournalToFirebase, 500);
 }
 function saveGratitude() {
-  if (checkExpiredAndAlert()) return;
   const e=getTodayEntry();
   e.gratitude1=document.getElementById('gratitude-1').value;
   e.gratitude2=document.getElementById('gratitude-2').value;
@@ -3911,7 +3734,6 @@ function saveGratitude() {
   if (db) setTimeout(syncJournalToFirebase, 300);
 }
 function saveFinance() {
-  if (checkExpiredAndAlert()) return;
   const e=getTodayEntry();
   e.recvGreen=parseFloat(document.getElementById('receive-green').value)||0;
   e.recvRed=parseFloat(document.getElementById('receive-red').value)||0;
@@ -4079,7 +3901,6 @@ function renderFinanceMonthlySummary() {
       : 'Chưa có dữ liệu tháng này');
 }
 function saveWish() {
-  if (checkExpiredAndAlert()) return;
   const e=getTodayEntry();
   e.wishContent=document.getElementById('wish-content').value;
   e.wishDeadline=document.getElementById('wish-deadline').value;
@@ -5119,7 +4940,6 @@ function getWeekKey() {
   return d.toISOString().split('T')[0];
 }
 function saveKaizen() {
-  if (checkExpiredAndAlert()) return;
   const w=getWeekKey();
   const idx=kzData.findIndex(k=>k.week===w);
   const now = Date.now();
@@ -5440,7 +5260,6 @@ function updateSPWheel() {
 }
 
 function saveStartingPoint() {
-  if (checkExpiredAndAlert()) return;
   // Đã lưu rồi thì không cho lưu lại
   if (spData.saved) {
     showToast('⚠️ Điểm xuất phát đã được lưu vĩnh viễn. Không thể thay đổi!');
@@ -6200,7 +6019,6 @@ function renderMSCompareSummary() {
 }
 
 function saveMilestone() {
-  if (checkExpiredAndAlert()) return;
   const ms = getCurrentMS(); if (!ms) return;
   // NN scores from khamNha
   if (ms.khamNha && Object.keys(ms.khamNha).length > 0) {
@@ -6562,7 +6380,6 @@ function updateR3MWheel() {
 }
 
 function saveResult3m() {
-  if (checkExpiredAndAlert()) return;
   // NN scores từ khamNha (đã lưu trong r3mData khi chọn câu trả lời)
   if (r3mData.khamNha && Object.keys(r3mData.khamNha).length > 0) {
     const scores = calcKhamNhaScore(r3mData.khamNha);
@@ -6716,7 +6533,6 @@ function renderSubTaskList(section, containerId, placeholder) {
 }
 
 function toggleTaskSection(section, idx) {
-  if (checkExpiredAndAlert()) return;
   const ts = getTasksStruct();
   if (!ts[section] || !ts[section][idx]) return;
   ts[section][idx].done = !ts[section][idx].done;
@@ -6726,7 +6542,6 @@ function toggleTaskSection(section, idx) {
 }
 
 function saveTaskSection(section, idx, text) {
-  if (checkExpiredAndAlert()) return;
   const ts = getTasksStruct();
   if (!ts[section] || ts[section][idx] === undefined) return;
   ts[section][idx].text = text;
@@ -7472,7 +7287,6 @@ function renderMemberTeamList() {
           ${m.email ? ` &nbsp;·&nbsp; 📧 ${m.email}` : ''}
           ${m.referrer ? `<br>👋 Người gieo duyên: <strong>${m.referrer}</strong>` : ''}
           <br>🗓 Đăng ký: <strong>${regDate}</strong>
-          ${renderExpiryBadge(m.approvedAt, true)}
         </div>
       </div>
     </div>`;
@@ -8139,7 +7953,7 @@ async function approveLeaderMember(memberId) {
       approvedAt: new Date().toISOString(),
       approvedBy: userInfo.name
     });
-    await database.ref('members/' + memberId).update({ approved: true, approvedAt: new Date().toISOString() });
+    await database.ref('members/' + memberId).update({ approved: true });
     showToast('✅ Đã duyệt thành viên!');
     loadLeaderMemberRequests();
     loadLeaderData();
@@ -8472,7 +8286,6 @@ function renderLeaderMemberList() {
           <div style="font-size:11px;color:var(--ink-muted);line-height:1.8;margin-top:2px">
             📱 ${m.phone||'–'} &nbsp;·&nbsp; 📧 ${m.email||'–'}
             ${m.registeredAt ? `<br>🕐 Đăng ký: ${new Date(m.registeredAt).toLocaleDateString('vi')}` : ''}
-            ${renderExpiryBadge(m.approvedAt, false)}
             ${m.referrer ? `&nbsp;·&nbsp; 👋 Người gieo duyên: ${m.referrer}` : ''}
           </div>
           <div style="font-size:11.5px;color:var(--ink-muted);margin-top:4px">
@@ -9002,7 +8815,6 @@ async function loadGroupMembers(groupCode, targetEl) {
               📱 <strong>${m.phone||'–'}</strong><br>
               📧 <strong>${m.email||'–'}</strong><br>
               🕐 Đăng ký: ${m.registeredAt ? new Date(m.registeredAt).toLocaleDateString('vi') : '–'}
-              ${renderExpiryBadge(m.approvedAt, true)}
               ${m.referrer ? `<br>👋 Người gieo duyên: ${m.referrer}` : ''}
             </div>
           </div>
@@ -9014,10 +8826,6 @@ async function loadGroupMembers(groupCode, targetEl) {
             <button onclick="adminChangeMemberGroup('${m.memberId}','${m.name}','${groupCode}')"
               style="margin-top:6px;padding:4px 8px;background:rgba(74,127,168,0.1);color:var(--sky);border:1px solid rgba(74,127,168,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
               Đổi nhóm
-            </button>
-            <button onclick="adminRenewMember('${m.memberId}','${m.name}')"
-              style="margin-top:4px;padding:4px 8px;background:rgba(74,140,111,0.1);color:var(--jade);border:1px solid rgba(74,140,111,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-              🔄 Gia hạn
             </button>
             <button onclick="adminDeleteMember('${m.memberId}','${m.name}','${groupCode}')"
               style="margin-top:4px;padding:4px 8px;background:rgba(192,96,106,0.1);color:var(--rose);border:1px solid rgba(192,96,106,0.3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
@@ -9221,7 +9029,7 @@ async function approveLeader(requestId) {
       name: r.name, approvedAt: new Date().toISOString(), memberId: r.memberId
     });
     // 3. Cập nhật /members/{memberId} thành isLeader = true
-    await database.ref('members/' + r.memberId).update({ isLeader: true, isLeaderPending: false, approved: true, approvedAt: new Date().toISOString() });
+    await database.ref('members/' + r.memberId).update({ isLeader: true, isLeaderPending: false });
     // 4. Xóa khỏi member_requests nếu có (trưởng nhóm không cần duyệt thành viên riêng)
     await database.ref('member_requests/' + r.memberId).remove().catch(() => {});
 
@@ -9485,21 +9293,6 @@ async function adminDeleteMember(memberId, memberName, groupCode) {
   }
 }
 
-
-// ── Gia hạn thành viên (Admin) ──────────────────────────────────
-async function adminRenewMember(memberId, memberName) {
-  const newApprovedAt = new Date().toISOString();
-  if (!confirm('Gia hạn tài khoản "' + memberName + '" thêm 1 năm từ hôm nay?\n\nHết hạn mới: ' +
-    new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString('vi') + '\n\nXác nhận?')) return;
-  const database = await loadFirebase();
-  if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
-  try {
-    await database.ref('members/' + memberId).update({ approvedAt: newApprovedAt });
-    showToast('✅ Đã gia hạn cho ' + memberName + ' đến ' + new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString('vi'));
-    loadAdminData();
-  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
-}
-
 // Hàm xoá dành cho TRƯỞNG NHÓM
 async function leaderDeleteMember(memberId, memberName) {
   if (!userInfo?.isLeader) { showToast('⚠️ Chỉ trưởng nhóm mới có quyền này'); return; }
@@ -9674,7 +9467,6 @@ function pickSeedType(type) {
 }
 
 function addNewSeed() {
-  if (checkExpiredAndAlert()) return;
   const name      = (document.getElementById('ns-name').value || '').trim();
   const nn        = document.getElementById('ns-nn-val').value;
   const situation = (document.getElementById('ns-situation').value || '').trim();
@@ -10056,7 +9848,6 @@ function openDeepRootCheckin(seedId) {
 }
 
 function saveDeepRootHumble(seedId) {
-  if (checkExpiredAndAlert()) return;
   const note = (document.getElementById('deeproot-humble-note')?.value || '').trim();
   if (!note) { showToast('⚠️ Hãy ghi lại bạn đã khiêm hạ bằng cách nào!'); return; }
   const seed = seedsData.find(s => s.id === seedId);
@@ -10070,7 +9861,6 @@ function saveDeepRootHumble(seedId) {
 }
 
 function submitSeedCheckin(seedId, appeared) {
-  if (checkExpiredAndAlert()) return;
   if (!appeared) {
     // Không xuất hiện → lưu ngay
     doSaveCheckin(seedId, false, '');
@@ -10085,7 +9875,6 @@ function submitSeedCheckin(seedId, appeared) {
 }
 
 function saveCheckinWithNote(seedId) {
-  if (checkExpiredAndAlert()) return;
   const note = (document.getElementById('seed-checkin-note')?.value || '').trim();
   doSaveCheckin(seedId, true, note);
   closeSeedCheckin();
