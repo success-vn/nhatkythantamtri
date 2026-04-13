@@ -8186,89 +8186,28 @@ function loadLeaderData() {
             firebaseUid:  memberToUid[mid] || memberInfo.firebaseUid || null,
           };
 
-          // Load journal: ưu tiên /journals/{group}/{mid} (đầy đủ fields, sync realtime)
-          // + bổ sung /users/{firebaseUid}/daily cho lịch sử nhiều ngày
-          // BUG FIX: dùng memberToUid[mid] (đã build từ uid_to_member), KHÔNG dùng memberInfo.firebaseUid
-          const firebaseUid = memberToUid[mid] || memberInfo.firebaseUid || null;
-
+          // Load journal: CHỈ đọc từ /journals/ (chỉ số, không có nội dung riêng tư)
+          // KHÔNG đọc /users/{uid}/daily vì path đó chứa toàn bộ nhật ký chi tiết
           const promises = [
             db.ref('journals/' + fbKey(userInfo.groupCode) + '/' + mid).once('value'),
           ];
-          // Luôn load cả 2 path: /journals/ và /users/ để có data đầy đủ nhất
-          if (firebaseUid && firebaseUid !== mid) {
-            promises.push(db.ref('users/' + firebaseUid + '/daily').once('value'));
-            promises.push(db.ref('users/' + firebaseUid + '/seeds').once('value'));
-          }
-          // Luôn thêm path memberId làm fallback
-          promises.push(db.ref('users/' + mid + '/daily').once('value'));
-          promises.push(db.ref('users/' + mid + '/seeds').once('value'));
 
           Promise.all(promises).then((results) => {
-            const jSnap     = results[0];
-            // Merge tất cả daily snaps (có thể có từ firebaseUid và memberId)
+            const jSnap = results[0];
+            // Chỉ dùng data từ /journals/ — chỉ có chỉ số, không có nội dung riêng tư
             const journalData = jSnap ? (jSnap.val() || {}) : {};
-            const dailyData   = {};
 
-            // Collect seeds từ tất cả kết quả (tìm snap có val là array)
-            let memberSeeds = [];
-
-            // Nếu đây là bản thân trưởng nhóm → bổ sung data từ localStorage
-            // Double-check bằng cả memberId lẫn email để tránh inject nhầm data
-            if (mid === userInfo.memberId && memberInfo && 
-                (!memberInfo.email || memberInfo.email.toLowerCase() === (userInfo.email||'').toLowerCase())) {
-              try {
-                const localMain = JSON.parse(localStorage.getItem('nk5nn-main') || '{}');
-                Object.assign(dailyData, localMain);
-              } catch(e) {}
-              // Seeds của bản thân từ localStorage
-              try {
-                const localSeeds = JSON.parse(localStorage.getItem('nk5nn-seeds') || '[]');
-                if (Array.isArray(localSeeds)) {
-                  localSeeds.forEach(s => { if (!memberSeeds.find(x=>x.id===s.id)) memberSeeds.push(s); });
-                }
-              } catch(e) {}
-              // Stats hôm nay từ localStorage
+            // Nếu là bản thân trưởng nhóm → bổ sung stats từ localStorage
+            if (mid === userInfo.memberId) {
               try {
                 const myStats = JSON.parse(localStorage.getItem('my-team-stats-' + userInfo.memberId) || 'null');
                 if (myStats) leaderAllData[mid].stats = { ...leaderAllData[mid].stats, ...myStats };
               } catch(e) {}
             }
-            for (let ri = 1; ri < results.length; ri++) {
-              const snap = results[ri];
-              if (!snap || !snap.val()) continue;
-              const val = snap.val();
-              if (Array.isArray(val)) {
-                // Đây là seeds array
-                val.forEach(s => { if (!memberSeeds.find(x=>x.id===s.id)) memberSeeds.push(s); });
-              } else if (typeof val === 'object') {
-                // Đây là daily data
-                Object.assign(dailyData, val);
-              }
-            }
-            leaderAllData[mid].seeds = memberSeeds;
 
-            // Merge: /users/ làm base (nhiều ngày), /journals/ override từng ngày
-            const merged = Object.assign({}, dailyData);
-            Object.entries(journalData).forEach(([date, jDay]) => {
-              const base = merged[date] || {};
-              const m = Object.assign({}, base, jDay);
-              // Bảo vệ nnEnergy: ưu tiên nguồn nào có đủ keys nhất và khác 5
-              const baseNN = base.nnEnergy || {};
-              const jNN    = jDay.nnEnergy || {};
-              const mergedNN = {};
-              NN_LIST.forEach(nn => {
-                const bv = baseNN[nn.key];
-                const jv = jNN[nn.key];
-                // Lấy giá trị khác 5 (đã chỉnh), nếu cả 2 khác 5 → journals thắng
-                if (jv && jv !== 5) mergedNN[nn.key] = jv;
-                else if (bv && bv !== 5) mergedNN[nn.key] = bv;
-                else mergedNN[nn.key] = jv || bv || null;
-              });
-              // Chỉ ghi nnEnergy nếu có ít nhất 1 key
-              if (Object.values(mergedNN).some(v => v)) m.nnEnergy = mergedNN;
-              merged[date] = m;
-            });
-            leaderAllData[mid].entries = merged;
+            // entries chỉ chứa chỉ số từ /journals/
+            leaderAllData[mid].entries = journalData;
+            leaderAllData[mid].seeds   = [];
 
             loaded++;
             if (loaded === allMemberEntries.length) {
@@ -9289,28 +9228,38 @@ async function _deleteMemberFromFirebase(memberId, memberName, groupCode) {
   const database = await loadFirebase();
   if (!database) throw new Error('Không kết nối được Firebase');
 
-  // Xoá từng path, bỏ qua lỗi permission nếu path không tồn tại
   const removeRef = (path) => database.ref(path).remove().catch(e => {
     console.warn('Remove ' + path + ':', e.message);
   });
 
-  // Xoá uid_to_member mapping
+  // Tìm firebaseUid từ uid_to_member trước khi xóa
+  // Rule /users/$uid chỉ cho auth.uid == $uid ghi — cần đúng uid để xóa được
+  let firebaseUid = null;
   try {
     const snap = await database.ref('uid_to_member').orderByChild('memberId').equalTo(memberId).once('value');
     const removes = [];
-    snap.forEach(child => removes.push(child.ref.remove().catch(()=>{})));
+    snap.forEach(child => {
+      if (!firebaseUid) firebaseUid = child.key;
+      removes.push(child.ref.remove().catch(()=>{}));
+    });
     await Promise.all(removes);
   } catch(e) { console.warn('uid_to_member remove:', e.message); }
 
-  // Xoá các paths quan trọng
+  // Xóa /users/ bằng đúng firebaseUid (admin xóa được vì rule users/$uid write = auth.uid == $uid,
+  // nhưng admin không phải uid đó → sẽ bị chặn ở đây, do đó ta dùng Firebase Admin SDK ở server
+  // hoặc chấp nhận: data /users/ sẽ orphan — không ảnh hưởng app vì uid_to_member đã xóa rồi)
+  const userPaths = [];
+  if (firebaseUid) userPaths.push(removeRef('users/' + firebaseUid));
+  if (memberId !== firebaseUid) userPaths.push(removeRef('users/' + memberId));
+
   await Promise.all([
     removeRef('members/' + memberId),
     removeRef('groups/' + groupCode + '/' + memberId),
     removeRef('journals/' + groupCode + '/' + memberId),
-    removeRef('users/' + memberId),
     removeRef('member_requests/' + memberId),
     removeRef('leaders/' + groupCode + '/' + memberId),
     removeRef('leader_requests/' + memberId),
+    ...userPaths,
   ]);
 }
 
