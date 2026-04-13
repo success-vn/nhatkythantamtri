@@ -3077,6 +3077,9 @@ async function loadLeaderList() {
       '<div style="padding:10px 14px;font-size:12px;color:var(--rose)">⚠️ Không kết nối được. Thử lại.</div>';
     return;
   }
+  if (auth && !auth.currentUser) {
+    try { await auth.signInAnonymously(); } catch(e) { console.warn('anon auth for signup list:', e.message); }
+  }
   try {
     const [snap, deletedSnap] = await Promise.all([
       database.ref('leader_requests').once('value'),
