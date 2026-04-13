@@ -7078,7 +7078,23 @@ function initAdminPage() {
     adminAuthed = true;
     document.getElementById('admin-login-section').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
-    loadAdminData();
+    // Chờ Firebase + auth sẵn sàng trước khi load (tránh PERMISSION_DENIED)
+    loadFirebase().then(async (database) => {
+      if (!database) { loadAdminData(); return; }
+      // Đảm bảo có auth session (anonymous nếu chưa có)
+      if (typeof auth !== 'undefined' && auth && !auth.currentUser) {
+        try {
+          await new Promise(resolve => {
+            const timer = setTimeout(resolve, 2000);
+            const unsub = auth.onAuthStateChanged(user => { clearTimeout(timer); unsub(); resolve(user); });
+          });
+          if (!auth.currentUser) {
+            await auth.signInAnonymously().catch(() => {});
+          }
+        } catch(e) {}
+      }
+      loadAdminData();
+    });
   } else {
     document.getElementById('admin-login-section').style.display = 'block';
     document.getElementById('admin-content').style.display = 'none';
@@ -8829,6 +8845,17 @@ async function loadAdminData() {
 
   } catch(e) {
     console.error('Admin load error:', e);
+    const errMsg = e.message || String(e);
+    const isPerm = errMsg.includes('PERMISSION_DENIED') || errMsg.includes('permission');
+    const hint = isPerm
+      ? '⚠️ Firebase từ chối quyền truy cập. Vui lòng tải lại trang và thử lại.'
+      : '⚠️ Lỗi: ' + errMsg;
+    ['admin-pending-list','admin-leaders-list','admin-groups-list'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.innerHTML.includes('Đang tải')) {
+        el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${hint}</p><button onclick="adminRefresh()" style="margin-top:8px;padding:6px 14px;background:var(--jade);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Thử lại</button></div>`;
+      }
+    });
   }
 }
 
