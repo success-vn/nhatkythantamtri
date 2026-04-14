@@ -1445,21 +1445,21 @@ textarea { min-height: 80px; }
     <div class="money-row">
       <div class="money-box">
         <div class="money-box-label green">💚 Nhận tiền xanh</div>
-        <input type="number" id="receive-green" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
+        <input type="number" id="receive-green" placeholder="0" min="0" step="any" oninput="updateMoneyColorAssess()">
       </div>
       <div class="money-box">
         <div class="money-box-label red">❤️ Nhận tiền đỏ</div>
-        <input type="number" id="receive-red" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
+        <input type="number" id="receive-red" placeholder="0" min="0" step="any" oninput="updateMoneyColorAssess()">
       </div>
     </div>
     <div class="money-row">
       <div class="money-box">
         <div class="money-box-label green">💚 Chi tiền xanh</div>
-        <input type="number" id="spend-green" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
+        <input type="number" id="spend-green" placeholder="0" min="0" step="any" oninput="updateMoneyColorAssess()">
       </div>
       <div class="money-box">
         <div class="money-box-label red">❤️ Chi tiền đỏ</div>
-        <input type="number" id="spend-red" placeholder="0" min="0" oninput="updateMoneyColorAssess()">
+        <input type="number" id="spend-red" placeholder="0" min="0" step="any" oninput="updateMoneyColorAssess()">
       </div>
     </div>
 
@@ -2319,7 +2319,9 @@ textarea { min-height: 80px; }
         <span style="width:44px;text-align:center">Streak</span>
         <span style="width:48px;text-align:right">Tổng</span>
       </div>
-      <div id="leader-dashboard-member-list" style="padding:6px 14px"></div>
+      <div id="leader-dashboard-member-list" style="padding:6px 14px">
+        <div style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px">⏳ Đang tải dữ liệu nhóm...</div>
+      </div>
     </div>
 
     <!-- D: Chi tiết thành viên (inline expand) -->
@@ -3191,9 +3193,12 @@ function getTodayEntry() {
 function checkNewDay() {
   const k = todayKey();
   if (data[k]) return; // hôm nay đã có → không làm gì
-  // Hôm nay chưa có entry → tạo mới, UI sẽ hiển thị trống
+  // Hôm nay chưa có entry → tạo mới trong bộ nhớ nhưng KHÔNG save/push ngay
+  // Lý do: nếu push ngay sẽ ghi {} lên Firebase, xóa mất dữ liệu đã sync
+  // Data sẽ được save khi member thực sự điền nội dung
   data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
-  save(STORAGE_KEY, data);
+  // Chỉ lưu localStorage (không trigger scheduleSyncPush) để giữ state UI
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
   // Clear 5 tab rèn luyện hàng ngày: Today, Energy, Gratitude, Finance, Wish
   const DAILY_FIELDS = [
     'lesson-text','seed-green','seed-red','daily-good','daily-improve',
@@ -3734,6 +3739,7 @@ function doLogout() {
 }
 
 function bootApp() {
+  _bootTime = Date.now(); // Dùng để tránh push quá sớm sau boot
   // Kiểm tra sang ngày mới trước tiên
   checkNewDay();
 
@@ -3998,9 +4004,9 @@ function saveFinance() {
 // Format tiền VNĐ gọn
 function formatMoney(n) {
   if (!n) return '0';
-  if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + ' tỷ';
-  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
-  if (n >= 1e3) return (n/1e3).toFixed(0) + 'k';
+  if (n >= 1e9) return (n/1e9).toFixed(2).replace(/\.?0+$/,'') + ' tỷ';
+  if (n >= 1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'') + ' tr';
+  if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.?0+$/,'') + 'k';
   return n.toLocaleString('vi');
 }
 
@@ -4613,6 +4619,12 @@ function _applyRemoteData(remote) {
         } else {
           const rTs = remoteEntry._updatedAt || 0;
           const lTs = localEntry._updatedAt   || 0;
+          // Nếu local là placeholder trống (checkNewDay tạo ra) → remote thắng hoàn toàn
+          const _lcKeys = Object.keys(localEntry).filter(k => !['rituals','dims','nnEnergy','_updatedAt'].includes(k));
+          const _lHasRit = Object.keys(localEntry.rituals||{}).some(k => localEntry.rituals[k]);
+          const _lEmpty  = _lcKeys.length === 0 && !_lHasRit;
+          const _rHas    = Object.keys(remoteEntry).filter(k => k !== '_updatedAt').length > 1;
+          if (_lEmpty && _rHas) { data[date] = remoteEntry; return; }
           // Merge: field nào mới hơn thắng
           const base = rTs > lTs ? Object.assign({}, localEntry, remoteEntry) : Object.assign({}, remoteEntry, localEntry);
           // Luôn OR rituals (giữ tick đã check)
@@ -4803,12 +4815,22 @@ function mergeRituals(local={}, remote={}) {
 
 // Debounced push: mỗi lần lưu local sẽ tự push lên Firebase sau 3 giây
 let _syncDebounceTimer = null;
+let _bootTime = 0; // Timestamp khi bootApp chạy — tránh push quá sớm
 function scheduleSyncPush(key) {
   const syncKeys = [STORAGE_KEY, SP_KEY, KZ_KEY, R3M_KEY, MS_KEY, SEEDS_KEY];
   if (!syncKeys.includes(key)) return;
   clearTimeout(_syncDebounceTimer);
   _syncDebounceTimer = setTimeout(() => {
-    if (db && userInfo) pushLocalToFirebase();
+    if (db && userInfo) {
+      // Không push nếu đang trong 5s đầu sau khi boot (tránh push trước khi pull xong)
+      const bootAge = Date.now() - (_bootTime || 0);
+      if (bootAge < 5000) {
+        // Reschedule sau 5s
+        _syncDebounceTimer = setTimeout(() => { if (db && userInfo) pushLocalToFirebase(); }, 5000);
+        return;
+      }
+      pushLocalToFirebase();
+    }
   }, 3000);
 }
 
@@ -7855,6 +7877,12 @@ function renderLeaderAlerts(members, todayK) {
   const badgeEl  = document.getElementById('leader-alerts-badge');
   if (!alertsEl) return;
 
+  // Nếu chưa có members thì giữ loading state
+  if (!members || members.length === 0) {
+    alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">Chưa có thành viên nào trong nhóm.</div>';
+    return;
+  }
+
   const alerts = [];
 
   members.forEach(([mid, m]) => {
@@ -8575,7 +8603,11 @@ function renderLeaderMemberList() {
   if (filter==='inactive') members = members.filter(([,m]) => m.stats?.date !== todayK);
 
   if (!members.length) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Chưa có thành viên nào.</p></div>';
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>Chưa có thành viên nào trong nhóm này.</p></div>';
+    const alertsEl = document.getElementById('leader-alerts-list');
+    if (alertsEl && alertsEl.innerHTML.includes('Đang phân tích')) {
+      alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">Chưa có thành viên nào trong nhóm.</div>';
+    }
     return;
   }
 
