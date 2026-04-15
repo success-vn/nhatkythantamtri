@@ -570,6 +570,17 @@ textarea { min-height: 80px; }
   .sp-nn-row { grid-template-columns:repeat(3,1fr); }
   .kaizen-row { grid-template-columns:1fr; }
 }
+.lbl-upper { font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px }
+.inp-base { background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s; }
+.inp-pw { background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s; }
+.pw-toggle { position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted) }
+.lbl-sm-upper { font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase }
+.flex-between-mb10 { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px }
+
+@keyframes slideUpFade {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
 </style>
 </head>
 <body>
@@ -614,38 +625,38 @@ textarea { min-height: 80px; }
 
     <div style="display:flex;flex-direction:column;gap:11px">
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Họ và Tên *</label>
+        <label class="lbl-upper">Họ và Tên *</label>
         <input type="text" id="reg-name" placeholder="VD: Nguyễn Thị Lan Anh"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Số Điện Thoại *</label>
+        <label class="lbl-upper">Số Điện Thoại *</label>
         <input type="tel" id="reg-phone" placeholder="VD: 0912 345 678"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email *</label>
+        <label class="lbl-upper">Email *</label>
         <input type="email" id="reg-email" placeholder="VD: lanahn@gmail.com"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Mật Khẩu * <span style="font-weight:400;text-transform:none">(tối thiểu 6 ký tự)</span></label>
+        <label class="lbl-upper">Mật Khẩu * <span style="font-weight:400;text-transform:none">(tối thiểu 6 ký tự)</span></label>
         <div style="position:relative">
           <input type="password" id="reg-password" placeholder="Tạo mật khẩu đăng nhập..."
-            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            class="inp-pw"
             onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
-          <button type="button" onclick="togglePwVis('reg-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
+          <button type="button" onclick="togglePwVis('reg-password',this)" class="pw-toggle">👁</button>
         </div>
       </div>
       <!-- Trường chọn nhóm cho MEMBER -->
       <div id="reg-member-group-wrap">
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Chọn Nhóm (Tên Trưởng Nhóm) *</label>
+        <label class="lbl-upper">Chọn Nhóm (Tên Trưởng Nhóm) *</label>
         <div style="position:relative">
           <input type="text" id="reg-group-search" placeholder="Gõ tên trưởng nhóm để tìm..."
-            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            class="inp-base"
             onfocus="this.style.borderColor='#5b8a6e';loadLeaderList()"
             onblur="setTimeout(()=>document.getElementById('leader-dropdown').style.display='none',200)"
             oninput="filterLeaderList(this.value)">
@@ -668,7 +679,7 @@ textarea { min-height: 80px; }
 
       <!-- Trường đặt tên nhóm cho TRƯỞNG NHÓM (ẩn mặc định) -->
       <div id="reg-leader-group-wrap" style="display:none">
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Đặt Tên Nhóm *</label>
+        <label class="lbl-upper">Đặt Tên Nhóm *</label>
         <input type="text" id="reg-new-group-name" placeholder="VD: Nhóm Hoa Hướng Dương, Nhóm Thịnh Vượng..."
           style="background:white;border:2px solid rgba(201,168,76,0.4);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
           onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='rgba(201,168,76,0.4)'"
@@ -679,9 +690,9 @@ textarea { min-height: 80px; }
         <div style="font-size:10.5px;color:var(--ink-muted);margin-top:4px">💡 Đây sẽ là tên nhóm của bạn sau khi được duyệt</div>
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Người Gieo Duyên</label>
+        <label class="lbl-upper">Người Gieo Duyên</label>
         <input type="text" id="reg-referrer" placeholder="VD: Chị Hoa, Anh Nam..."
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
       </div>
       <!-- Checkbox đăng ký trưởng nhóm -->
@@ -757,20 +768,20 @@ textarea { min-height: 80px; }
 
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email *</label>
+        <label class="lbl-upper">Email *</label>
         <input type="email" id="login-email" placeholder="Email đã đăng ký"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
           onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Mật Khẩu *</label>
+        <label class="lbl-upper">Mật Khẩu *</label>
         <div style="position:relative">
           <input type="password" id="login-password" placeholder="Mật khẩu của bạn"
-            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            class="inp-pw"
             onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
             onkeydown="if(event.key==='Enter')doLogin()">
-          <button type="button" onclick="togglePwVis('login-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
+          <button type="button" onclick="togglePwVis('login-password',this)" class="pw-toggle">👁</button>
         </div>
       </div>
     </div>
@@ -817,9 +828,9 @@ textarea { min-height: 80px; }
     <!-- Bước 1: Tìm tài khoản qua email -->
     <div id="activate-step1">
       <div style="margin-bottom:12px">
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Email đã đăng ký *</label>
+        <label class="lbl-upper">Email đã đăng ký *</label>
         <input type="email" id="activate-email" placeholder="Email bạn nhập khi đăng ký"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
           onkeydown="if(event.key==='Enter')findOldAccount()">
       </div>
@@ -838,19 +849,19 @@ textarea { min-height: 80px; }
     <div id="activate-step2" style="display:none">
       <div id="activate-found-info" style="background:rgba(74,140,111,0.08);border:1.5px solid rgba(74,140,111,0.3);border-radius:11px;padding:12px 14px;margin-bottom:14px"></div>
       <div style="margin-bottom:12px">
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Đặt Mật Khẩu Mới *</label>
+        <label class="lbl-upper">Đặt Mật Khẩu Mới *</label>
         <div style="position:relative">
           <input type="password" id="activate-password" placeholder="Tối thiểu 6 ký tự"
-            style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 40px 11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+            class="inp-pw"
             onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
             onkeydown="if(event.key==='Enter')document.getElementById('activate-password2').focus()">
-          <button type="button" onclick="togglePwVis('activate-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;color:var(--ink-muted)">👁</button>
+          <button type="button" onclick="togglePwVis('activate-password',this)" class="pw-toggle">👁</button>
         </div>
       </div>
       <div style="margin-bottom:14px">
-        <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:5px">Xác Nhận Mật Khẩu *</label>
+        <label class="lbl-upper">Xác Nhận Mật Khẩu *</label>
         <input type="password" id="activate-password2" placeholder="Nhập lại mật khẩu"
-          style="background:white;border:2px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);width:100%;outline:none;transition:border-color 0.2s;"
+          class="inp-base"
           onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'"
           onkeydown="if(event.key==='Enter')doActivateAccount()">
       </div>
@@ -1061,7 +1072,7 @@ textarea { min-height: 80px; }
     <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1.5px solid var(--border)">
       <!-- Từ chối -->
       <div style="border-right:1px solid var(--border);padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="flex-between-mb10">
           <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Từ chối</div>
           <span style="background:rgba(201,168,76,0.18);color:var(--gold-dark);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Loại bỏ</span>
         </div>
@@ -1069,7 +1080,7 @@ textarea { min-height: 80px; }
       </div>
       <!-- Ủy quyền -->
       <div style="padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="flex-between-mb10">
           <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Ủy quyền</div>
           <span style="background:rgba(74,127,168,0.15);color:var(--sky);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Giao người khác</span>
         </div>
@@ -1079,7 +1090,7 @@ textarea { min-height: 80px; }
     <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)">
       <!-- Thuê -->
       <div style="border-right:1px solid var(--border);padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="flex-between-mb10">
           <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Thuê</div>
           <span style="background:rgba(74,140,111,0.15);color:var(--jade);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Outsource</span>
         </div>
@@ -1087,7 +1098,7 @@ textarea { min-height: 80px; }
       </div>
       <!-- Nhân bản -->
       <div style="padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="flex-between-mb10">
           <div style="font-size:13.5px;font-weight:800;color:var(--ink)">Nhân bản</div>
           <span style="background:rgba(124,92,191,0.15);color:var(--violet);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:12px">Tự động hóa</span>
         </div>
@@ -1986,7 +1997,7 @@ textarea { min-height: 80px; }
       <label class="field-label">Tâm thức tiền của tôi hiện tại là gì?</label>
       <textarea id="sp-money-mind" placeholder="Khi nghĩ đến tiền, tôi cảm thấy... Hạt giống về tiền của tôi là..." rows="3"></textarea>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase">Tự đánh giá NL tài chính</div>
+    <div class="lbl-sm-upper">Tự đánh giá NL tài chính</div>
     <div class="energy-bar-wrap">
       <div class="energy-bar-track" style="background:linear-gradient(90deg,var(--rose-light),var(--jade-light))"></div>
       <input type="range" id="sp-fin-score" min="1" max="10" value="5"
@@ -2177,7 +2188,7 @@ textarea { min-height: 80px; }
       <label class="field-label">Tâm thức tiền hiện tại</label>
       <textarea id="ms-money-mind" rows="3" placeholder="Khi nghĩ đến tiền, tôi cảm thấy..."></textarea>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase">Tự đánh giá NL tài chính</div>
+    <div class="lbl-sm-upper">Tự đánh giá NL tài chính</div>
     <div class="energy-bar-wrap">
       <div class="energy-bar-track" style="background:linear-gradient(90deg,var(--rose-light),var(--jade-light))"></div>
       <input type="range" id="ms-fin-score" min="1" max="10" value="5"
@@ -2193,7 +2204,7 @@ textarea { min-height: 80px; }
       <div class="section-icon" style="background:rgba(192,96,106,0.12)">🌱</div>
       Năng Lượng & Hạt Giống
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase">NL tổng thể</div>
+    <div class="lbl-sm-upper">NL tổng thể</div>
     <div class="energy-bar-wrap">
       <div class="energy-bar-track"></div>
       <input type="range" id="ms-energy" min="1" max="10" value="5"
@@ -2601,7 +2612,7 @@ textarea { min-height: 80px; }
       <label class="field-label">Tâm thức tiền của tôi đã thay đổi như thế nào?</label>
       <textarea id="r3m-money-mind" placeholder="Trước đây tôi... Bây giờ tôi..." rows="3"></textarea>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase">Tự đánh giá NL tài chính sau 3 tháng</div>
+    <div class="lbl-sm-upper">Tự đánh giá NL tài chính sau 3 tháng</div>
     <div class="energy-bar-wrap">
       <div class="energy-bar-track" style="background:linear-gradient(90deg,var(--rose-light),var(--jade-light))"></div>
       <input type="range" id="r3m-fin-score" min="1" max="10" value="5"
@@ -2655,9 +2666,7 @@ textarea { min-height: 80px; }
 <div class="toast" id="toast">✓ Đã lưu thành công!</div>
 
 <script>
-// ══════════════════════════════════════
 // DATA
-// ══════════════════════════════════════
 const STORAGE_KEY = 'nk5nn-main';
 
 // Helper: encode groupCode để dùng làm Firebase path key
@@ -2711,263 +2720,13 @@ const NN_LIST = [
   { key:'nn5', label:'NN5 · Mẹ Thiên Nhiên',    color:'#7c5cbf', bg:'#e8e0f5', icon:'🌍' },
 ];
 
-const WHEEL_DIMS = [
-  { id:'w1', label:'Sức khỏe', color:'#4a8c6f' },
-  { id:'w2', label:'Gia đình', color:'#c0606a' },
-  { id:'w3', label:'Sự nghiệp', color:'#4a7fa8' },
-  { id:'w4', label:'Tài chính', color:'#c9a84c' },
-  { id:'w5', label:'Tâm linh', color:'#7c5cbf' },
-  { id:'w6', label:'Xã hội',   color:'#d4872a' },
-  { id:'w7', label:'Vui chơi', color:'#c0606a' },
-  { id:'w8', label:'Phát triển',color:'#4a8c6f' },
-];
 
 // Bộ câu hỏi Bánh Xe Cuộc Đời — 5 câu/chiều, dựa trên các thang đo khoa học quốc tế
 // Nguồn: SF-36, WHO-5, CFPB, Gallup Q12, SWBS, UCLA Loneliness, PERMA, SDT, Ryff PWB, FACES-IV
-const WHEEL_QUESTIONS = [
 
-  // ── W1 · SỨC KHỎE ──────────────────────────────────
-  // Nguồn: SF-36 (Ware & Sherbourne, 1992) + WHO-5 Well-being Index
-  { id:'wq_w1_1', dim:'w1', rev:false,
-    label:'Bạn có đủ năng lượng thể chất để hoàn thành các việc quan trọng trong ngày mà không bị kiệt sức?' },
-  { id:'wq_w1_2', dim:'w1', rev:false,
-    label:'Bạn ngủ đủ giấc, dễ vào giấc và cảm thấy sảng khoái khi thức dậy (ít nhất 5 ngày/tuần)?' },
-  { id:'wq_w1_3', dim:'w1', rev:true,
-    label:'Bạn có hay bị đau nhức cơ thể, bệnh vặt hoặc cảm giác mệt mỏi kéo dài mà không rõ nguyên nhân?' },
-  { id:'wq_w1_4', dim:'w1', rev:false,
-    label:'Bạn có duy trì thói quen vận động thể chất đều đặn (ít nhất 3 buổi/tuần) và cảm thấy cơ thể khỏe mạnh?' },
-  { id:'wq_w1_5', dim:'w1', rev:true,
-    label:'Bạn có hay bỏ qua bữa ăn, ăn uống mất kiểm soát hoặc dùng chất kích thích (rượu, thuốc lá...) để đối phó với stress?' },
 
-  // ── W2 · GIA ĐÌNH ──────────────────────────────────
-  // Nguồn: Family Satisfaction Scale (Olson, 1985) + FACES-IV + Gottman Relationship Research
-  { id:'wq_w2_1', dim:'w2', rev:false,
-    label:'Bạn cảm thấy được yêu thương, an toàn và thật sự thuộc về gia đình của mình?' },
-  { id:'wq_w2_2', dim:'w2', rev:false,
-    label:'Các thành viên trong gia đình có thể nói chuyện thẳng thắn, lắng nghe và tôn trọng nhau?' },
-  { id:'wq_w2_3', dim:'w2', rev:true,
-    label:'Bạn có hay xảy ra xung đột, căng thẳng hoặc cảm thấy lạnh nhạt, xa cách trong gia đình?' },
-  { id:'wq_w2_4', dim:'w2', rev:false,
-    label:'Gia đình bạn có cùng nhau dành thời gian chất lượng (ăn cơm, trò chuyện, đi chơi) đều đặn không?' },
-  { id:'wq_w2_5', dim:'w2', rev:true,
-    label:'Bạn có cảm thấy vai trò và trách nhiệm trong gia đình đang bị mất cân bằng, khiến bạn kiệt sức hoặc ấm ức?' },
 
-  // ── W3 · SỰ NGHIỆP ─────────────────────────────────
-  // Nguồn: Gallup Q12 (Harter et al., 2002) + Job Satisfaction Survey (Spector, 1985)
-  { id:'wq_w3_1', dim:'w3', rev:false,
-    label:'Công việc hiện tại của bạn mang lại ý nghĩa, sự thỏa mãn và bạn cảm thấy đóng góp được điều gì đó?' },
-  { id:'wq_w3_2', dim:'w3', rev:false,
-    label:'Bạn có cơ hội học hỏi, phát triển kỹ năng và được công nhận trong môi trường làm việc hiện tại?' },
-  { id:'wq_w3_3', dim:'w3', rev:true,
-    label:'Bạn có hay cảm thấy chán nản, mất động lực, kiệt sức (burnout) hoặc không muốn đến nơi làm việc?' },
-  { id:'wq_w3_4', dim:'w3', rev:false,
-    label:'Bạn cảm thấy công việc của mình phù hợp với giá trị, thế mạnh và đam mê của bản thân?' },
-  { id:'wq_w3_5', dim:'w3', rev:true,
-    label:'Bạn có đang làm việc chỉ vì bắt buộc hoặc vì tiền — chứ không thực sự muốn làm công việc này?' },
 
-  // ── W4 · TÀI CHÍNH ─────────────────────────────────
-  // Nguồn: CFPB Financial Well-Being Scale (2015) + Joo & Grable Financial Wellness
-  { id:'wq_w4_1', dim:'w4', rev:false,
-    label:'Thu nhập hiện tại của bạn đủ trang trải chi phí sinh hoạt và vẫn có thể để dành tiết kiệm mỗi tháng?' },
-  { id:'wq_w4_2', dim:'w4', rev:false,
-    label:'Bạn cảm thấy an tâm và tự tin về tình hình tài chính — không bị áp lực bởi nợ nần hoặc thiếu hụt?' },
-  { id:'wq_w4_3', dim:'w4', rev:false,
-    label:'Bạn cảm thấy bình an và kiểm soát tốt dòng tiền — không bị lo lắng hay mất ngủ vì áp lực tài chính?' },
-  { id:'wq_w4_4', dim:'w4', rev:false,
-    label:'Bạn có kế hoạch tài chính rõ ràng cho tương lai (tiết kiệm, đầu tư, dự phòng rủi ro...)?' },
-  { id:'wq_w4_5', dim:'w4', rev:false,
-    label:'Bạn chi tiêu có kỷ luật, không mua sắm bốc đồng và luôn sống trong khả năng thu nhập thực tế của mình?' },
-
-  // ── W5 · TÂM LINH ──────────────────────────────────
-  // Nguồn: SWBS — Spiritual Well-Being Scale (Ellison, 1983) + Frankl's Logotherapy
-  { id:'wq_w5_1', dim:'w5', rev:false,
-    label:'Bạn cảm thấy cuộc sống của mình có mục đích và ý nghĩa rõ ràng — không chỉ là tồn tại qua ngày?' },
-  { id:'wq_w5_2', dim:'w5', rev:false,
-    label:'Bạn có thực hành tâm linh, thiền định, cầu nguyện hoặc sống chánh niệm thường xuyên và cảm thấy bình an trong lòng?' },
-  { id:'wq_w5_3', dim:'w5', rev:true,
-    label:'Bạn có hay cảm thấy cuộc sống trống rỗng, vô nghĩa hoặc không biết mình đang sống vì điều gì?' },
-  { id:'wq_w5_4', dim:'w5', rev:false,
-    label:'Bạn có cảm giác được kết nối với điều gì đó lớn hơn bản thân (thiên nhiên, vũ trụ, đức tin, cộng đồng...)?' },
-  { id:'wq_w5_5', dim:'w5', rev:true,
-    label:'Bạn có hay cảm thấy bất an, mất phương hướng về tâm linh hoặc nghi ngờ về những giá trị cốt lõi của mình?' },
-
-  // ── W6 · XÃ HỘI ────────────────────────────────────
-  // Nguồn: UCLA Loneliness Scale (Russell, 1996) + Social Support Survey (Sherbourne & Stewart, 1991)
-  { id:'wq_w6_1', dim:'w6', rev:false,
-    label:'Bạn có ít nhất 2-3 người bạn thân hoặc người thân ngoài gia đình mà bạn có thể nói chuyện thật lòng khi khó khăn?' },
-  { id:'wq_w6_2', dim:'w6', rev:false,
-    label:'Bạn cảm thấy mình được trân trọng, có giá trị và đóng góp được trong cộng đồng hoặc nhóm mình thuộc về?' },
-  { id:'wq_w6_3', dim:'w6', rev:true,
-    label:'Bạn có hay cảm thấy cô đơn, lạc lõng hoặc như thể không ai thực sự hiểu và quan tâm đến mình?' },
-  { id:'wq_w6_4', dim:'w6', rev:false,
-    label:'Bạn có các mối quan hệ xã hội lành mạnh, tích cực — mang lại năng lượng cho bạn thay vì làm bạn kiệt sức?' },
-  { id:'wq_w6_5', dim:'w6', rev:true,
-    label:'Bạn có hay né tránh các sự kiện xã hội, thu mình lại hoặc khó kết nối và duy trì quan hệ với người khác?' },
-
-  // ── W7 · VUI CHƠI & SỞ THÍCH ───────────────────────
-  // Nguồn: PERMA Model (Seligman, 2011) + Positive Emotion Research (Fredrickson, 2001)
-  { id:'wq_w7_1', dim:'w7', rev:false,
-    label:'Bạn có dành thời gian đều đặn cho các sở thích, hoạt động vui chơi mà bạn thực sự yêu thích?' },
-  { id:'wq_w7_2', dim:'w7', rev:false,
-    label:'Trong cuộc sống hàng ngày, bạn có những khoảnh khắc vui vẻ, nhẹ nhõm và háo hức không?' },
-  { id:'wq_w7_3', dim:'w7', rev:true,
-    label:'Bạn có hay cảm thấy cuộc sống quá nặng nề, không còn điều gì khiến mình thấy hứng thú hoặc vui vẻ?' },
-  { id:'wq_w7_4', dim:'w7', rev:false,
-    label:'Bạn có thể dễ dàng "tắt công việc" và tận hưởng thời gian nghỉ ngơi, vui chơi mà không cảm thấy tội lỗi?' },
-  { id:'wq_w7_5', dim:'w7', rev:true,
-    label:'Bạn có hay quên mất cảm giác vui đùa, hài hước — cuộc sống trở nên quá nghiêm túc và căng thẳng liên tục?' },
-
-  // ── W8 · PHÁT TRIỂN BẢN THÂN ───────────────────────
-  // Nguồn: Self-Determination Theory (Deci & Ryan, 2000) + Ryff Psychological Well-Being Scale
-  { id:'wq_w8_1', dim:'w8', rev:false,
-    label:'Bạn có đang chủ động học hỏi, rèn luyện kỹ năng mới và cảm thấy mình đang tiến bộ rõ rệt?' },
-  { id:'wq_w8_2', dim:'w8', rev:false,
-    label:'Bạn cảm thấy cuộc sống mình đang đi đúng hướng và phiên bản hôm nay của bạn tốt hơn 6 tháng trước?' },
-  { id:'wq_w8_3', dim:'w8', rev:true,
-    label:'Bạn có hay trì hoãn, bỏ cuộc giữa chừng hoặc cảm thấy mình cứ mãi "dẫm chân tại chỗ" dù muốn thay đổi?' },
-  { id:'wq_w8_4', dim:'w8', rev:false,
-    label:'Bạn có mục tiêu rõ ràng cho 3-6 tháng tới và đang có hành động cụ thể để tiến về phía đó?' },
-  { id:'wq_w8_5', dim:'w8', rev:true,
-    label:'Bạn có hay cảm thấy mình đang sống theo kỳ vọng của người khác hơn là theo đúng con người và ước mơ thật sự của mình?' },
-
-];
-
-const WHEEL_Q_LEVELS = [
-  { val:1, label:'Hoàn toàn không', color:'#c0606a' },
-  { val:2, label:'Hiếm khi',        color:'#d4872a' },
-  { val:3, label:'Đôi khi',         color:'#c9a84c' },
-  { val:4, label:'Thường xuyên',    color:'#8aab6e' },
-  { val:5, label:'Luôn luôn',       color:'#4a8c6f' },
-];
-
-function calcWheelScore(answers) {
-  // Returns { w1:score, w2:score, ... } on scale 1-10
-  const scores = {};
-  WHEEL_DIMS.forEach(dim => {
-    const qs = WHEEL_QUESTIONS.filter(q => q.dim === dim.id);
-    const vals = qs.map(q => {
-      const raw = answers[q.id] || 0;
-      if (!raw) return 0;
-      return q.rev ? (6 - raw) : raw; // reverse scoring for negative questions
-    }).filter(v => v > 0);
-    if (!vals.length) { scores[dim.id] = 5; return; }
-    const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-    scores[dim.id] = Math.round((avg - 1) / 4 * 9 + 1); // map 1-5 → 1-10
-  });
-  return scores;
-}
-
-function renderWheelQuestions(containerId, prefix, savedAnswers={}) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const DIM_COLORS = { w1:'#4a8c6f',w2:'#c0606a',w3:'#4a7fa8',w4:'#c9a84c',w5:'#7c5cbf',w6:'#d4872a',w7:'#c0606a',w8:'#4a8c6f' };
-
-  let html = '';
-  let currentDim = '';
-  let dimQNum = 0;
-  const DIM_ICONS = ['🏃','👨‍👩‍👧','💼','💰','🕊️','🤝','🎮','📈'];
-  WHEEL_QUESTIONS.forEach((q, idx) => {
-    const dim = WHEEL_DIMS.find(d => d.id === q.dim);
-    if (q.dim !== currentDim) {
-      if (currentDim) html += '</div>';
-      currentDim = q.dim;
-      dimQNum = 0;
-      const qCount = WHEEL_QUESTIONS.filter(x => x.dim === q.dim).length;
-      const answered = WHEEL_QUESTIONS.filter(x => x.dim === q.dim).filter(x => savedAnswers[x.id]).length;
-      const dimIdx = WHEEL_DIMS.findIndex(d=>d.id===q.dim);
-      html += `<div style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:10px;background:${dim.color}12;border-left:4px solid ${dim.color};border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:12px">
-          <span style="font-size:18px">${DIM_ICONS[dimIdx]||'🎯'}</span>
-          <div style="flex:1">
-            <div style="font-weight:800;font-size:13px;color:${dim.color}">${dim.label}</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:3px">
-              <div style="font-size:10.5px;color:var(--ink-muted)">${answered}/${qCount} câu đã trả lời</div>
-              <div style="flex:1;background:rgba(201,168,76,0.12);border-radius:4px;height:5px;overflow:hidden">
-                <div style="height:100%;width:${Math.round(answered/qCount*100)}%;background:${dim.color};border-radius:4px;transition:width 0.4s"></div>
-              </div>
-            </div>
-          </div>
-        </div>`;
-    }
-    dimQNum++;
-    const selected = savedAnswers[q.id] || 0;
-    html += `<div style="margin-bottom:14px;padding:10px 0">
-      <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.65;margin-bottom:8px;font-weight:600">${dimQNum}. ${q.label}</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        ${WHEEL_Q_LEVELS.map(lv => `
-          <button id="${prefix}_wq_${q.id}_${lv.val}" onclick="selectWheelAnswer('${prefix}','${q.id}',${lv.val})"
-            style="flex:1;min-width:0;padding:6px 4px;border:2px solid ${selected===lv.val?lv.color:'var(--border)'};
-            border-radius:8px;background:${selected===lv.val?lv.color+'22':'white'};
-            color:${selected===lv.val?lv.color:'var(--ink-muted)'};
-            font-size:10px;font-weight:${selected===lv.val?'800':'600'};cursor:pointer;
-            font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;transition:all 0.15s;line-height:1.3;text-align:center">
-            ${lv.label}
-          </button>`).join('')}
-      </div>
-    </div>`;
-  });
-  if (currentDim) html += '</div>';
-  container.innerHTML = html;
-}
-
-function selectWheelAnswer(prefix, qid, val) {
-  // Visual update (common for all prefixes)
-  WHEEL_Q_LEVELS.forEach(lv => {
-    const btn = document.getElementById(`${prefix}_wq_${qid}_${lv.val}`);
-    if (!btn) return;
-    const isSelected = lv.val === val;
-    btn.style.borderColor = isSelected ? lv.color : 'var(--border)';
-    btn.style.background   = isSelected ? lv.color+'22' : 'white';
-    btn.style.color        = isSelected ? lv.color : 'var(--ink-muted)';
-    btn.style.fontWeight   = isSelected ? '800' : '600';
-  });
-
-  // ── Milestone prefix ─────────────────────────────
-  if (prefix.startsWith('ms_')) {
-    const id = prefix.replace('ms_','');
-    const ms = msData.find(m => m.id === id);
-    if (!ms) return;
-    if (!ms.wheelAnswers) ms.wheelAnswers = {};
-    ms.wheelAnswers[qid] = val;
-    const scores = calcWheelScore(ms.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { ms['rw_'+d.id] = scores[d.id]; });
-    save(MS_KEY, msData);
-    if (typeof updateMSWheel === 'function') updateMSWheel();
-    if (typeof renderMSCompareSummary === 'function') renderMSCompareSummary();
-    return;
-  }
-
-  if (prefix === 'sp') {
-    if (!spData.wheelAnswers) spData.wheelAnswers = {};
-    spData.wheelAnswers[qid] = val;
-    const scores = calcWheelScore(spData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { spData['w_'+d.id] = scores[d.id]; });
-    save(SP_KEY, spData);
-    updateSPWheel();
-    // Update answered count label
-    renderWheelAnsweredCount('sp');
-  } else {
-    if (!r3mData.wheelAnswers) r3mData.wheelAnswers = {};
-    r3mData.wheelAnswers[qid] = val;
-    const scores = calcWheelScore(r3mData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { r3mData['rw_'+d.id] = scores[d.id]; });
-    save(R3M_KEY, r3mData);
-    updateR3MWheel();
-    renderWheelAnsweredCount('r3m');
-    renderR3MCompareSummary();
-  }
-}
-
-function renderWheelAnsweredCount(prefix) {
-  WHEEL_DIMS.forEach(dim => {
-    const qs = WHEEL_QUESTIONS.filter(q => q.dim === dim.id);
-    const answers = prefix === 'sp' ? (spData.wheelAnswers||{}) : (r3mData.wheelAnswers||{});
-    const answered = qs.filter(q => answers[q.id]).length;
-    // Find the count label inside the dim header
-    const dimIdx = WHEEL_DIMS.findIndex(d => d.id === dim.id);
-  });
-}
 
 const MEMBER_COLORS = ['#5b8a6e','#c9a84c','#c0606a','#4a7fa8','#7c5cbf','#d4872a'];
 
@@ -3009,21 +2768,7 @@ function save(key, obj) {
   }
 }
 
-// ══════════════════════════════════════
 // SUBSCRIPTION EXPIRY
-// ══════════════════════════════════════
-function renderExpiryBadge(approvedAt, showDate) {
-  if (!approvedAt) return '';
-  const expiry = new Date(new Date(approvedAt).getTime() + 365*24*60*60*1000);
-  const daysLeft = Math.ceil((expiry - Date.now()) / (24*60*60*1000));
-  const expiryStr = expiry.toLocaleDateString('vi', {day:'2-digit',month:'2-digit',year:'numeric'});
-  const color = daysLeft <= 0 ? 'var(--rose)' : daysLeft <= 30 ? '#c9a84c' : 'var(--jade)';
-  const label = daysLeft <= 0 ? 'Da het han' : ('Con ' + daysLeft + ' ngay');
-  if (showDate) {
-    return '<br>&#128197; Het han: <strong style="color:' + color + '">' + expiryStr + ' (' + label + ')</strong>';
-  }
-  return '<br>&#128197; Het han: <strong style="color:' + color + '">' + label + '</strong>';
-}
 
 function isExpired() {
   if (!userInfo || userInfo.isAdmin) return false;
@@ -3233,15 +2978,108 @@ function formatDate(d) {
   const days=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
   return `${days[d.getDay()]}, ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
 }
+// ══ CƠ CHẾ HỖ TRỢ — Hiện banner khi NL thấp liên tục hoặc điền hạt giống đỏ ══
+
+function getReferrerName() {
+  if (userInfo && userInfo.referrer) return Promise.resolve(userInfo.referrer);
+  if (!db || !userInfo || !userInfo.memberId) return Promise.resolve('');
+  return db.ref('members/' + userInfo.memberId + '/referrer').once('value')
+    .then(function(snap) {
+      var ref = snap.val() || '';
+      if (ref && userInfo) userInfo.referrer = ref;
+      return ref;
+    })
+    .catch(function() { return ''; });
+}
+
+async function checkCrisisAndShowBanner(trigger) {
+  var todayK = todayKey();
+  var shownKey = 'crisis-shown-' + todayK;
+  if (localStorage.getItem(shownKey)) return;
+
+  var shouldShow = false;
+
+  if (trigger === 'energy') {
+    var overallVal = +(document.getElementById('overall-energy') && document.getElementById('overall-energy').value || 5);
+    if (overallVal <= 2) shouldShow = true;
+    if (!shouldShow) {
+      var nnVals = NN_LIST.map(function(nn) {
+        var el = document.getElementById('nne-' + nn.key);
+        return el ? +el.value : 5;
+      });
+      if (nnVals.filter(function(v) { return v <= 2; }).length >= 2) shouldShow = true;
+    }
+    if (!shouldShow) {
+      var keys = Object.keys(data).sort().reverse().slice(0, 3);
+      var lowDays = keys.filter(function(k) {
+        var e = data[k];
+        return e && e.energy && e.energy <= 3;
+      });
+      if (lowDays.length >= 2) shouldShow = true;
+    }
+  }
+
+  if (trigger === 'seed') {
+    var seedRedEl = document.getElementById('seed-red');
+    var seedRed = seedRedEl ? seedRedEl.value.trim() : '';
+    if (seedRed.length >= 10) shouldShow = true;
+  }
+
+  if (!shouldShow) return;
+
+  var referrerName = await getReferrerName();
+  var referrerPart = referrerName
+    ? '<strong>' + referrerName + '</strong> (người gieo duyên của bạn) và '
+    : '';
+
+  var existing = document.getElementById('crisis-support-banner');
+  if (existing) existing.remove();
+
+  var banner = document.createElement('div');
+  banner.id = 'crisis-support-banner';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;z-index:9990;' +
+    'background:linear-gradient(135deg,#2d5a4e,#1a3a30);' +
+    'border:1.5px solid rgba(74,140,111,0.5);border-radius:16px;padding:14px 16px;' +
+    'box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;align-items:flex-start;gap:12px;' +
+    'animation:slideUpFade 0.4s ease';
+
+  var closeBtn = '<button onclick="(function(){' +
+    'var b=document.getElementById(\'crisis-support-banner\');if(b)b.remove();' +
+    'localStorage.setItem(\'crisis-shown-' + todayK + '\',\'1\');' +
+    '})()" style="border:none;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);' +
+    'width:26px;height:26px;border-radius:50%;font-size:13px;cursor:pointer;' +
+    'flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700">✕</button>';
+
+  banner.innerHTML =
+    '<div style="font-size:22px;flex-shrink:0;margin-top:1px">💚</div>' +
+    '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:800;color:#a8d8c0;margin-bottom:5px;line-height:1.4">' +
+        'Bạn đang trải qua giai đoạn thử thách.' +
+      '</div>' +
+      '<div style="font-size:12.5px;color:rgba(255,255,255,0.85);line-height:1.6">' +
+        referrerPart + 'team <strong style="color:#a8d8c0">Gieo Mầm Hạnh Phúc</strong>' +
+        ' luôn ở đây — hãy chia sẻ để giải phóng nhé 💗' +
+      '</div>' +
+    '</div>' +
+    closeBtn;
+
+  document.body.appendChild(banner);
+  localStorage.setItem(shownKey, '1');
+
+  setTimeout(function() {
+    var b = document.getElementById('crisis-support-banner');
+    if (b) { b.style.opacity = '0'; b.style.transition = 'opacity 0.5s'; setTimeout(function(){ if(b) b.remove(); }, 500); }
+  }, 12000);
+}
+
+
 function showToast(msg='✓ Đã lưu!') {
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 
-// ══════════════════════════════════════
 // REGISTER & LOGIN
-// ══════════════════════════════════════
 function showLoginStep() {
   document.getElementById('step-register').style.display='none';
   document.getElementById('step-pending').style.display='none';
@@ -3264,7 +3102,6 @@ function showPendingStep(name, groupCode) {
     `;
   }
 }
-
 
 
 // ── Hiện/ẩn mật khẩu ──
@@ -3396,12 +3233,12 @@ async function doLogin() {
             }
             // Chỉ ghi đè isLeader từ Firebase nếu Firebase nói true,
             // hoặc nếu không có /leaders/ path nào confirm
-            const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
+            const lSnap = await database.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId).once('value');
             userInfo.isLeader = mData.isLeader === true || lSnap.val() !== null;
           } else {
             // Không tìm thấy member trong DB → check /leaders/ path trực tiếp
             if (userInfo.groupCode && userInfo.memberId) {
-              const lSnap = await database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value');
+              const lSnap = await database.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId).once('value');
               if (lSnap.val()) userInfo.isLeader = true;
             }
           }
@@ -3420,7 +3257,7 @@ async function doLogin() {
         // Cũng check /leaders/ path
         let isApprovedLeader = member.isLeader || false;
         if (!isApprovedLeader) {
-          const lSnap = await database.ref('leaders/' + (member.groupCode||mapping.groupCode) + '/' + mapping.memberId).once('value');
+          const lSnap = await database.ref('leaders/' + fbKey(member.groupCode||mapping.groupCode) + '/' + mapping.memberId).once('value');
           if (lSnap.val()) isApprovedLeader = true;
         }
         userInfo = {
@@ -3799,18 +3636,14 @@ function bootApp() {
   setTimeout(initFirebaseBackground, 500);
 }
 
-// ══════════════════════════════════════
 // NAV
-// ══════════════════════════════════════
 let chartInstances = {};
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
 
 
-// ══════════════════════════════════════
 // DATE BARS
-// ══════════════════════════════════════
 function setDateBars() {
   const d=new Date(), str=formatDate(d);
   const keys=Object.keys(data).sort();
@@ -3825,9 +3658,7 @@ function setDateBars() {
   document.getElementById('start-date').textContent=str;
 }
 
-// ══════════════════════════════════════
 // RITUALS
-// ══════════════════════════════════════
 function renderRituals() {
   const entry=getTodayEntry();
   document.getElementById('ritual-list').innerHTML=RITUALS.map(r=>`
@@ -3865,9 +3696,7 @@ function updateRitualProgress() {
   document.getElementById('ritual-count-txt').textContent=`${done} / 9 nghi thức`;
 }
 
-// ══════════════════════════════════════
 // SLIDERS
-// ══════════════════════════════════════
 function updateSlider(inputId,thumbId,valId) {
   const inp=document.getElementById(inputId);
   if(!inp) return;
@@ -3904,9 +3733,7 @@ function renderNNEnergySliders() {
   }).join('');
 }
 
-// ══════════════════════════════════════
 // SAVE FUNCTIONS
-// ══════════════════════════════════════
 function saveToday() {
   if (checkExpiredAndAlert()) return;
   const e=getTodayEntry();
@@ -3924,6 +3751,8 @@ function saveToday() {
   e.savedToday=true;
   save(STORAGE_KEY,data);
   showToast('💾 Đã lưu nhật ký hôm nay!');
+  // Kiểm tra hỗ trợ khi có hạt giống đỏ
+  setTimeout(function(){ checkCrisisAndShowBanner('seed'); }, 800);
   // Sync to Firebase for leader view
   setTimeout(syncJournalToFirebase, 300);
 }
@@ -3964,6 +3793,8 @@ function saveEnergy() {
   e.savedEnergy=true;
   save(STORAGE_KEY,data);
   showToast('⚡ Đã lưu năng lượng!');
+  // Kiểm tra hỗ trợ khi NL thấp
+  setTimeout(function(){ checkCrisisAndShowBanner('energy'); }, 600);
   // Auto-sync team sau 2 giây
   clearTimeout(_autoSyncTimer);
   _autoSyncTimer = setTimeout(autoSyncMyTeamStats, 2000);
@@ -4225,9 +4056,7 @@ function loadTodayFields() {
   }
 }
 
-// ══════════════════════════════════════
 // FIREBASE — lazy load sau khi app khởi động
-// ══════════════════════════════════════
 let db = null;
 let auth = null;
 const firebaseConfig = {
@@ -4277,10 +4106,8 @@ function loadFirebase() {
   });
 }
 
-// ══════════════════════════════════════
 // CROSS-DEVICE SYNC — lưu & khôi phục toàn bộ dữ liệu qua Firebase
 // Path: /users/{memberId}/journal  (chứa daily + sp + kz + r3m + ms)
-// ══════════════════════════════════════
 const SYNC_TS_KEY = 'nk5nn-sync-ts';
 
 function setSyncStatus(icon, msg, color) {
@@ -4438,29 +4265,6 @@ async function initFirebaseBackground() {
 }
 
 // Kiểm tra auth state Firebase khi app load (auto-login nếu còn session)
-async function checkFirebaseAuthState() {
-  const database = await loadFirebase();
-  if (!auth) return false;
-
-  return new Promise(resolve => {
-    // Timeout 3s nếu Firebase không phản hồi
-    const timer = setTimeout(() => resolve(false), 3000);
-    auth.onAuthStateChanged(user => {
-      clearTimeout(timer);
-      if (user) {
-        console.log('Firebase Auth: còn session của', user.email);
-        // Cập nhật firebaseUid vào userInfo nếu chưa có
-        if (userInfo && !userInfo.firebaseUid) {
-          userInfo.firebaseUid = user.uid;
-          save(USER_KEY, userInfo);
-        }
-        resolve(true);
-      } else {
-        resolve(false);
-      }
-    });
-  });
-}
 
 // Đẩy dữ liệu lên Firebase
 async function pushLocalToFirebase() {
@@ -4834,20 +4638,15 @@ function scheduleSyncPush(key) {
   }, 3000);
 }
 
-// ══════════════════════════════════════
 // TEAM — FIREBASE REALTIME SYNC
-// ══════════════════════════════════════
 // Firebase path: /groups/{groupCode}/{memberId}
 // Contains: { name, date, rituals, nn:[5x], ts }
 // Personal journal stays in localStorage only — never sent to Firebase.
 
 let teamListener = null; // Firebase listener ref for cleanup
 
-function fbGroupRef() {
-  return db ? db.ref('groups/' + userInfo.groupCode) : null;
-}
 function fbMemberRef() {
-  return db ? db.ref('groups/' + userInfo.groupCode + '/' + userInfo.memberId) : null;
+  return db ? db.ref('groups/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId) : null;
 }
 
 
@@ -4878,17 +4677,6 @@ async function autoSyncMyTeamStats() {
 }
 
 
-
-// Save my stats to localStorage cache (for slider reload)
-function getMyLocalStats() {
-  const k = todayKey();
-  try {
-    const raw = localStorage.getItem('my-team-stats-' + userInfo.memberId);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    return obj?.date === k ? obj : null;
-  } catch(e) { return null; }
-}
 
 async function saveMyTeamStats() {
   const k = todayKey();
@@ -4934,7 +4722,7 @@ function renderTeam() {
     try {
       const [membersSnap, groupsSnap] = await Promise.all([
         db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
-        db.ref('groups/' + userInfo.groupCode).once('value')
+        db.ref('groups/' + fbKey(userInfo.groupCode)).once('value')
       ]);
       const membersData = membersSnap.val() || {};
       const allStats    = groupsSnap.val()  || {};
@@ -5050,7 +4838,7 @@ function renderTeam() {
       renderTeamCharts(allStats);
 
       if (teamListener) { teamListener.off(); teamListener = null; }
-      teamListener = db.ref('groups/' + userInfo.groupCode);
+      teamListener = db.ref('groups/' + fbKey(userInfo.groupCode));
       teamListener.on('value', function(snap) { renderTeamCharts(snap.val() || {}); });
 
     } catch(err) {
@@ -5112,7 +4900,6 @@ function renderTeamCharts(allStats={}) {
 }
 
 // DASHBOARD
-// ══════════════════════════════════════
 function renderDashboard() {
   const keys=Object.keys(data).sort();
   const total=keys.length;
@@ -5234,9 +5021,7 @@ function renderDashboard() {
   loadWeeklyRate();
 }
 
-// ══════════════════════════════════════
 // KAIZEN
-// ══════════════════════════════════════
 let weeklyRate=0;
 function setWeeklyRate(n) {
   weeklyRate=n;
@@ -5290,9 +5075,7 @@ function renderKaizenHistory() {
       </div>`).join('');
 }
 
-// ══════════════════════════════════════
 // HISTORY
-// ══════════════════════════════════════
 function renderHistory() {
   const list = document.getElementById('history-list');
   const search = (document.getElementById('history-search')?.value||'').toLowerCase();
@@ -5512,13 +5295,6 @@ function initStartPage() {
     }).join('');
   }
 
-  // Render wheel questionnaire
-  renderWheelQuestions('sp-wheel-questions', 'sp', spData.wheelAnswers || {});
-  // If answers exist, recalc scores
-  if (spData.wheelAnswers && Object.keys(spData.wheelAnswers).length > 0) {
-    const scores = calcWheelScore(spData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { spData['w_'+d.id] = scores[d.id]; });
-  }
 
   // Set text fields
   const setF=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
@@ -5562,25 +5338,6 @@ function updateSPRadar() {
   });
 }
 
-function updateSPWheel() {
-  const real = WHEEL_DIMS.map(w => spData['w_'+w.id] || 5);
-  destroyChart('sp-wheel-chart');
-  const ctx=document.getElementById('sp-wheel-chart');
-  if(!ctx) return;
-  chartInstances['sp-wheel-chart']=new Chart(ctx,{
-    type:'radar',
-    data:{
-      labels:WHEEL_DIMS.map(w=>w.label),
-      datasets:[
-        {label:'Điểm xuất phát',data:real,backgroundColor:'rgba(74,140,111,0.2)',borderColor:'rgba(74,140,111,0.85)',
-         pointBackgroundColor:WHEEL_DIMS.map(w=>w.color),pointRadius:5,borderWidth:2},
-      ]
-    },
-    options:{responsive:true,maintainAspectRatio:false,
-      scales:{r:{min:0,max:10,ticks:{stepSize:2,font:{size:10}}}},
-      plugins:{legend:{display:false}}}
-  });
-}
 
 function saveStartingPoint() {
   if (checkExpiredAndAlert()) return;
@@ -5703,9 +5460,7 @@ function importData() {
   input.click();
 }
 
-// ══════════════════════════════════════
 // PRAYER TOGGLE
-// ══════════════════════════════════════
 let prayerExpanded = true;
 function togglePrayer() {
   prayerExpanded = !prayerExpanded;
@@ -5720,12 +5475,9 @@ function togglePrayer() {
   }
 }
 
-// ══════════════════════════════════════
 // KHÁM NHÀ — Bộ câu hỏi khách quan
-// ══════════════════════════════════════
 const KHAM_NHA_QUESTIONS = [
 
-  // ══════ NN1 — CỘI NGUỒN · NỘI LỰC & BÌNH AN ══════
   // Lỗ thủng: Không làm chủ cuộc đời
   { id:'kn_nn1_1', nn:1, grp:'NN1 · Lỗ Thủng: Không Làm Chủ Cuộc Đời',
     label:'Bạn có hay để người khác quyết định thay mình — kể cả trong những việc quan trọng của bản thân?' },
@@ -5752,7 +5504,6 @@ const KHAM_NHA_QUESTIONS = [
   { id:'kn_nn1_10', nn:1, grp:'',
     label:'Bạn có bị cuốn vào việc chạy theo tiền bạc, địa vị hay được công nhận — nhưng đạt được rồi vẫn thấy trống rỗng?' },
 
-  // ══════ NN2 — CHA MẸ & DÒNG PHƯỚC LÀNH ══════
   // Lỗ thủng 1: Chưa hiểu biết và yêu thương cha mẹ
   { id:'kn_nn2_1', nn:2, grp:'NN2 · Lỗ Thủng 1: Chưa Hiểu Biết & Yêu Thương Cha Mẹ',
     label:'Bạn có hay gặp khó khăn khi muốn nói "con yêu ba/mẹ" hoặc "cảm ơn ba/mẹ" một cách thật lòng?' },
@@ -5795,7 +5546,6 @@ const KHAM_NHA_QUESTIONS = [
   { id:'kn_nn2_17', nn:2, grp:'',
     label:'Bạn có hay xảy ra tranh cãi, bất đồng với cha mẹ mà cả hai không thể tìm được tiếng nói chung?' },
 
-  // ══════ NN3 — GIA ĐÌNH, VỢ CHỒNG ══════
   // Lỗ thủng 1: Mất kết nối tâm hồn
   { id:'kn_nn3_1', nn:3, grp:'NN3 · Lỗ Thủng 1: Mất Kết Nối Tâm Hồn Với Vợ/Chồng',
     label:'Bạn có cảm thấy khó chia sẻ những cảm xúc thật sự, sâu sắc nhất của mình với vợ/chồng?' },
@@ -5834,7 +5584,6 @@ const KHAM_NHA_QUESTIONS = [
   { id:'kn_nn3_15', nn:3, grp:'',
     label:'Bạn có ít khi chủ động nói lời cảm ơn, khen ngợi hoặc thể hiện sự trân trọng với vợ/chồng?' },
 
-  // ══════ NN4 — HỒN THIÊNG SÔNG NÚI ══════
   // Lỗ thủng 1: Thờ ơ – vô ơn với cội nguồn đất nước
   { id:'kn_nn4_1', nn:4, grp:'NN4 · Lỗ Thủng 1: Thờ Ơ & Vô Ơn Với Cội Nguồn Đất Nước',
     label:'Bạn có hiếm khi nghĩ đến những hi sinh của thế hệ trước để mình được sống bình yên và tự do như hôm nay?' },
@@ -5855,7 +5604,6 @@ const KHAM_NHA_QUESTIONS = [
   { id:'kn_nn4_8', nn:4, grp:'',
     label:'Bạn có nhận thấy mình đang nhận từ xã hội nhiều hơn là cho đi — và chưa thực sự suy nghĩ về điều đó?' },
 
-  // ══════ NN5 — MẸ TRÁI ĐẤT & VŨ TRỤ ══════
   // Lỗ thủng 1: Bản ngã lớn – quên nguồn cội nuôi dưỡng
   { id:'kn_nn5_1', nn:5, grp:'NN5 · Lỗ Thủng 1: Bản Ngã Lớn – Quên Nguồn Cội Nuôi Dưỡng',
     label:'Bạn có hay nghĩ rằng mọi thành quả mình có đều hoàn toàn do bản thân tạo ra, không cần đến sự trợ giúp từ ai hay điều gì?' },
@@ -6068,15 +5816,11 @@ function calcKhamNhaScore(answers) {
   return scores; // 1-10 (10=tốt nhất, 1=cần cải thiện nhiều)
 }
 
-// ══════════════════════════════════════
 // 3-MONTH RESULT DATA
-// ══════════════════════════════════════
 const R3M_KEY = 'nk5nn-r3m';
 let r3mData = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
 
-// ══════════════════════════════════════
 // MILESTONES SYSTEM — đánh giá liên tục
-// ══════════════════════════════════════
 const MS_KEY = 'nk5nn-milestones';
 let msData = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
 
@@ -6091,7 +5835,7 @@ function createMilestone() {
   if (!name) { showToast('⚠️ Vui lòng đặt tên mốc!'); return; }
   const note = document.getElementById('new-milestone-note').value.trim();
   const id = 'ms_' + Date.now();
-  const ms = { id, name, note, createdAt: formatDate(new Date()), khamNha:{}, wheelAnswers:{}, savedAt:null };
+  const ms = { id, name, note, createdAt: formatDate(new Date()), khamNha:{}, savedAt:null };
   msData.unshift(ms);
   save(MS_KEY, msData);
   document.getElementById('new-milestone-name').value = '';
@@ -6116,7 +5860,6 @@ function renderMilestoneList() {
     const totalSP = NN_LIST.map(nn=>spData[nn.key]||5).reduce((a,b)=>a+b,0);
     const diff = totalMS - totalSP;
     const answeredKN = Object.keys(ms.khamNha||{}).length;
-    const answeredW = Object.keys(ms.wheelAnswers||{}).length;
     return `<div style="padding:14px;background:rgba(245,237,224,0.4);border-radius:12px;border:1px solid var(--border);margin-bottom:10px;cursor:pointer"
         onclick="openMilestoneDetail('${ms.id}')"
         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-lg)'"
@@ -6228,9 +5971,6 @@ function openMilestoneDetail(id) {
 function getCurrentMS() { return msData.find(m => m.id === currentMsId); }
 
 
-
-
-
 function updateMSRadar() {
   const ms = getCurrentMS(); if (!ms) return;
   const vals = NN_LIST.map(nn => ms[nn.key]||5);
@@ -6260,25 +6000,6 @@ function updateMSRadar() {
   });
 }
 
-function updateMSWheel() {
-  const ms = getCurrentMS(); if (!ms) return;
-  const vals = WHEEL_DIMS.map(w => ms['rw_'+w.id]||5);
-  const spVals = WHEEL_DIMS.map(w => spData['w_'+w.id]||5);
-  destroyChart('ms-wheel-chart');
-  const ctx = document.getElementById('ms-wheel-chart');
-  if (!ctx) return;
-  chartInstances['ms-wheel-chart'] = new Chart(ctx, {
-    type:'radar',
-    data:{ labels:WHEEL_DIMS.map(w=>w.label),
-      datasets:[
-        { label:'Mốc này', data:vals, backgroundColor:'rgba(201,168,76,0.18)', borderColor:'rgba(201,168,76,0.85)', pointBackgroundColor:WHEEL_DIMS.map(w=>w.color), pointRadius:5, borderWidth:2 },
-        { label:'Xuất phát', data:spVals, backgroundColor:'rgba(91,138,110,0.08)', borderColor:'rgba(91,138,110,0.6)', borderDash:[5,3], pointRadius:3, borderWidth:1.5 }
-      ] },
-    options:{ responsive:true, maintainAspectRatio:false,
-      scales:{r:{min:0,max:10,ticks:{stepSize:2,font:{size:10}}}},
-      plugins:{legend:{position:'top',labels:{boxWidth:12,padding:8,font:{size:11}}}} }
-  });
-}
 
 function renderMSCompareSummary() {
   const ms = getCurrentMS();
@@ -6349,11 +6070,6 @@ function saveMilestone() {
   if (ms.khamNha && Object.keys(ms.khamNha).length > 0) {
     const scores = calcKhamNhaScore(ms.khamNha);
     NN_LIST.forEach((nn,i) => { ms[nn.key] = scores[i+1]||5; });
-  }
-  // Wheel from answers
-  if (ms.wheelAnswers && Object.keys(ms.wheelAnswers).length > 0) {
-    const wScores = calcWheelScore(ms.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { ms['rw_'+d.id] = wScores[d.id]; });
   }
   ms.finScore = +(document.getElementById('ms-fin-score')?.value||5);
   ms.energy   = +(document.getElementById('ms-energy')?.value||5);
@@ -6527,35 +6243,6 @@ function renderR3MCompareSummary() {
   const totalDiff = totalR3m - totalSP;
 
   // Bánh xe cuộc đời so sánh
-  const wheelRows = WHEEL_DIMS.map(w => {
-    const sp  = spData['w_'+w.id] || 5;
-    const r3m = r3mData['rw_'+w.id] || 5;
-    const diff = r3m - sp;
-    const barSP  = Math.round(sp/10*100);
-    const barR3m = Math.round(r3m/10*100);
-    return `<div style="margin-bottom:10px;padding:10px 12px;background:rgba(245,237,224,0.3);border-radius:10px;border:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-weight:700;font-size:12.5px;color:${w.color}">${w.label}</div>
-        <div style="font-size:12px;font-weight:800;color:${diff>0?'var(--jade)':diff<0?'var(--rose)':'var(--ink-muted)'}">
-          ${diff>0?'🟢 +'+diff:diff<0?'🔴 '+diff:'➡️ ±0'}
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:60px 1fr 32px;gap:5px;align-items:center;margin-bottom:4px">
-        <div style="font-size:10.5px;color:var(--ink-muted);font-weight:700">Xuất phát</div>
-        <div style="background:rgba(201,168,76,0.12);border-radius:3px;height:8px;overflow:hidden">
-          <div style="height:100%;width:${barSP}%;background:rgba(201,168,76,0.55);border-radius:3px"></div>
-        </div>
-        <div style="font-size:12px;font-weight:800;color:var(--gold-dark);text-align:right">${sp}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:60px 1fr 32px;gap:5px;align-items:center">
-        <div style="font-size:10.5px;color:var(--jade);font-weight:700">3 tháng</div>
-        <div style="background:rgba(91,138,110,0.12);border-radius:3px;height:8px;overflow:hidden">
-          <div style="height:100%;width:${barR3m}%;background:${diff>=0?'rgba(91,138,110,0.65)':'rgba(192,96,106,0.55)'};border-radius:3px"></div>
-        </div>
-        <div style="font-size:12px;font-weight:800;color:${diff>=0?'var(--jade)':'var(--rose)'};text-align:right">${r3m}</div>
-      </div>
-    </div>`;
-  }).join('');
 
   // Tài chính & Năng lượng so sánh
   const finSP  = spData.finScore  || 5;
@@ -6681,28 +6368,6 @@ function updateR3MRadar() {
   }
 }
 
-function updateR3MWheel() {
-  const vals = WHEEL_DIMS.map(w => r3mData['rw_'+w.id] || 5);
-  const spVals = WHEEL_DIMS.map(w => spData['w_'+w.id] || 5);
-  destroyChart('r3m-wheel-chart');
-  const ctx = document.getElementById('r3m-wheel-chart');
-  if (!ctx) return;
-  chartInstances['r3m-wheel-chart'] = new Chart(ctx, {
-    type:'radar',
-    data:{ labels:WHEEL_DIMS.map(w=>w.label),
-      datasets:[
-        { label:'Sau 3 tháng', data:vals,
-          backgroundColor:'rgba(201,168,76,0.18)', borderColor:'rgba(201,168,76,0.85)',
-          pointBackgroundColor:WHEEL_DIMS.map(w=>w.color), pointRadius:5, borderWidth:2 },
-        { label:'Điểm xuất phát', data:spVals,
-          backgroundColor:'rgba(91,138,110,0.08)', borderColor:'rgba(91,138,110,0.6)',
-          borderDash:[5,3], pointRadius:3, borderWidth:1.5 }
-      ] },
-    options:{ responsive:true, maintainAspectRatio:false,
-      scales:{ r:{ min:0, max:10, ticks:{ stepSize:2, font:{size:10} } } },
-      plugins:{ legend:{ position:'top', labels:{ boxWidth:12, padding:8, font:{size:11} } } } }
-  });
-}
 
 function saveResult3m() {
   if (checkExpiredAndAlert()) return;
@@ -6710,11 +6375,6 @@ function saveResult3m() {
   if (r3mData.khamNha && Object.keys(r3mData.khamNha).length > 0) {
     const scores = calcKhamNhaScore(r3mData.khamNha);
     NN_LIST.forEach((nn, i) => { r3mData[nn.key] = scores[i+1] || 5; });
-  }
-  // Wheel scores từ câu hỏi
-  if (r3mData.wheelAnswers && Object.keys(r3mData.wheelAnswers).length > 0) {
-    const wScores = calcWheelScore(r3mData.wheelAnswers);
-    WHEEL_DIMS.forEach(d => { r3mData['rw_'+d.id] = wScores[d.id]; });
   }
   r3mData.finScore=+(document.getElementById('r3m-fin-score')?.value||5);
   r3mData.energy=+(document.getElementById('r3m-energy')?.value||5);
@@ -6732,9 +6392,7 @@ function saveResult3m() {
 }
 
 
-// ══════════════════════════════════════
 // 4 VIỆC QUAN TRỌNG — layout mới
-// ══════════════════════════════════════
 const DEFAULT_TASKS = 4;
 
 // Cấu trúc tasks: { main:[4], reject:[3], delegate:[3], outsource:[2], automate:[2], extra:[] }
@@ -6902,7 +6560,6 @@ function saveTaskText(idx, text) { saveTaskSection('main', idx, text); }
 function removeTask(idx) { removeExtraTask(idx - DEFAULT_TASKS); }
 
 
-
 function autoResizeTextarea(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -6910,9 +6567,7 @@ function autoResizeTextarea(el) {
 
 // (duplicate toggleTask/saveTaskText/addExtraTask/removeTask removed — using versions above)
 
-// ══════════════════════════════════════
 // KAIZEN NGÀY
-// ══════════════════════════════════════
 function loadDailyKaizen() {
   const entry = getTodayEntry();
   const setF = (id,v) => { const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
@@ -6920,9 +6575,7 @@ function loadDailyKaizen() {
   setF('daily-improve', entry.dailyImprove);
 }
 
-// ══════════════════════════════════════
 // AUTOSAVE — lưu ngay khi người dùng gõ/thay đổi
-// ══════════════════════════════════════
 // Map: field id → entry key to save
 const AUTOSAVE_MAP = {
   'lesson-text':   { store:'daily', key:'lesson' },
@@ -7174,9 +6827,7 @@ function showAutosaveIndicator() {
 }
 
 
-// ══════════════════════════════════════
 // LEADER SYSTEM
-// ══════════════════════════════════════
 // Leader code = nhóm tự đặt, lưu vào Firebase /leaders/{groupCode}
 // Thành viên opt-in share: khi là leader, journal được sync lên Firebase
 
@@ -7237,7 +6888,6 @@ function isLeader() {
 }
 
 
-
 function initAdminPage() {
   // Nếu vào link ?admin → tự động admin, bỏ qua màn hình nhập mật khẩu
   const params = new URLSearchParams(window.location.search);
@@ -7281,7 +6931,7 @@ async function checkLeaderApproval() {
 
   try {
     const [leadersSnap, memberSnap] = await Promise.all([
-      database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value'),
+      database.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId).once('value'),
       database.ref('members/' + userInfo.memberId).once('value'),
     ]);
     const isApprovedAsLeader =
@@ -7306,7 +6956,7 @@ async function checkLeaderApproval() {
       setTimeout(async () => {
         try {
           const [ls2, ms2] = await Promise.all([
-            database.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).once('value'),
+            database.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId).once('value'),
             database.ref('members/' + userInfo.memberId).once('value'),
           ]);
           if (!ls2.val() && !ms2.val()?.isLeader) {
@@ -7361,7 +7011,7 @@ function startLeaderStatusListener() {
   _leaderStatusListener = memberRef;
   // Listener cho /leaders/{groupCode}/{memberId}
   if (userInfo.groupCode) {
-    db.ref('leaders/' + userInfo.groupCode + '/' + userInfo.memberId).on('value', snap => {
+    db.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId).on('value', snap => {
       if (snap.val() && !userInfo.isLeader) {
         userInfo.isLeader = true;
         save(USER_KEY, userInfo);
@@ -7521,17 +7171,9 @@ function showPage(name, btn) {
   if (name==='admin')       initAdminPage();
 }
 
-// ══════════════════════════════════════
 // MEMBER TEAM PAGE — dành cho trưởng nhóm
-// ══════════════════════════════════════
 let _memberTeamData = {}; // { memberId: { name, stats, entries } }
 
-function initMemberTeamPage() {
-  if (!isLeader()) { showPage('today', null); return; }
-  const groupNameEl = document.getElementById('member-team-group-name');
-  if (groupNameEl) groupNameEl.textContent = userInfo.groupCode;
-  loadMemberTeamData();
-}
 
 function loadMemberTeamData() {
   const list = document.getElementById('mt-member-list');
@@ -8325,7 +7967,6 @@ async function rejectLeaderMember(memberId) {
 }
 
 
-
 // ── Sửa tên nhóm (dành cho trưởng nhóm) ────────────────────────
 function openRenameGroup() {
   const currentName = userInfo.groupCode || '';
@@ -8793,7 +8434,7 @@ function syncJournalToFirebase() {
   const todayK = todayKey();
   const entry = data[todayK];
   if (!entry) return;
-  const basePath = 'journals/' + userInfo.groupCode + '/' + userInfo.memberId;
+  const basePath = 'journals/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId;
   db.ref(basePath + '/' + todayK)
     .set(_makeJournalEntry(entry))
     .catch(e => console.warn('Journal sync today failed:', e));
@@ -8808,7 +8449,7 @@ function syncJournalHistoryToFirebase(onDone) {
     const freshData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     Object.assign(data, freshData);
   } catch(e) {}
-  const basePath = 'journals/' + userInfo.groupCode + '/' + userInfo.memberId;
+  const basePath = 'journals/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId;
   const batch = {};
   const allKeys = Object.keys(data).sort().reverse().slice(0, 60); // tối đa 60 ngày
   let nnCount = 0;
@@ -8841,9 +8482,7 @@ function syncJournalHistoryToFirebase(onDone) {
 }
 
 
-// ══════════════════════════════════════
 // ADMIN SYSTEM
-// ══════════════════════════════════════
 const ADMIN_KEY = 'nk5nn-admin-auth';
 const ADMIN_PW_KEY = 'nk5nn-admin-pw';
 
@@ -9074,9 +8713,7 @@ async function loadAdminData() {
   }
 }
 
-// ══════════════════════════════════════
 // EXPIRY / GIA HẠN — tính hết hạn 1 năm từ approvedAt
-// ══════════════════════════════════════
 function getExpiryInfo(approvedAt) {
   if (!approvedAt) return { label: '–', color: 'var(--ink-muted)', daysLeft: null, expired: false };
   const start = new Date(approvedAt);
@@ -9661,9 +9298,7 @@ async function loadAdminStats() {
 }
 
 
-// ══════════════════════════════════════
 // INIT
-// ══════════════════════════════════════
 function init() {
   // Nếu vừa đăng xuất, chuyển sang màn đăng nhập thay vì đăng ký
   if (sessionStorage.getItem('nk_show_login') === '1') {
@@ -9699,9 +9334,7 @@ window.addEventListener('unhandledrejection', function(e) {
   }
 });
 
-// ══════════════════════════════════════
 // XOÁ THÀNH VIÊN (Admin & Trưởng nhóm)
-// ══════════════════════════════════════
 
 async function _deleteMemberFromFirebase(memberId, memberName, groupCode) {
   const database = await loadFirebase();
@@ -9772,19 +9405,6 @@ async function adminDeleteMember(memberId, memberName, groupCode) {
   }
 }
 
-
-async function adminRenewMember(memberId, memberName) {
-  const newApprovedAt = new Date().toISOString();
-  if (!confirm('Gia han tai khoan "' + memberName + '" them 1 nam tu hom nay?')) return;
-  const database = await loadFirebase();
-  if (!database) { showToast('Khong ket noi duoc Firebase'); return; }
-  try {
-    await database.ref('members/' + memberId).update({ approvedAt: newApprovedAt });
-    showToast('Da gia han cho ' + memberName);
-    loadAdminData();
-  } catch(e) { showToast('Loi: ' + e.message); }
-}
-
 // Hàm xoá dành cho TRƯỞNG NHÓM
 async function leaderDeleteMember(memberId, memberName) {
   if (!userInfo?.isLeader) { showToast('⚠️ Chỉ trưởng nhóm mới có quyền này'); return; }
@@ -9815,7 +9435,6 @@ async function leaderDeleteMember(memberId, memberName) {
 }
 
 
-// ══════ XOÁ NHÓM (Admin) ══════
 async function adminDeleteGroup(groupCode, memberCount) {
   // Encode groupCode để dùng làm Firebase path (loại bỏ ký tự đặc biệt)
   const safeKey = groupCode.replace(/[.#$\[\]/]/g, '_');
@@ -9884,9 +9503,7 @@ async function adminDeleteGroup(groupCode, memberCount) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════
 // HẠT GIỐNG ĐỎ — THEO DÕI XUYÊN SUỐT
-// ══════════════════════════════════════════════════════════════════
 
 function saveSeedsData() {
   localStorage.setItem(SEEDS_KEY, JSON.stringify(seedsData));
@@ -10609,23 +10226,6 @@ function deleteSeed(seedId) {
 
 // ── Thêm nhanh từ tab Hôm Nay ────────────────────────────────────
 // Gọi hàm này khi người dùng bấm nút "Theo dõi hạt giống này" ở trang Today
-function quickAddSeedFromToday(name, nn) {
-  if (!name || !name.trim()) { showToast('⚠️ Hãy nhập tên hạt giống trước!'); return; }
-  const seed = {
-    id:        'seed_' + Date.now(),
-    name:      name.trim(),
-    nn:        nn || '',
-    situation: '',
-    commit:    '',
-    createdAt: todayKey(),
-    status:    'active',
-    checkins:  [],
-    doneAt:    null,
-  };
-  seedsData.unshift(seed);
-  saveSeedsData();
-  showToast('🌱 Đã thêm "' + seed.name + '" vào danh sách theo dõi!');
-}
 
 // ── Kéo seeds từ cloud về (dùng khi local trống) ────────────────
 async function syncSeedsFromCloud() {
@@ -10675,9 +10275,7 @@ async function syncSeedsFromCloud() {
   }
 }
 
-// ══════════════════════════════════════════════════════
 // DEBUG & RECOVERY TOOLS
-// ══════════════════════════════════════════════════════
 function _showDebug(html) {
   const el = document.getElementById('debug-result');
   if (el) { el.style.display = 'block'; el.innerHTML = html; }
@@ -10800,7 +10398,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof pickSeedType === 'function') pickSeedType('behavior');
   }, 300);
 });
-
 
 
 </script>
