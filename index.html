@@ -4098,7 +4098,7 @@ function loadFirebase() {
       const s3 = document.createElement('script');
       s3.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js';
       s3.onload = () => { dbLoaded = true; tryInit(); };
-      s3.onerror = () => resolve(null);
+      s3.onerror = () => { dbLoaded = true; resolve(null); };
       document.head.appendChild(s3);
     };
     s1.onerror = () => resolve(null);
@@ -4405,6 +4405,7 @@ async function pullLocalFromFirebase() {
       }
     } catch(reloadErr) { console.warn('Reload vars failed:', reloadErr.message); }
   } catch(e) {
+    _lastSyncError = 'Pull failed: ' + e.message;
     console.warn('Pull failed:', e.message);
     setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');
   }
@@ -10238,10 +10239,9 @@ async function syncSeedsFromCloud() {
     const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
     const remoteSeedsArr = snap.val();
     if (!remoteSeedsArr || !Array.isArray(remoteSeedsArr) || remoteSeedsArr.length === 0) {
-      // Thử dạng object
-      const snapObj = snap.val();
-      if (snapObj && typeof snapObj === 'object') {
-        const arr = Object.values(snapObj);
+      // Thử dạng object (Firebase đôi khi trả về object thay vì array)
+      if (remoteSeedsArr && typeof remoteSeedsArr === 'object') {
+        const arr = Object.values(remoteSeedsArr);
         if (arr.length > 0) {
           arr.forEach(rSeed => {
             if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
