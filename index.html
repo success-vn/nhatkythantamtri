@@ -4759,8 +4759,11 @@ function renderTeam() {
 
       const allMembers = {};
       // Chỉ hiển thị thành viên đã được duyệt
-      Object.values(membersData).forEach(function(m) {
-        const mid = m.memberId; if (!mid) return;
+      // Dùng Object.entries để lấy key Firebase làm fallback memberId
+      // (thành viên cũ dùng tên+nhóm không có m.memberId field)
+      Object.entries(membersData).forEach(function([fbKey_, m]) {
+        const mid = m.memberId || fbKey_; // fallback về Firebase key
+        if (!mid) return;
         if (!isMemberApproved(m)) return; // bỏ qua pending
         const stat = allStats[mid] || {};
         allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5] };
@@ -8647,19 +8650,25 @@ async function loadAdminData() {
   }
 
   // ── Đảm bảo có auth session trước khi đọc Firebase ──
+  // Admin dùng email auth (isAdmin=true) — không signInAnonymously vì anonymous bị Rules chặn
   if (typeof auth !== 'undefined' && auth) {
     try {
       if (!auth.currentUser) {
+        // Chờ restore session từ persistence
         await new Promise(resolve => {
           const timer = setTimeout(resolve, 3000);
           const unsub = auth.onAuthStateChanged(user => { clearTimeout(timer); unsub(); resolve(user); });
         });
       }
+      // Nếu vẫn không có user và userInfo có email → thông báo cần đăng nhập lại
       if (!auth.currentUser) {
-        await auth.signInAnonymously().catch(() => {});
-        await new Promise(r => setTimeout(r, 1000));
+        const el = document.getElementById('admin-pending-list');
+        if (el) el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><p>Phiên đăng nhập hết hạn. Vui lòng đăng xuất và đăng nhập lại.</p></div>';
+        return;
       }
-    } catch(e) { console.warn('Auth wait:', e.message); }
+      // Refresh token để đảm bảo quyền admin còn hiệu lực
+      await auth.currentUser.getIdToken(true).catch(() => {});
+    } catch(e) { console.warn('Auth wait admin:', e.message); }
   }
 
   try {
