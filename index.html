@@ -4757,14 +4757,19 @@ function renderTeam() {
     }
     db = database;
     try {
-      const [membersSnap, groupsSnap, leadersSnap] = await Promise.all([
-        db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
-        db.ref('groups/' + fbKey(userInfo.groupCode)).once('value'),
-        db.ref('leaders/' + fbKey(userInfo.groupCode)).once('value')
+      const [membersSnap, groupsSnap] = await Promise.all([
+        db.ref('members').once('value'),
+        db.ref('groups/' + fbKey(userInfo.groupCode)).once('value')
       ]);
-      const membersData = membersSnap.val() || {};
-      const allStats    = groupsSnap.val()  || {};
-      const leadersData = leadersSnap.val() || {};
+      // Đọc toàn bộ /members rồi filter client-side theo groupCode
+      // (tránh dùng orderByChild vì cần .indexOn trong Firebase Rules,
+      //  gây trả về thiếu member với tài khoản thường/anonymous auth)
+      const membersAll  = membersSnap.val() || {};
+      const membersData = {};
+      Object.entries(membersAll).forEach(function([k, m]) {
+        if ((m.groupCode || '') === userInfo.groupCode) membersData[k] = m;
+      });
+      const allStats = groupsSnap.val() || {};
 
       const allMembers = {};
       // Chỉ hiển thị thành viên đã được duyệt
@@ -4776,13 +4781,6 @@ function renderTeam() {
         if (!isMemberApproved(m)) return; // bỏ qua pending
         const stat = allStats[mid] || {};
         allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5], isLeader:m.isLeader||false };
-      });
-      // Inject trưởng nhóm từ /leaders/ nếu chưa có trong danh sách
-      // (trưởng nhóm đôi khi không xuất hiện trong query /members theo groupCode)
-      Object.entries(leadersData).forEach(function([mid, lData]) {
-        if (!mid || allMembers[mid]) return; // đã có rồi thì bỏ qua
-        const stat = allStats[mid] || {};
-        allMembers[mid] = { name:lData.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5], isLeader:true };
       });
       // Chỉ thêm từ /groups/ nếu memberId đã tồn tại trong allMembers (đã được duyệt)
       // Không thêm mới từ /groups/ để tránh hiển thị member cũ/pending còn sót stats
@@ -4852,7 +4850,6 @@ function renderTeam() {
               '<div style="flex:1;min-width:0">'+
                 '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
                   '<span style="font-size:13.5px;font-weight:800;color:var(--ink)">'+m.name+(isMe?' <span style="font-size:10px;color:var(--jade)">(Tôi)</span>':'')+'</span>'+
-                  (m.isLeader?'<span style="background:rgba(201,168,76,0.15);color:var(--gold-dark);font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">👑 TN</span>':'')+
                   (isToday?'<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">Hôm nay ✓</span>':'<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:700;padding:1px 7px;border-radius:6px">'+(m.date||'Chưa có')+'</span>')+
                 '</div>'+
                 '<div style="font-size:11px;color:var(--ink-muted);margin-top:2px">'+rituals+'/9 nghi thức · NL TB: '+avgNN.toFixed(1)+'/10</div>'+
@@ -7243,8 +7240,13 @@ function loadMemberTeamData() {
     db = db_;
     try {
       // Chỉ load thông tin đăng ký từ /members/ — không load stats hay journal
-      const snap = await db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value');
-      const membersObj = snap.val() || {};
+      // Đọc toàn bộ rồi filter client-side — tránh orderByChild cần .indexOn
+      const snap = await db.ref('members').once('value');
+      const membersAll2 = snap.val() || {};
+      const membersObj = {};
+      Object.entries(membersAll2).forEach(([k, m]) => {
+        if ((m.groupCode || '') === userInfo.groupCode) membersObj[k] = m;
+      });
       _memberTeamData = {};
       Object.entries(membersObj).forEach(([mid, m]) => {
         // Chỉ hiển thị thành viên đã được duyệt — bỏ qua pending
@@ -8162,11 +8164,16 @@ function loadLeaderData() {
       const todayK = todayKey();
       try {
         const [membersSnap, groupSnap, uidMapSnap] = await Promise.all([
-          db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
+          db.ref('members').once('value'),
           db.ref('groups/' + fbKey(userInfo.groupCode)).once('value'),
           db.ref('uid_to_member').once('value')
         ]);
-        const membersData = membersSnap.val() || {};
+        // Filter theo groupCode phía client — tránh orderByChild cần .indexOn
+        const membersRaw = membersSnap.val() || {};
+        const membersData = {};
+        Object.entries(membersRaw).forEach(([k, m]) => {
+          if ((m.groupCode || '') === userInfo.groupCode) membersData[k] = m;
+        });
         const stats = groupSnap.val() || {};
         // Tạo map memberId → firebaseUid
         const memberToUid = {};
