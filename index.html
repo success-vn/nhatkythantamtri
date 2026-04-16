@@ -2241,6 +2241,10 @@ textarea { min-height: 80px; }
       <div class="date-label">Trưởng Nhóm</div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="date-value" id="leader-group-name"></div>
+        <button onclick="openRenameGroup()" title="Sửa tên nhóm"
+          style="border:none;background:rgba(201,168,76,0.15);color:var(--gold-dark);
+          border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;
+          font-family:'Nunito',sans-serif">✏️ Sửa</button>
       </div>
     </div>
     <div class="day-badge" style="background:linear-gradient(135deg,var(--gold),var(--gold-dark))">👑 Leader</div>
@@ -4753,12 +4757,14 @@ function renderTeam() {
     }
     db = database;
     try {
-      const [membersSnap, groupsSnap] = await Promise.all([
+      const [membersSnap, groupsSnap, leadersSnap] = await Promise.all([
         db.ref('members').orderByChild('groupCode').equalTo(userInfo.groupCode).once('value'),
-        db.ref('groups/' + fbKey(userInfo.groupCode)).once('value')
+        db.ref('groups/' + fbKey(userInfo.groupCode)).once('value'),
+        db.ref('leaders/' + fbKey(userInfo.groupCode)).once('value')
       ]);
       const membersData = membersSnap.val() || {};
       const allStats    = groupsSnap.val()  || {};
+      const leadersData = leadersSnap.val() || {};
 
       const allMembers = {};
       // Chỉ hiển thị thành viên đã được duyệt
@@ -4769,7 +4775,14 @@ function renderTeam() {
         if (!mid) return;
         if (!isMemberApproved(m)) return; // bỏ qua pending
         const stat = allStats[mid] || {};
-        allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5] };
+        allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5], isLeader:m.isLeader||false };
+      });
+      // Inject trưởng nhóm từ /leaders/ nếu chưa có trong danh sách
+      // (trưởng nhóm đôi khi không xuất hiện trong query /members theo groupCode)
+      Object.entries(leadersData).forEach(function([mid, lData]) {
+        if (!mid || allMembers[mid]) return; // đã có rồi thì bỏ qua
+        const stat = allStats[mid] || {};
+        allMembers[mid] = { name:lData.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5], isLeader:true };
       });
       // Chỉ thêm từ /groups/ nếu memberId đã tồn tại trong allMembers (đã được duyệt)
       // Không thêm mới từ /groups/ để tránh hiển thị member cũ/pending còn sót stats
@@ -4839,6 +4852,7 @@ function renderTeam() {
               '<div style="flex:1;min-width:0">'+
                 '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
                   '<span style="font-size:13.5px;font-weight:800;color:var(--ink)">'+m.name+(isMe?' <span style="font-size:10px;color:var(--jade)">(Tôi)</span>':'')+'</span>'+
+                  (m.isLeader?'<span style="background:rgba(201,168,76,0.15);color:var(--gold-dark);font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">👑 TN</span>':'')+
                   (isToday?'<span style="background:var(--jade-light);color:var(--jade);font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px">Hôm nay ✓</span>':'<span style="background:rgba(201,168,76,0.1);color:var(--gold-dark);font-size:10px;font-weight:700;padding:1px 7px;border-radius:6px">'+(m.date||'Chưa có')+'</span>')+
                 '</div>'+
                 '<div style="font-size:11px;color:var(--ink-muted);margin-top:2px">'+rituals+'/9 nghi thức · NL TB: '+avgNN.toFixed(1)+'/10</div>'+
@@ -8013,7 +8027,119 @@ async function rejectLeaderMember(memberId) {
 }
 
 
+// ── Sửa tên nhóm (dành cho trưởng nhóm) ────────────────────────
+function openRenameGroup() {
+  const currentName = userInfo.groupCode || '';
+  const modal = document.createElement('div');
+  modal.id = 'rename-group-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:20px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.35)">
+      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">✏️ Sửa tên nhóm</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:16px">Tên nhóm mới sẽ được cập nhật cho tất cả thành viên.</div>
+      <label style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--ink-muted);text-transform:uppercase;display:block;margin-bottom:6px">Tên nhóm mới</label>
+      <input type="text" id="rename-group-input" value="${currentName}"
+        style="width:100%;padding:11px 14px;border:2px solid rgba(201,168,76,0.4);border-radius:11px;
+        font-size:14px;font-weight:600;color:var(--ink);outline:none;font-family:'Nunito',sans-serif;
+        text-transform:uppercase;margin-bottom:16px"
+        oninput="this.value=this.value.toUpperCase()"
+        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='rgba(201,168,76,0.4)'">
+      <div id="rename-group-error" style="color:var(--rose);font-size:12px;font-weight:700;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('rename-group-modal').remove()"
+          style="flex:1;padding:11px;background:rgba(122,101,82,0.1);color:var(--ink-muted);border:1px solid var(--border);
+          border-radius:11px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Huỷ</button>
+        <button onclick="confirmRenameGroup('${currentName}')"
+          style="flex:2;padding:11px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;border:none;
+          border-radius:11px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✅ Xác nhận đổi tên</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => { const inp = document.getElementById('rename-group-input'); if(inp){inp.focus();inp.select();} }, 100);
+}
 
+async function confirmRenameGroup(oldGroupCode) {
+  const newName = (document.getElementById('rename-group-input')?.value || '').trim().toUpperCase();
+  const errEl = document.getElementById('rename-group-error');
+  if (!newName) { if(errEl){errEl.textContent='⚠️ Vui lòng nhập tên nhóm';errEl.style.display='block';} return; }
+  if (newName === oldGroupCode) { document.getElementById('rename-group-modal')?.remove(); return; }
+
+  const database = await loadFirebase();
+  if (!database) { showToast('⚠️ Không kết nối được Firebase'); return; }
+
+  try {
+    showToast('⏳ Đang đổi tên nhóm...');
+
+    // 1. Cập nhật groupCode của tất cả thành viên trong nhóm
+    const mSnap = await database.ref('members').orderByChild('groupCode').equalTo(oldGroupCode).once('value');
+    const memberUpdates = {};
+    mSnap.forEach(child => { memberUpdates['members/' + child.key + '/groupCode'] = newName; });
+    if (Object.keys(memberUpdates).length) await database.ref().update(memberUpdates);
+
+    // 2. Copy groups stats sang tên mới (thử cả raw key và fbKey)
+    const gRaw  = await database.ref('groups/' + oldGroupCode).once('value');
+    const gSafe = await database.ref('groups/' + fbKey(oldGroupCode)).once('value');
+    const gData = gRaw.val() || gSafe.val();
+    if (gData) {
+      await database.ref('groups/' + fbKey(newName)).set(gData);
+      await Promise.all([
+        database.ref('groups/' + oldGroupCode).remove().catch(()=>{}),
+        database.ref('groups/' + fbKey(oldGroupCode)).remove().catch(()=>{}),
+      ]);
+    }
+
+    // 3. Copy journals sang tên mới (thử cả raw key và fbKey)
+    const jRaw  = await database.ref('journals/' + oldGroupCode).once('value');
+    const jSafe = await database.ref('journals/' + fbKey(oldGroupCode)).once('value');
+    const jData = jRaw.val() || jSafe.val();
+    if (jData) {
+      await database.ref('journals/' + fbKey(newName)).set(jData);
+      await Promise.all([
+        database.ref('journals/' + oldGroupCode).remove().catch(()=>{}),
+        database.ref('journals/' + fbKey(oldGroupCode)).remove().catch(()=>{}),
+      ]);
+    }
+
+    // 4. Copy leaders sang tên mới (thử cả raw key và fbKey)
+    const lRaw  = await database.ref('leaders/' + oldGroupCode).once('value');
+    const lSafe = await database.ref('leaders/' + fbKey(oldGroupCode)).once('value');
+    const lData = lRaw.val() || lSafe.val();
+    if (lData) {
+      await database.ref('leaders/' + fbKey(newName)).set(lData);
+      await Promise.all([
+        database.ref('leaders/' + oldGroupCode).remove().catch(()=>{}),
+        database.ref('leaders/' + fbKey(oldGroupCode)).remove().catch(()=>{}),
+      ]);
+    }
+
+    // 5. Cập nhật leader_requests
+    const reqSnap = await database.ref('leader_requests').once('value');
+    const reqUpdates = {};
+    reqSnap.forEach(child => {
+      if (child.val()?.groupCode === oldGroupCode) reqUpdates['leader_requests/' + child.key + '/groupCode'] = newName;
+    });
+    if (Object.keys(reqUpdates).length) await database.ref().update(reqUpdates);
+
+    // 6. Cập nhật uid_to_member
+    const uidSnap = await database.ref('uid_to_member').orderByChild('groupCode').equalTo(oldGroupCode).once('value');
+    const uidUpdates = {};
+    uidSnap.forEach(child => { uidUpdates['uid_to_member/' + child.key + '/groupCode'] = newName; });
+    if (Object.keys(uidUpdates).length) await database.ref().update(uidUpdates);
+
+    // 7. Cập nhật userInfo local
+    userInfo.groupCode = newName;
+    save(USER_KEY, userInfo);
+    _leaderListCache = null; // Reset cache dropdown đăng ký
+
+    document.getElementById('rename-group-modal')?.remove();
+    document.getElementById('leader-group-name').textContent = newName;
+    showToast('✅ Đã đổi tên nhóm → ' + newName);
+    loadLeaderData();
+    // Refresh admin nếu đang ở trang admin
+    if (typeof loadAdminData === 'function') loadAdminData();
+    if (typeof loadAdminGroups === 'function') loadAdminGroups();
+  } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
 
 let leaderAllData = {}; // { memberId: { name, stats, entries } }
 let _leaderGroupListener = null;
