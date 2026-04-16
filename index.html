@@ -8125,6 +8125,9 @@ async function confirmRenameGroup(oldGroupCode) {
     document.getElementById('leader-group-name').textContent = newName;
     showToast('✅ Đã đổi tên nhóm → ' + newName);
     loadLeaderData();
+    // Refresh admin nếu đang ở trang admin
+    if (typeof loadAdminData === 'function') loadAdminData();
+    if (typeof loadAdminGroups === 'function') loadAdminGroups();
   } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
 }
 
