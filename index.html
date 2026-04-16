@@ -3347,6 +3347,11 @@ async function doLogin() {
         console.log('✅ Pre-login pull complete');
       } catch(pullErr) {
         console.warn('Pre-login pull failed:', pullErr.message);
+        // Thiết bị mới: localStorage trống, pull thất bại → cảnh báo người dùng
+        const isNewDevice = Object.keys(data).length === 0 && !spData.saved;
+        if (isNewDevice) {
+          showToast('⚠️ Không tải được dữ liệu từ cloud — kiểm tra mạng và thử lại');
+        }
       }
     }
 
@@ -3429,11 +3434,24 @@ async function findOldAccount() {
     }
 
     const [memberId, memberData] = found;
-    _activateMemberData = { memberId, ...memberData, email };
 
-    // Kiểm tra xem đã có Firebase Auth chưa
-    // Nếu đã có → hướng sang "Quên mật khẩu"
-    // Nếu chưa có → cho đặt mật khẩu mới
+    // Kiểm tra trạng thái tài khoản trước khi cho kích hoạt
+    const isApproved = isMemberApproved(memberData);
+    if (!isApproved) {
+      // Kiểm tra xem có phải bị rejected không
+      try {
+        const reqSnap = await database.ref('member_requests/' + memberId).once('value');
+        const req = reqSnap.val();
+        if (req && req.status === 'rejected') {
+          errEl.textContent = '⚠️ Tài khoản của bạn đã bị từ chối. Vui lòng liên hệ trưởng nhóm để được hỗ trợ.';
+          errEl.style.display = 'block'; return;
+        }
+      } catch(e2) { /* bỏ qua lỗi phụ */ }
+      errEl.textContent = '⚠️ Tài khoản chưa được duyệt. Vui lòng chờ trưởng nhóm xét duyệt rồi mới kích hoạt.';
+      errEl.style.display = 'block'; return;
+    }
+
+    _activateMemberData = { memberId, ...memberData, email };
 
     // Hiện bước 2 — đặt mật khẩu
     document.getElementById('activate-step1').style.display = 'none';
@@ -3504,7 +3522,11 @@ async function doActivateAccount() {
     // Lưu mapping uid → memberId (dùng biến local database, không phải global db)
     if (firebaseUid && database) {
       await database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode });
-      await database.ref('members/' + memberId).update({ firebaseUid });
+      await database.ref('members/' + memberId).update({
+        firebaseUid,
+        approved: true,
+        approvedAt: new Date().toISOString(),
+      });
 
       // MIGRATE: di chuyển dữ liệu cũ từ /users/{memberId}/ → /users/{firebaseUid}/
       // Cần thiết vì trước khi kích hoạt, path dùng memberId; sau khi kích hoạt dùng firebaseUid
@@ -3807,8 +3829,9 @@ function saveGratitude() {
   e.gratitude1=document.getElementById('gratitude-1').value;
   e.gratitude2=document.getElementById('gratitude-2').value;
   e.gratitude3=document.getElementById('gratitude-3').value;
-  e.selfLetter=document.getElementById('self-letter').value;
-  e.selfProud=document.getElementById('self-proud').value;
+  // self-letter thuộc tab Hôm Nay và đã được autosave — không ghi đè ở đây
+  const selfProudEl=document.getElementById('self-proud');
+  if(selfProudEl) e.selfProud=selfProudEl.value;
   e.savedGratitude=true;
   save(STORAGE_KEY,data);
   showToast('🙏 Đã lưu biết ơn!');
@@ -3971,7 +3994,7 @@ function renderFinanceMonthlySummary() {
   if (mTotal > 0) {
     const pct = Math.round(mGreenRatio*100);
     const icon = pct>=75?'🟢':pct>=40?'🟡':'🔴';
-    const lbl  = pct>=75?'Xanh':'pct>=40?\"Vàng\":\"Đỏ\"';
+    const lbl  = pct>=75?'Xanh':pct>=40?'Vàng':'Đỏ';
     monthResultHTML = `${icon} Tỉ lệ xanh: <strong>${pct}%</strong>
       &nbsp;·&nbsp; Xanh: <strong>${formatMoney(mTotalGreen)}</strong>
       &nbsp;·&nbsp; Đỏ: <strong>${formatMoney(mTotalRed)}</strong>`;
@@ -4098,7 +4121,7 @@ function loadFirebase() {
       const s3 = document.createElement('script');
       s3.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js';
       s3.onload = () => { dbLoaded = true; tryInit(); };
-      s3.onerror = () => resolve(null);
+      s3.onerror = () => { dbLoaded = true; resolve(null); };
       document.head.appendChild(s3);
     };
     s1.onerror = () => resolve(null);
@@ -4391,20 +4414,15 @@ async function pullLocalFromFirebase() {
       Object.assign(spData, freshSp);
       const freshKz = JSON.parse(localStorage.getItem(KZ_KEY) || '[]');
       if (freshKz.length > 0) { kzData.splice(0, kzData.length, ...freshKz); }
-      if (typeof R3M_KEY !== 'undefined') {
-        const freshR3m = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
-        Object.assign(r3mData, freshR3m);
-      }
-      if (typeof MS_KEY !== 'undefined') {
-        const freshMs = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
-        if (freshMs.length > 0) { msData.splice(0, msData.length, ...freshMs); }
-      }
-      if (typeof SEEDS_KEY !== 'undefined') {
-        const freshSeeds = JSON.parse(localStorage.getItem(SEEDS_KEY) || '[]');
-        if (freshSeeds.length > 0) { seedsData.splice(0, seedsData.length, ...freshSeeds); }
-      }
+      const freshR3m = JSON.parse(localStorage.getItem(R3M_KEY) || '{}');
+      Object.assign(r3mData, freshR3m);
+      const freshMs = JSON.parse(localStorage.getItem(MS_KEY) || '[]');
+      if (freshMs.length > 0) { msData.splice(0, msData.length, ...freshMs); }
+      const freshSeeds = JSON.parse(localStorage.getItem(SEEDS_KEY) || '[]');
+      if (freshSeeds.length > 0) { seedsData.splice(0, seedsData.length, ...freshSeeds); }
     } catch(reloadErr) { console.warn('Reload vars failed:', reloadErr.message); }
   } catch(e) {
+    _lastSyncError = 'Pull failed: ' + e.message;
     console.warn('Pull failed:', e.message);
     setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');
   }
@@ -4508,7 +4526,7 @@ function _applyRemoteData(remote) {
       Object.entries(remote.r3m).forEach(([k,v]) => {
         if (r3mData[k] == null || (v && v._updatedAt && (!r3mData[k]._updatedAt || v._updatedAt > r3mData[k]._updatedAt))) {
           r3mData[k] = v; changed = true;
-        } else if (r3mData[k] == null) { r3mData[k] = v; changed = true; }
+        }
       });
       if (changed) localStorage.setItem(R3M_KEY, JSON.stringify(r3mData));
     }
@@ -4706,6 +4724,18 @@ async function refreshTeam() {
   renderTeam();
 }
 
+
+// ── Helper: kiểm tra member đã được duyệt chưa ──────────────────────────────
+// approved=true: được duyệt tường minh
+// isLeader/isAdmin=true: luôn được phép
+// registeredAt có nhưng không có approved field: tài khoản cũ trước hệ thống pending
+function isMemberApproved(m) {
+  if (!m) return false;
+  if (m.isLeader === true || m.isAdmin === true) return true;
+  if (m.approved === true) return true;
+  if (m.registeredAt && m.approved === undefined) return true;
+  return false;
+}
 function renderTeam() {
   if (!userInfo) return;
   const k = todayKey();
@@ -4728,14 +4758,16 @@ function renderTeam() {
       const allStats    = groupsSnap.val()  || {};
 
       const allMembers = {};
+      // Chỉ hiển thị thành viên đã được duyệt
       Object.values(membersData).forEach(function(m) {
         const mid = m.memberId; if (!mid) return;
+        if (!isMemberApproved(m)) return; // bỏ qua pending
         const stat = allStats[mid] || {};
         allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5] };
       });
-      Object.entries(allStats).forEach(function([mid, stat]) {
-        if (!allMembers[mid]) allMembers[mid] = { name:stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5] };
-      });
+      // Chỉ thêm từ /groups/ nếu memberId đã tồn tại trong allMembers (đã được duyệt)
+      // Không thêm mới từ /groups/ để tránh hiển thị member cũ/pending còn sót stats
+      // (stats cũ trong /groups/ vẫn được dùng nếu member đã approved)
 
       const entries      = Object.entries(allMembers);
       const todayEntries = entries.filter(function(e){ return e[1].date === k; });
@@ -7191,6 +7223,8 @@ function loadMemberTeamData() {
       const membersObj = snap.val() || {};
       _memberTeamData = {};
       Object.entries(membersObj).forEach(([mid, m]) => {
+        // Chỉ hiển thị thành viên đã được duyệt — bỏ qua pending
+        if (!isMemberApproved(m)) return;
         _memberTeamData[mid] = {
           name:         m.name || '–',
           phone:        m.phone || '',
@@ -7198,7 +7232,7 @@ function loadMemberTeamData() {
           referrer:     m.referrer || '',
           registeredAt: m.registeredAt || '',
           isLeader:     m.isLeader || false,
-          approved:     m.approved !== false,
+          approved:     true,
         };
       });
 
@@ -7961,6 +7995,8 @@ async function rejectLeaderMember(memberId) {
       status: 'rejected',
       rejectedAt: new Date().toISOString()
     });
+    // Đánh dấu approved:false trong /members/ để filter lọc ra đúng
+    await database.ref('members/' + memberId).update({ approved: false }).catch(() => {});
     showToast('❌ Đã từ chối');
     loadLeaderMemberRequests();
   } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
@@ -8111,8 +8147,8 @@ function loadLeaderData() {
           if (mapping.memberId) memberToUid[mapping.memberId] = uid;
         });
 
-        // Lấy tất cả thành viên từ /members (đủ, kể cả chưa có stats)
-        const allMemberEntries = Object.entries(membersData);
+        // Chỉ lấy thành viên đã được duyệt — lọc bỏ pending
+        const allMemberEntries = Object.entries(membersData).filter(([, m]) => isMemberApproved(m));
         const activeToday = Object.values(stats).filter(m => m.date === todayK).length;
 
         leaderAllData = {};
@@ -8532,15 +8568,21 @@ async function verifyAdminPassword() {
   const errEl = document.getElementById('admin-pw-error');
   if (!pw) return;
 
-  // Lấy mật khẩu từ Firebase
+  // Lấy mật khẩu bắt buộc từ Firebase — không có fallback hardcode
   const database = await loadFirebase();
-  let correctPw = 'HOST@5NN2024'; // Default password - đổi ngay sau khi deploy
+  if (!database) {
+    showToast('⚠️ Không kết nối được Firebase. Kiểm tra mạng.');
+    return;
+  }
+  let correctPw = null;
+  try {
+    const snap = await database.ref('admin/password').once('value');
+    correctPw = snap.val() || null;
+  } catch(e) {}
 
-  if (database) {
-    try {
-      const snap = await database.ref('admin/password').once('value');
-      if (snap.val()) correctPw = snap.val();
-    } catch(e) {}
+  if (!correctPw) {
+    showToast('⚠️ Chưa cấu hình mật khẩu admin trong Firebase.');
+    return;
   }
 
   if (pw === correctPw) {
@@ -10238,10 +10280,9 @@ async function syncSeedsFromCloud() {
     const snap = await database.ref('users/' + uidKey + '/seeds').once('value');
     const remoteSeedsArr = snap.val();
     if (!remoteSeedsArr || !Array.isArray(remoteSeedsArr) || remoteSeedsArr.length === 0) {
-      // Thử dạng object
-      const snapObj = snap.val();
-      if (snapObj && typeof snapObj === 'object') {
-        const arr = Object.values(snapObj);
+      // Thử dạng object (Firebase đôi khi trả về object thay vì array)
+      if (remoteSeedsArr && typeof remoteSeedsArr === 'object') {
+        const arr = Object.values(remoteSeedsArr);
         if (arr.length > 0) {
           arr.forEach(rSeed => {
             if (!Array.isArray(rSeed.checkins)) rSeed.checkins = [];
