@@ -8661,24 +8661,22 @@ async function loadAdminData() {
   }
 
   // ── Đảm bảo có auth session trước khi đọc Firebase ──
-  // Admin dùng email auth (isAdmin=true) — không signInAnonymously vì anonymous bị Rules chặn
   if (typeof auth !== 'undefined' && auth) {
     try {
       if (!auth.currentUser) {
         // Chờ restore session từ persistence
         await new Promise(resolve => {
-          const timer = setTimeout(resolve, 3000);
+          const timer = setTimeout(resolve, 2000);
           const unsub = auth.onAuthStateChanged(user => { clearTimeout(timer); unsub(); resolve(user); });
         });
       }
-      // Nếu vẫn không có user và userInfo có email → thông báo cần đăng nhập lại
+      // Nếu vẫn không có user → dùng anonymous (Rules cho phép auth != null)
       if (!auth.currentUser) {
-        const el = document.getElementById('admin-pending-list');
-        if (el) el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔐</div><p>Phiên đăng nhập hết hạn. Vui lòng đăng xuất và đăng nhập lại.</p></div>';
-        return;
+        try { await auth.signInAnonymously(); } catch(e) { console.warn('Admin anon auth:', e.message); }
       }
-      // Refresh token để đảm bảo quyền admin còn hiệu lực
-      await auth.currentUser.getIdToken(true).catch(() => {});
+      if (auth.currentUser) {
+        await auth.currentUser.getIdToken(true).catch(() => {});
+      }
     } catch(e) { console.warn('Auth wait admin:', e.message); }
   }
 
