@@ -1483,9 +1483,9 @@ textarea { min-height: 80px; }
         <div id="daily-total-recv" style="font-size:18px;font-weight:800;color:var(--jade)">0</div>
         <div id="daily-recv-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
       </div>
-      <div style="background:rgba(192,96,106,0.07);border:1.5px solid rgba(192,96,106,0.2);border-radius:12px;padding:12px 14px">
-        <div style="font-size:10px;font-weight:800;color:var(--rose);text-transform:uppercase;margin-bottom:5px">💸 Tổng Chi Hôm Nay</div>
-        <div id="daily-total-spend" style="font-size:18px;font-weight:800;color:var(--rose)">0</div>
+      <div style="background:rgba(74,127,168,0.07);border:1.5px solid rgba(74,127,168,0.2);border-radius:12px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;margin-bottom:5px">💸 Tổng Chi Hôm Nay</div>
+        <div id="daily-total-spend" style="font-size:18px;font-weight:800;color:var(--sky)">0</div>
         <div id="daily-spend-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
       </div>
     </div>
@@ -1513,9 +1513,9 @@ textarea { min-height: 80px; }
           <div id="month-total-recv" style="font-size:20px;font-weight:800;color:var(--jade)">0</div>
           <div id="month-recv-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
         </div>
-        <div style="background:rgba(192,96,106,0.07);border-radius:11px;padding:12px 14px">
-          <div style="font-size:10px;font-weight:800;color:var(--rose);text-transform:uppercase;margin-bottom:4px">💸 Chi Tháng</div>
-          <div id="month-total-spend" style="font-size:20px;font-weight:800;color:var(--rose)">0</div>
+        <div style="background:rgba(74,127,168,0.07);border-radius:11px;padding:12px 14px">
+          <div style="font-size:10px;font-weight:800;color:var(--sky);text-transform:uppercase;margin-bottom:4px">💸 Chi Tháng</div>
+          <div id="month-total-spend" style="font-size:20px;font-weight:800;color:var(--sky)">0</div>
           <div id="month-spend-detail" style="font-size:10.5px;color:var(--ink-muted);margin-top:3px"></div>
         </div>
       </div>
@@ -2700,8 +2700,8 @@ const RITUALS = [
   { id:'r3', label:'3. Uống ly nước ấm chanh mật ong', sub:'Nuôi dưỡng cơ thể' },
   { id:'r4', label:'4. Soi gương hiện hữu', sub:'Kết nối với bản thân' },
   { id:'r5', label:'5. Tập 5 thức Tây Tạng', sub:'Rèn luyện thân thể' },
-  { id:'r6', label:'6. Khiêm hạ về với 5 Ngôi Nhà', sub:'Kết nối tâm linh cội nguồn' },
-  { id:'r7', label:'7. Viết sổ biết ơn 2 chiều', sub:'Nuôi dưỡng lòng biết ơn' },
+  { id:'r6', label:'6. Viết sổ biết ơn 2 chiều', sub:'Nuôi dưỡng lòng biết ơn' },
+  { id:'r7', label:'7. Khiêm hạ về với 5 Ngôi Nhà', sub:'Kết nối tâm linh cội nguồn' },
   { id:'r8', label:'8. Viết 4 việc quan trọng', sub:'Lên kế hoạch ngày' },
   { id:'r9', label:'9. Đọc sách / nghe bài giảng', sub:'Học hỏi mỗi ngày' },
 ];
@@ -2960,7 +2960,20 @@ function pruneOldData() {
 
 function checkNewDay() {
   const k = todayKey();
-  if (data[k]) return; // hôm nay đã có → không làm gì
+  // FIX DAY REFRESH: Track ngày cuối đã refresh UI
+  // Nếu data[k] có rồi NHƯNG UI chưa được refresh cho ngày này → vẫn cần refresh
+  const lastRefreshedDay = window._lastRefreshedDay || '';
+  if (data[k] && lastRefreshedDay === k) return; // đã refresh rồi → không làm gì
+  window._lastRefreshedDay = k; // đánh dấu đã refresh ngày này
+  if (data[k]) {
+    // data[k] đã có nhưng UI chưa refresh (ví dụ user vừa wake up điện thoại)
+    // Chỉ cần reload UI, không tạo entry mới
+    loadTodayFields();
+    renderRituals();
+    renderTasksList();
+    setDateBars();
+    return;
+  }
   // Hôm nay chưa có entry → tạo mới trong bộ nhớ nhưng KHÔNG save/push ngay
   // Lý do: nếu push ngay sẽ ghi {} lên Firebase, xóa mất dữ liệu đã sync
   // Data sẽ được save khi member thực sự điền nội dung
@@ -3686,6 +3699,15 @@ function bootApp() {
     window._intervalsRegistered = true;
     // Kiểm tra sang ngày mới mỗi phút (thiết bị bật cả đêm)
     setInterval(() => { checkNewDay(); }, 60000);
+    // FIX DAY REFRESH: Khi user quay lại app (điện thoại wake up, đổi tab)
+    // → kiểm tra ngày ngay lập tức thay vì chờ interval 60s
+    // Giải quyết vấn đề "10h sáng mới refresh" do JS bị throttle khi điện thoại sleep
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkNewDay();
+        setDateBars(); // Cập nhật header date luôn
+      }
+    });
   }
 
   // Load Firebase trong nền sau khi app đã boot xong
@@ -4054,7 +4076,7 @@ function saveWish() {
 
 function loadTodayFields() {
   const e=getTodayEntry();
-  const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=(v!=null?v:''); };
   set('lesson-text',e.lesson);
   set('seed-green',e.seedGreen);
   set('seed-red',e.seedRed);
@@ -6736,7 +6758,7 @@ function autoResizeTextarea(el) {
 // KAIZEN NGÀY
 function loadDailyKaizen() {
   const entry = getTodayEntry();
-  const setF = (id,v) => { const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
+  const setF = (id,v) => { const el=document.getElementById(id); if(el) el.value=(v!=null?v:''); };
   setF('daily-good',    entry.dailyGood);
   setF('daily-improve', entry.dailyImprove);
 }
@@ -7712,24 +7734,47 @@ function renderLeaderSeedsSummary(members) {
 } // end renderLeaderSeedsSummary
 
 // ── Cảnh báo tự động ─────────────────────────────────────────────
+function leaderAlertToggle(idx) {
+  var b  = document.getElementById('al-body-'  + idx);
+  var ar = document.getElementById('al-arrow-' + idx);
+  if (!b) return;
+  var open = b.style.display === 'block';
+  b.style.display = open ? 'none' : 'block';
+  ar.textContent  = open ? '▾' : '▴';
+}
+
 function renderLeaderAlerts(members, todayK) {
   const alertsEl = document.getElementById('leader-alerts-list');
   const badgeEl  = document.getElementById('leader-alerts-badge');
   if (!alertsEl) return;
 
-  // Nếu chưa có members thì giữ loading state
   if (!members || members.length === 0) {
     alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">Chưa có thành viên nào trong nhóm.</div>';
     return;
   }
+
+  const RITUAL_BIET_ON  = 'r6';
+  const RITUAL_KHIEM_HA = 'r7';
 
   const alerts = [];
 
   members.forEach(([mid, m]) => {
     const entries = m.entries || {};
     const keys    = Object.keys(entries).sort().reverse();
+    const seeds   = m.seeds || [];
 
-    // Kiểm tra bỏ nghi thức nhiều ngày liên tiếp
+    // 1. Tỉ lệ ghi 7 ngày gần nhất
+    const last7Keys = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() + 7*60*60*1000);
+      d.setUTCDate(d.getUTCDate() - i);
+      last7Keys.push(d.toISOString().split('T')[0]);
+    }
+    const writtenDays = last7Keys.filter(k => entries[k] && (
+      Object.values(entries[k].rituals||{}).some(Boolean) || entries[k].energy
+    )).length;
+
+    // 2. Bỏ nghi thức liên tiếp
     let skipDays = 0;
     for (let i = 0; i < Math.min(keys.length, 7); i++) {
       const e = entries[keys[i]];
@@ -7737,118 +7782,150 @@ function renderLeaderAlerts(members, todayK) {
       if (!ritualDone) skipDays++;
       else break;
     }
-    // Chưa ghi hôm nay
-    const noToday = m.stats?.date !== todayK;
 
-    // NL giảm mạnh: so sánh ngôi nhà hôm nay vs ngày trước
-    let nlDrop = null;
-    if (m.stats?.date === todayK && keys.length >= 2) {
-      const todayNN  = (m.stats?.nn||[5,5,5,5,5]).reduce((a,b)=>a+b,0)/5;
-      const prevKey  = keys.find(k => k !== todayK);
-      if (prevKey) {
-        const prevEntry = entries[prevKey];
-        const prevNN    = NN_LIST.map(nn => prevEntry?.nnEnergy?.[nn.key] || 5);
-        const prevAvg   = prevNN.reduce((a,b)=>a+b,0)/5;
-        if (prevAvg - todayNN >= 2) nlDrop = { from: prevAvg.toFixed(1), to: todayNN.toFixed(1) };
-      }
+    // 3. Nghi thức Biết Ơn & Khiêm Hạ
+    let skipBietOn = 0, skipKhiemHa = 0;
+    for (let i = 0; i < Math.min(keys.length, 7); i++) {
+      if (!entries[keys[i]]?.rituals?.[RITUAL_BIET_ON]) skipBietOn++; else break;
     }
+    for (let i = 0; i < Math.min(keys.length, 7); i++) {
+      if (!entries[keys[i]]?.rituals?.[RITUAL_KHIEM_HA]) skipKhiemHa++; else break;
+    }
+    const missBietOn  = skipBietOn  >= 2;
+    const missKhiemHa = skipKhiemHa >= 2;
 
-    // ── Thu thập chi tiết đánh giá ──────────────────────────────
-    // 1. Năng lượng từng Ngôi Nhà hôm nay (hoặc lần cuối)
-    const refKey     = (m.stats?.date === todayK ? todayK : keys[0]);
-    const refEntry   = refKey ? entries[refKey] : null;
-    const nnEnergy   = refEntry?.nnEnergy || m.stats && {nn1:m.stats.nn?.[0],nn2:m.stats.nn?.[1],nn3:m.stats.nn?.[2],nn4:m.stats.nn?.[3],nn5:m.stats.nn?.[4]} || {};
-    // Các Ngôi Nhà đỏ (<5) và vàng (=5 nhưng không phải tất cả xanh)
+    // 4. NL 5 Ngôi Nhà
+    const refKey    = (m.stats?.date === todayK ? todayK : keys[0]);
+    const refEntry  = refKey ? entries[refKey] : null;
+    const nnEnergy  = refEntry?.nnEnergy || (m.stats ? {
+      nn1:m.stats.nn?.[0], nn2:m.stats.nn?.[1], nn3:m.stats.nn?.[2],
+      nn4:m.stats.nn?.[3], nn5:m.stats.nn?.[4]
+    } : {});
     const nnDetails = NN_LIST.map(nn => {
       const val = nnEnergy[nn.key];
-      return { label: nn.label, icon: nn.icon, val: val != null ? val : null };
+      return { key:nn.key, label:nn.label, icon:nn.icon, val: val != null ? val : null };
     }).filter(n => n.val !== null);
-    const nnRed    = nnDetails.filter(n => n.val < 5);
-    const nnNeutral= nnDetails.filter(n => n.val === 5);
-    const nnGreen  = nnDetails.filter(n => n.val > 5);
 
-    // 2. Nghi thức bỏ hôm nay / lần cuối
-    const refRituals   = refEntry?.rituals || {};
-    const missedRituals= RITUALS.filter(r => !refRituals[r.id]);
+    const prevKey   = keys.find(k => k !== refKey);
+    const prevEntry = prevKey ? entries[prevKey] : null;
+    const nnDrops   = [];
+    if (prevEntry) {
+      NN_LIST.forEach((nn, j) => {
+        const curVal  = nnEnergy[nn.key];
+        const prevVal = prevEntry?.nnEnergy?.[nn.key] ?? (m.stats?.nn?.[j] ?? null);
+        if (curVal != null && prevVal != null && (curVal - prevVal) <= -2)
+          nnDrops.push({ label:nn.label.replace(/NN\d · /,''), icon:nn.icon, from:prevVal, to:curVal, diff:curVal-prevVal });
+      });
+    }
+    const nnLow = nnDetails.filter(n => n.val < 5);
 
-    // 3. Hạt giống tái phát gần đây (7 ngày)
-    const seeds = m.seeds || [];
-    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
-    const weekAgoStr = dateToVNKey(weekAgo); // FIX TIMEZONE
-    const recentSeeds = seeds.filter(s =>
-      s.status === 'active' &&
-      (s.checkins||[]).some(c => c.appeared && c.date >= weekAgoStr)
-    );
-
-    // ── Tạo HTML chi tiết ──────────────────────────────────────
-    function buildDetail() {
-      let parts = [];
-
-      // Năng lượng 5 Ngôi Nhà
-      if (nnDetails.length > 0) {
-        let nnRows = '';
-        NN_LIST.forEach(nn => {
-          const nd = nnDetails.find(x => x.label === nn.label);
-          if (!nd) return;
-          const v = nd.val;
-          const color = v < 5 ? 'var(--rose)' : v > 5 ? 'var(--jade)' : 'var(--gold-dark)';
-          const dot   = v < 5 ? '🔴' : v > 5 ? '🟢' : '🟡';
-          const bar   = v != null ? Math.round((v/10)*60) : 0;
-          nnRows += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <span style="font-size:11px;width:14px;flex-shrink:0">${dot}</span>
-            <span style="font-size:11px;color:var(--ink-soft);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nn.icon} ${nn.label.replace(/NN\d · /,'')}</span>
-            <div style="width:50px;height:5px;background:rgba(0,0,0,0.07);border-radius:3px;flex-shrink:0">
-              <div style="height:100%;width:${bar}px;max-width:50px;background:${color};border-radius:3px"></div>
-            </div>
-            <span style="font-size:11px;font-weight:800;color:${color};width:18px;text-align:right;flex-shrink:0">${v}</span>
-          </div>`;
-        });
-        if (nnRows) parts.push(`
-          <div style="margin-top:8px">
-            <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px">⚡ Năng lượng 5 Ngôi Nhà</div>
-            ${nnRows}
-          </div>`);
+    // 5. Tiền đỏ tháng này
+    let mGreen = 0, mRed = 0;
+    const nowMonth = todayK.substring(0, 7);
+    Object.entries(entries).forEach(([dk, e]) => {
+      if (dk.startsWith(nowMonth)) {
+        mGreen += (e.recvGreen||0) + (e.spendGreen||0);
+        mRed   += (e.recvRed||0)   + (e.spendRed||0);
       }
+    });
+    const moneyRedNet = mRed - mGreen;
+    const hasMoneyRed = moneyRedNet > 0;
 
-      // Nghi thức bỏ
-      if (missedRituals.length > 0 && missedRituals.length < 9) {
-        const missed = missedRituals.map(r => `<span style="font-size:10.5px;background:rgba(192,96,106,0.1);color:var(--rose);padding:2px 7px;border-radius:6px;display:inline-block;margin:2px 2px 0 0">${r.label.replace(/^\d+\.\s*/,'')}</span>`).join('');
-        parts.push(`
-          <div style="margin-top:8px">
-            <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px">🔕 Nghi thức chưa thực hiện (${missedRituals.length}/9)</div>
-            <div>${missed}</div>
-          </div>`);
-      } else if (missedRituals.length === 9) {
-        parts.push(`<div style="margin-top:7px;font-size:11.5px;color:var(--rose);font-weight:700">🔕 Chưa thực hiện bất kỳ nghi thức nào</div>`);
-      }
+    // 6. Hạt giống
+    const now21 = new Date(Date.now() + 7*60*60*1000);
+    now21.setUTCDate(now21.getUTCDate() - 21);
+    const ago21Str   = now21.toISOString().split('T')[0];
+    const wk7        = new Date(Date.now() + 7*60*60*1000);
+    wk7.setUTCDate(wk7.getUTCDate() - 7);
+    const wk7Str     = wk7.toISOString().split('T')[0];
+    const activeSeeds    = seeds.filter(s => s.status === 'active');
+    const doneSeeds      = seeds.filter(s => s.status === 'done');
+    const reappearSeeds  = activeSeeds.filter(s => (s.checkins||[]).some(c => c.appeared && c.date >= wk7Str));
+    const noConvSeeds    = activeSeeds.filter(s => { const d = s.createdAt||(s.checkins?.[0]?.date); return d && d <= ago21Str; });
+    const seedOverload   = activeSeeds.length >= 10;
+    const newSeeds7d     = activeSeeds.filter(s => { const d = s.createdAt||(s.checkins?.[0]?.date); return d && d >= wk7Str; }).length;
 
-      // Hạt giống tái phát
-      if (recentSeeds.length > 0) {
-        const seedTags = recentSeeds.map(s => {
-          const lastCheckin = (s.checkins||[]).filter(c=>c.appeared).sort((a,b)=>b.date.localeCompare(a.date))[0];
-          return `<div style="font-size:11px;padding:3px 7px;background:rgba(192,96,106,0.08);border-left:3px solid var(--rose);border-radius:0 6px 6px 0;margin:2px 0;color:var(--ink-soft)">
-            😔 <strong>${escHtml(s.name)}</strong>${lastCheckin?' · '+lastCheckin.date:''}
-          </div>`;
-        }).join('');
-        parts.push(`
-          <div style="margin-top:8px">
-            <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px">🌱 Hạt giống tái phát 7 ngày qua</div>
-            ${seedTags}
-          </div>`);
-      }
+    const noToday = m.stats?.date !== todayK;
 
-      return parts.join('');
+    // TÍNH ĐIỂM ƯU TIÊN
+    let score = 0;
+    if (skipDays >= 3) score += 2;
+    if (skipDays >= 5) score += 1;
+    if (writtenDays <= 2) score += 2;
+    else if (writtenDays <= 4) score += 1;
+    if (nnDrops.some(d => d.diff <= -3)) score += 2;
+    else if (nnDrops.length > 0) score += 1;
+    if (nnLow.length >= 3) score += 2;
+    else if (nnLow.length >= 1) score += 1;
+    if (hasMoneyRed) score += 1;
+    if (missBietOn || missKhiemHa) score += 1;
+
+    const isSeedOnly = score === 0 && (seedOverload || noConvSeeds.length > 0);
+    if (score === 0 && !isSeedOnly && !noToday) return;
+
+    // CÂU GỢI Ý ĐỒNG HÀNH
+    const shortName = m.name.split(' ').pop();
+    const problems  = [];
+    if (skipDays >= 3) problems.push(skipDays + ' ngày không thực hành nghi thức');
+    else if (writtenDays <= 3) problems.push('chỉ ghi ' + writtenDays + '/7 ngày gần đây');
+    if (nnDrops.length) problems.push(nnDrops[0].icon + ' ' + nnDrops[0].label + ' giảm từ ' + nnDrops[0].from + ' \u2192 ' + nnDrops[0].to);
+    else if (nnLow.length >= 2) problems.push(nnLow.length + ' ngôi nhà đang ở mức thấp');
+    if (hasMoneyRed) problems.push('năng lượng tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này');
+    if (seedOverload) problems.push(activeSeeds.length + ' hạt giống đang theo dõi chưa chuyển hoá');
+    if (missBietOn && missKhiemHa) problems.push('chưa thực hành Biết Ơn & Khiêm Hạ ' + Math.max(skipBietOn,skipKhiemHa) + ' ngày');
+    else if (missBietOn) problems.push('chưa thực hành Biết Ơn ' + skipBietOn + ' ngày');
+    else if (missKhiemHa) problems.push('chưa thực hành Khiêm Hạ ' + skipKhiemHa + ' ngày');
+
+    const actionVerb = score >= 3 ? 'đồng hành thêm cùng' : (isSeedOnly ? 'để ý thêm đến' : 'hỏi thăm thêm');
+    const suggestion = 'Hãy ' + actionVerb + ' ' + shortName + (problems.length ? ' — bạn ấy đang ' + problems.slice(0,2).join(', ') : '') + '.';
+
+    // DANH SÁCH VẤN ĐỀ CHI TIẾT
+    const issueList = [];
+    if (skipDays >= 3)
+      issueList.push({ level:'red',   text:'Bỏ nghi thức ' + skipDays + ' ngày liên tiếp' + (noToday?' (chưa ghi hôm nay)':'') });
+    else if (writtenDays <= 3)
+      issueList.push({ level:'amber', text:'Chỉ ghi ' + writtenDays + '/7 ngày gần nhất' });
+    else if (noToday && keys.length > 0)
+      issueList.push({ level:'amber', text:'Chưa ghi hôm nay · Lần cuối: ' + (m.stats?.date||keys[0]) });
+
+    if (missBietOn || missKhiemHa) {
+      const parts = [];
+      if (missBietOn)  parts.push('Biết Ơn (' + skipBietOn + ' ngày)');
+      if (missKhiemHa) parts.push('Khiêm Hạ (' + skipKhiemHa + ' ngày)');
+      issueList.push({ level:'red', text:'Chưa thực hành: ' + parts.join(' · ') });
+    }
+    nnDrops.forEach(d => {
+      issueList.push({ level: d.diff <= -3 ? 'red':'amber', text: d.icon + ' ' + d.label + ': ' + d.from + ' \u2192 ' + d.to + ' (' + d.diff + ' \u0111i\u1ec3m)' });
+    });
+    if (nnLow.length && !nnDrops.length) {
+      nnLow.slice(0,3).forEach(n => {
+        issueList.push({ level:'amber', text: n.icon + ' ' + n.label.replace(/NN\d · /,'') + ': đang ở mức ' + n.val + '/10' });
+      });
+    }
+    if (hasMoneyRed)
+      issueList.push({ level:'amber', text:'Năng lượng tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này (xanh ' + _fmtMoney(mGreen) + ', đỏ ' + _fmtMoney(mRed) + ')' });
+    if (seedOverload)
+      issueList.push({ level:'blue', text: activeSeeds.length + ' hạt giống đang theo dõi — vượt ngưỡng 10' });
+    if (noConvSeeds.length > 0)
+      issueList.push({ level:'blue', text: noConvSeeds.length + ' hạt giống chưa chuyển hoá sau 21+ ngày' });
+    if (reappearSeeds.length > 0)
+      issueList.push({ level:'amber', text: reappearSeeds.length + ' hạt giống tái phát trong 7 ngày qua' });
+    if (newSeeds7d > 0)
+      issueList.push({ level:'blue', text:'Hạt giống tăng thêm ' + newSeeds7d + ' trong 7 ngày qua' });
+
+    let level, priority, priorityLabel;
+    if (score >= 3) {
+      level='red'; priority=1; priorityLabel='Ưu tiên 1 — Liên hệ hôm nay';
+    } else if (isSeedOnly) {
+      level='blue'; priority=3; priorityLabel='Ưu tiên 3 — Để ý thêm';
+    } else {
+      level='amber'; priority=2; priorityLabel='Ưu tiên 2 — Hỏi thăm 1–2 ngày';
     }
 
-    if (skipDays >= 3) {
-      alerts.push({ level:'red', name:m.name, reason:`Bỏ nghi thức ${skipDays} ngày liên tiếp${noToday?' · Chưa ghi hôm nay':''}`, detail: buildDetail() });
-    } else if (noToday && keys.length > 0) {
-      const lastDate = m.stats?.date || keys[0];
-      alerts.push({ level:'amber', name:m.name, reason:`Chưa ghi hôm nay · Lần cuối: ${lastDate}`, detail: buildDetail() });
-    } else if (nlDrop) {
-      alerts.push({ level:'amber', name:m.name, reason:`NL giảm từ ${nlDrop.from} → ${nlDrop.to} so với lần trước`, detail: buildDetail() });
-    }
+    alerts.push({ level, priority, priorityLabel, name:m.name, mid, suggestion, issueList });
   });
+
+  alerts.sort((a, b) => a.priority - b.priority);
 
   if (!alerts.length) {
     alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--jade);font-weight:700;padding:6px 0;text-align:center">✅ Cả nhóm đang ổn — không có cảnh báo!</div>';
@@ -7858,27 +7935,47 @@ function renderLeaderAlerts(members, todayK) {
 
   if (badgeEl) { badgeEl.style.display='inline-block'; badgeEl.textContent=alerts.length; }
 
-  alertsEl.innerHTML = alerts.map((a, idx) => `
-    <div style="border-radius:10px;margin-bottom:8px;overflow:hidden;
-      border:1px solid ${a.level==='red'?'rgba(192,96,106,0.25)':'rgba(201,168,76,0.3)'}">
-      <!-- Header hàng tên + lý do -->
-      <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;cursor:pointer;
-        background:${a.level==='red'?'rgba(192,96,106,0.07)':'rgba(201,168,76,0.07)'}"
-        onclick="(function(el){el.style.display=el.style.display==='none'?'block':'none'})(document.getElementById('alert-detail-${idx}'))">
-        <span style="font-size:15px;flex-shrink:0;margin-top:1px">${a.level==='red'?'🔴':'🟡'}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:800;color:${a.level==='red'?'var(--rose)':'var(--gold-dark)'}">${escHtml(a.name)}</div>
-          <div style="font-size:11.5px;color:var(--ink-muted);margin-top:1px">${escHtml(a.reason)}</div>
-        </div>
-        <span style="font-size:10px;color:var(--ink-muted);flex-shrink:0;margin-top:2px">▼ Chi tiết</span>
-      </div>
-      <!-- Chi tiết đánh giá (ẩn/hiện) -->
-      <div id="alert-detail-${idx}" style="display:none;padding:10px 14px 12px;
-        background:${a.level==='red'?'rgba(192,96,106,0.03)':'rgba(201,168,76,0.03)'};
-        border-top:1px solid ${a.level==='red'?'rgba(192,96,106,0.12)':'rgba(201,168,76,0.15)'}">
-        ${a.detail || '<div style="font-size:12px;color:var(--ink-muted)">Chưa có đủ dữ liệu chi tiết.</div>'}
-      </div>
-    </div>`).join('');
+  const colorMap = {
+    red:  { border:'rgba(192,96,106,0.3)',  headBg:'rgba(192,96,106,0.07)', bodyBg:'rgba(192,96,106,0.03)', toggleBg:'rgba(248,240,241,0.6)', badge:'background:#F09595;color:#501313', nameColor:'var(--rose)' },
+    amber:{ border:'rgba(201,168,76,0.35)', headBg:'rgba(201,168,76,0.07)', bodyBg:'rgba(201,168,76,0.03)', toggleBg:'rgba(253,249,240,0.6)', badge:'background:#EF9F27;color:#412402', nameColor:'var(--gold-dark)' },
+    blue: { border:'rgba(74,127,168,0.3)',  headBg:'rgba(74,127,168,0.07)', bodyBg:'rgba(74,127,168,0.03)', toggleBg:'rgba(240,246,252,0.6)', badge:'background:#85B7EB;color:#042C53', nameColor:'var(--sky)' },
+  };
+  const dotCol = { red:'var(--rose)', amber:'var(--gold-dark)', blue:'var(--sky)' };
+
+  alertsEl.innerHTML = alerts.map((a, idx) => {
+    const c = colorMap[a.level];
+    const issueHTML = a.issueList.map(iss =>
+      '<div style="display:flex;align-items:flex-start;gap:7px;padding:4px 0;font-size:11.5px;color:var(--ink-soft);line-height:1.45">' +
+      '<span style="width:7px;height:7px;border-radius:50%;background:' + dotCol[iss.level] + ';flex-shrink:0;margin-top:4px;display:inline-block"></span>' +
+      escHtml(iss.text) + '</div>'
+    ).join('');
+    return '<div style="border-radius:10px;margin-bottom:8px;overflow:hidden;border:1px solid ' + c.border + '">' +
+      '<div style="padding:10px 12px;background:' + c.headBg + '">' +
+        '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;' + c.badge + '">' + escHtml(a.priorityLabel) + '</span>' +
+        '<div style="font-size:13px;font-weight:800;margin-bottom:3px;color:' + c.nameColor + '">' + escHtml(a.name) + '</div>' +
+        '<div style="font-size:11.5px;color:var(--ink-muted);line-height:1.55">' + escHtml(a.suggestion) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;background:' + c.toggleBg + ';border-top:0.5px solid var(--border)" onclick="leaderAlertToggle(' + idx + ')">' +
+        '<span style="font-size:11px;color:var(--ink-muted)">Xem thêm vấn đề đang gặp</span>' +
+        '<span id="al-arrow-' + idx + '" style="font-size:11px;color:var(--ink-muted)">&#9662;</span>' +
+      '</div>' +
+      '<div id="al-body-' + idx + '" style="display:none;padding:8px 12px 10px;background:' + c.bodyBg + ';border-top:0.5px solid var(--border)">' +
+        issueHTML +
+        '<div style="height:0.5px;background:var(--border);margin:8px 0"></div>' +
+        '<button onclick="openLeaderMemberDetail(' + JSON.stringify(a.mid) + ')" style="width:100%;padding:7px;border-radius:8px;border:0.5px solid var(--border);background:rgba(245,237,224,0.5);font-size:11.5px;color:var(--ink-muted);cursor:pointer;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif">' +
+          'Xem chuỗi chỉ số rèn luyện →' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function _fmtMoney(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + ' tỷ';
+  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' triệu';
+  if (n >= 1e3) return Math.round(n/1e3) + 'k';
+  return String(Math.round(n));
 }
 
 // ── Bảng quan sát từng thành viên (Dashboard tab C) ───────────────
@@ -8027,12 +8124,33 @@ function renderLeaderMemberInline(mid, m, todayK) {
     </div>`;
   }).join('');
 
-  // Hạt giống: đọc từ entries nếu có
-  let seedCount = 0, seedDoneCount = 0;
-  if (window.seedsData) {
-    // Không có seedsData của người khác từ Firebase — hiển thị placeholder
-    seedCount = '?'; seedDoneCount = '?';
+  // Hạt giống từ m.seeds (đã load từ Firebase)
+  const mSeeds        = m.seeds || [];
+  const mSeedsActive  = mSeeds.filter(s => s.status === 'active');
+  const mSeedsDone    = mSeeds.filter(s => s.status === 'done');
+  const wk7b          = new Date(Date.now() + 7*60*60*1000);
+  wk7b.setUTCDate(wk7b.getUTCDate() - 7);
+  const wk7bStr       = wk7b.toISOString().split('T')[0];
+  const mSeedsReappear= mSeedsActive.filter(s => (s.checkins||[]).some(c => c.appeared && c.date >= wk7bStr));
+  const now21b        = new Date(Date.now() + 7*60*60*1000);
+  now21b.setUTCDate(now21b.getUTCDate() - 21);
+  const ago21bStr     = now21b.toISOString().split('T')[0];
+  const mNewSeeds7d   = mSeedsActive.filter(s => { const d = s.createdAt||(s.checkins?.[0]?.date); return d && d >= wk7bStr; }).length;
+
+  // Nghi thức đặc biệt: Biết Ơn (r6) & Khiêm Hạ (r7)
+  let skipBietOnInline = 0, skipKhiemHaInline = 0;
+  for (let i = 0; i < Math.min(keys.length, 7); i++) {
+    if (!entries[keys[i]]?.rituals?.['r6']) skipBietOnInline++; else break;
   }
+  for (let i = 0; i < Math.min(keys.length, 7); i++) {
+    if (!entries[keys[i]]?.rituals?.['r7']) skipKhiemHaInline++; else break;
+  }
+  const bietOnColor  = skipBietOnInline  >= 2 ? 'var(--rose)' : 'var(--jade)';
+  const khiemHaColor = skipKhiemHaInline >= 2 ? 'var(--rose)' : 'var(--jade)';
+  const bietOnBg     = skipBietOnInline  >= 2 ? 'rgba(192,96,106,0.08)' : 'rgba(74,140,111,0.08)';
+  const khiemHaBg    = skipKhiemHaInline >= 2 ? 'rgba(192,96,106,0.08)' : 'rgba(74,140,111,0.08)';
+  const bietOnText   = skipBietOnInline  >= 2 ? `Chưa làm ${skipBietOnInline} ngày` : 'Đang thực hành';
+  const khiemHaText  = skipKhiemHaInline >= 2 ? `Chưa làm ${skipKhiemHaInline} ngày` : 'Đang thực hành';
 
   return `<div id="leader-detail-inline-${mid}" style="background:rgba(201,168,76,0.04);border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid rgba(201,168,76,0.15)">
 
@@ -8045,7 +8163,27 @@ function renderLeaderMemberInline(mid, m, todayK) {
     <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">🏠 Năng lượng 5 ngôi nhà hôm nay</div>
     ${nnBars}
 
-    <div style="display:flex;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin:10px 0 7px">🙏 Nghi Thức Đặc Biệt Để Chuyển Hoá Hạt Giống</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+      <div style="background:${bietOnBg};border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:10px;font-weight:700;color:${bietOnColor};margin-bottom:3px">Viết sổ Biết Ơn</div>
+        <div style="font-size:11.5px;color:${bietOnColor}">${bietOnText}</div>
+      </div>
+      <div style="background:${khiemHaBg};border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:10px;font-weight:700;color:${khiemHaColor};margin-bottom:3px">Khiêm Hạ 5 Ngôi Nhà</div>
+        <div style="font-size:11.5px;color:${khiemHaColor}">${khiemHaText}</div>
+      </div>
+    </div>
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:7px">🌱 Hạt giống</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${mSeedsReappear.length||mNewSeeds7d?'6px':'12px'}">
+      <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(192,96,106,0.1);color:var(--rose)">😔 Đang theo dõi: ${mSeedsActive.length}</span>
+      <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(74,140,111,0.1);color:var(--jade)">✅ Chuyển hoá: ${mSeedsDone.length}</span>
+      ${mSeedsReappear.length ? `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(201,168,76,0.1);color:var(--gold-dark)">⚠️ Tái phát 7 ngày: ${mSeedsReappear.length}</span>` : ''}
+    </div>
+    ${mNewSeeds7d > 0 ? `<div style="font-size:11px;color:var(--rose);margin-bottom:12px">Hạt giống tăng thêm ${mNewSeeds7d} trong 7 ngày qua</div>` : ''}
+
+    <div style="display:flex;gap:10px;margin-top:4px;padding-top:10px;border-top:1px solid var(--border)">
       <div style="text-align:center;flex:1">
         <div style="font-size:18px;font-weight:800;color:var(--ink)">${rituals}/9</div>
         <div style="font-size:10px;color:var(--ink-muted)">Nghi thức hôm nay</div>
