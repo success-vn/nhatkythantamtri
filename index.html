@@ -7734,6 +7734,14 @@ function renderLeaderSeedsSummary(members) {
 } // end renderLeaderSeedsSummary
 
 // ── Cảnh báo tự động ─────────────────────────────────────────────
+function leaderOpenDetail(idx) {
+  // Helper: mở chi tiết thành viên từ cảnh báo theo index
+  // Dùng _alertMids để tránh quote hell trong onclick attribute
+  if (window._alertMids && window._alertMids[idx]) {
+    openLeaderMemberDetail(window._alertMids[idx]);
+  }
+}
+
 function leaderAlertToggle(idx) {
   var b  = document.getElementById('al-body-'  + idx);
   var ar = document.getElementById('al-arrow-' + idx);
@@ -7942,6 +7950,7 @@ function renderLeaderAlerts(members, todayK) {
   };
   const dotCol = { red:'var(--rose)', amber:'var(--gold-dark)', blue:'var(--sky)' };
 
+  const _alertMids = alerts.map(a => a.mid);
   alertsEl.innerHTML = alerts.map((a, idx) => {
     const c = colorMap[a.level];
     const issueHTML = a.issueList.map(iss =>
@@ -7962,7 +7971,7 @@ function renderLeaderAlerts(members, todayK) {
       '<div id="al-body-' + idx + '" style="display:none;padding:8px 12px 10px;background:' + c.bodyBg + ';border-top:0.5px solid var(--border)">' +
         issueHTML +
         '<div style="height:0.5px;background:var(--border);margin:8px 0"></div>' +
-        '<button onclick="openLeaderMemberDetail(' + JSON.stringify(a.mid) + ')" style="width:100%;padding:7px;border-radius:8px;border:0.5px solid var(--border);background:rgba(245,237,224,0.5);font-size:11.5px;color:var(--ink-muted);cursor:pointer;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif">' +
+        '<button onclick="leaderOpenDetail(' + idx + ')" style="width:100%;padding:7px;border-radius:8px;border:0.5px solid var(--border);background:rgba(245,237,224,0.5);font-size:11.5px;color:var(--ink-muted);cursor:pointer;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif">' +
           'Xem chuỗi chỉ số rèn luyện →' +
         '</button>' +
       '</div>' +
@@ -8124,17 +8133,17 @@ function renderLeaderMemberInline(mid, m, todayK) {
     </div>`;
   }).join('');
 
-  // Hạt giống từ m.seeds (đã load từ Firebase)
+  // Hạt giống: đọc từ seedsActive/seedsDone đã sync qua /journals/
+  // (chỉ có số lượng, không có nội dung — bảo vệ riêng tư)
+  const mSeedsActiveCount = m.seedsActive != null ? m.seedsActive : (m.seeds||[]).filter(s=>s.status==='active').length;
+  const mSeedsDoneCount   = m.seedsDone   != null ? m.seedsDone   : (m.seeds||[]).filter(s=>s.status==='done').length;
+  // Tái phát và hạt giống mới: chỉ tính được nếu có m.seeds (leader xem chính mình)
   const mSeeds        = m.seeds || [];
   const mSeedsActive  = mSeeds.filter(s => s.status === 'active');
-  const mSeedsDone    = mSeeds.filter(s => s.status === 'done');
   const wk7b          = new Date(Date.now() + 7*60*60*1000);
   wk7b.setUTCDate(wk7b.getUTCDate() - 7);
   const wk7bStr       = wk7b.toISOString().split('T')[0];
   const mSeedsReappear= mSeedsActive.filter(s => (s.checkins||[]).some(c => c.appeared && c.date >= wk7bStr));
-  const now21b        = new Date(Date.now() + 7*60*60*1000);
-  now21b.setUTCDate(now21b.getUTCDate() - 21);
-  const ago21bStr     = now21b.toISOString().split('T')[0];
   const mNewSeeds7d   = mSeedsActive.filter(s => { const d = s.createdAt||(s.checkins?.[0]?.date); return d && d >= wk7bStr; }).length;
 
   // Nghi thức đặc biệt: Biết Ơn (r6) & Khiêm Hạ (r7)
@@ -8177,8 +8186,8 @@ function renderLeaderMemberInline(mid, m, todayK) {
 
     <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:7px">🌱 Hạt giống</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${mSeedsReappear.length||mNewSeeds7d?'6px':'12px'}">
-      <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(192,96,106,0.1);color:var(--rose)">😔 Đang theo dõi: ${mSeedsActive.length}</span>
-      <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(74,140,111,0.1);color:var(--jade)">✅ Chuyển hoá: ${mSeedsDone.length}</span>
+      <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(192,96,106,0.1);color:var(--rose)">😔 Đang theo dõi: ${mSeedsActiveCount}</span>
+      <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(74,140,111,0.1);color:var(--jade)">✅ Chuyển hoá: ${mSeedsDoneCount}</span>
       ${mSeedsReappear.length ? `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:rgba(201,168,76,0.1);color:var(--gold-dark)">⚠️ Tái phát 7 ngày: ${mSeedsReappear.length}</span>` : ''}
     </div>
     ${mNewSeeds7d > 0 ? `<div style="font-size:11px;color:var(--rose);margin-bottom:12px">Hạt giống tăng thêm ${mNewSeeds7d} trong 7 ngày qua</div>` : ''}
@@ -8545,7 +8554,21 @@ function loadLeaderData() {
 
             // entries chỉ chứa chỉ số từ /journals/
             leaderAllData[mid].entries = journalData;
-            leaderAllData[mid].seeds   = [];
+            // Tổng hợp seedsActive/seedsDone từ journal entries gần nhất
+            // (chỉ có số lượng, không có nội dung — bảo vệ riêng tư)
+            const jKeys = Object.keys(journalData).sort().reverse();
+            let latestSeedsActive = 0, latestSeedsDone = 0;
+            for (const jk of jKeys) {
+              const je = journalData[jk];
+              if (je && je.seedsActive != null) {
+                latestSeedsActive = je.seedsActive || 0;
+                latestSeedsDone   = je.seedsDone   || 0;
+                break;
+              }
+            }
+            leaderAllData[mid].seeds        = [];
+            leaderAllData[mid].seedsActive  = latestSeedsActive;
+            leaderAllData[mid].seedsDone    = latestSeedsDone;
 
             loaded++;
             if (loaded === allMemberEntries.length) {
@@ -8762,16 +8785,21 @@ function _makeJournalEntry(e) {
   // Chỉ sync các CHỈ SỐ lên /journals/ để trưởng nhóm theo dõi
   // Các nội dung riêng tư (bài học, biết ơn, thư gửi bản thân, ước nguyện,
   // hạt giống, tasks, ghi chú tài chính) KHÔNG được sync — chỉ lưu local
+  // Hạt giống: chỉ sync SỐ LƯỢNG (không sync nội dung/tên) để bảo vệ riêng tư
+  const seedsActive = seedsData.filter(s => s.status === 'active').length;
+  const seedsDone   = seedsData.filter(s => s.status === 'done').length;
   return {
-    rituals:    e.rituals||{},
-    energy:     e.energy||5,
-    nnEnergy:   e.nnEnergy||{},
-    recvGreen:  e.recvGreen||0,
-    recvRed:    e.recvRed||0,
-    spendGreen: e.spendGreen||0,
-    spendRed:   e.spendRed||0,
-    _updatedAt: e._updatedAt || Date.now(),
-    syncedAt:   Date.now(),
+    rituals:     e.rituals||{},
+    energy:      e.energy||5,
+    nnEnergy:    e.nnEnergy||{},
+    recvGreen:   e.recvGreen||0,
+    recvRed:     e.recvRed||0,
+    spendGreen:  e.spendGreen||0,
+    spendRed:    e.spendRed||0,
+    seedsActive: seedsActive,
+    seedsDone:   seedsDone,
+    _updatedAt:  e._updatedAt || Date.now(),
+    syncedAt:    Date.now(),
   };
 }
 
