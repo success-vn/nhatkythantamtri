@@ -2937,6 +2937,9 @@ function todayKey() {
 function getTodayEntry() {
   const k = todayKey();
   if (!data[k]) data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
+  // Đảm bảo rituals và dims luôn là object (tránh crash khi data được merge từ Firebase)
+  if (!data[k].rituals || typeof data[k].rituals !== 'object') data[k].rituals = {};
+  if (!data[k].dims   || typeof data[k].dims   !== 'object') data[k].dims   = {};
   return data[k];
 }
 
@@ -2967,7 +2970,9 @@ function checkNewDay() {
   window._lastRefreshedDay = k; // đánh dấu đã refresh ngày này
   if (data[k]) {
     // data[k] đã có nhưng UI chưa refresh (ví dụ user vừa wake up điện thoại)
-    // Chỉ cần reload UI, không tạo entry mới
+    // Đảm bảo rituals là object trước khi render (tránh crash nếu Firebase merge thiếu field)
+    if (!data[k].rituals || typeof data[k].rituals !== 'object') data[k].rituals = {};
+    if (!data[k].dims    || typeof data[k].dims    !== 'object') data[k].dims    = {};
     loadTodayFields();
     renderRituals();
     renderTasksList();
@@ -3739,6 +3744,7 @@ function setDateBars() {
 // RITUALS
 function renderRituals() {
   const entry=getTodayEntry();
+  if (!entry.rituals || typeof entry.rituals !== 'object') entry.rituals = {};
   document.getElementById('ritual-list').innerHTML=RITUALS.map(r=>`
     <div class="ritual-item ${entry.rituals[r.id]?'done':''}" id="ri-${r.id}" onclick="toggleRitual('${r.id}')">
       <div class="ritual-check">${entry.rituals[r.id]?'✓':''}</div>
@@ -3752,6 +3758,7 @@ function renderRituals() {
 function toggleRitual(id) {
   if (checkExpiredAndAlert()) return;
   const entry=getTodayEntry();
+  if (!entry.rituals || typeof entry.rituals !== 'object') entry.rituals = {};
   entry.rituals[id]=!entry.rituals[id];
   save(STORAGE_KEY,data);
   const item=document.getElementById('ri-'+id);
@@ -7950,7 +7957,7 @@ function renderLeaderAlerts(members, todayK) {
   };
   const dotCol = { red:'var(--rose)', amber:'var(--gold-dark)', blue:'var(--sky)' };
 
-  const _alertMids = alerts.map(a => a.mid);
+  window._alertMids = alerts.map(a => a.mid);
   alertsEl.innerHTML = alerts.map((a, idx) => {
     const c = colorMap[a.level];
     const issueHTML = a.issueList.map(iss =>
