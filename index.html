@@ -177,6 +177,8 @@ body {
   display: flex; background: var(--card);
   border-bottom: 1px solid var(--border);
   overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
   position: sticky; top: 0; z-index: 100;
   box-shadow: 0 2px 12px rgba(90,55,10,0.08);
 }
@@ -1000,7 +1002,9 @@ textarea { min-height: 80px; }
   </div>
 </div>
 
-<nav class="nav">
+<div style="position:sticky;top:0;z-index:101;display:flex;align-items:stretch;background:var(--card);border-bottom:1px solid var(--border);box-shadow:0 2px 12px rgba(90,55,10,0.08)">
+  <button id="nav-scroll-left" onclick="scrollNavBy(-180)" style="display:none;flex-shrink:0;width:28px;border:none;background:linear-gradient(to right,var(--card) 60%,transparent);color:var(--gold-dark);font-size:16px;cursor:pointer;padding:0;z-index:1">‹</button>
+  <nav class="nav" id="main-nav" style="flex:1;box-shadow:none;border:none;position:static">
   <button class="nav-tab active" onclick="showPage('today',this)">📖 Hôm Nay</button>
   <button class="nav-tab" onclick="showPage('seeds',this)">😔 Hạt Giống</button>
   <button class="nav-tab" onclick="showPage('energy',this)">⚡ Năng Lượng</button>
@@ -1015,6 +1019,8 @@ textarea { min-height: 80px; }
   <button class="nav-tab" id="nav-leader" style="display:none;color:var(--gold-dark)" onclick="showPage('leader',this)">👑 Trưởng Nhóm</button>
   <button class="nav-tab" id="nav-admin" style="display:none;color:var(--rose)" onclick="showPage('admin',this)">🔐 Admin</button>
 </nav>
+  <button id="nav-scroll-right" onclick="scrollNavBy(180)" style="flex-shrink:0;width:28px;border:none;background:linear-gradient(to left,var(--card) 60%,transparent);color:var(--gold-dark);font-size:16px;cursor:pointer;padding:0;z-index:1">›</button>
+</div>
 
 <div class="main">
 
@@ -1587,7 +1593,7 @@ textarea { min-height: 80px; }
 
     <div id="prayer-text" style="
       font-family:'Cormorant Garamond',serif;
-      font-size:14.5px; line-height:2;
+      font-size:18px; line-height:2;
       color:rgba(253,248,240,0.88);
       position:relative; text-align:center;
     ">
@@ -1607,7 +1613,7 @@ textarea { min-height: 80px; }
 
       <em>Trí tuệ của người chính là trí tuệ của con; con biết ơn Người, biết ơn Mẹ Vũ trụ tuyệt vời.</em><br><br>
 
-      <span style="color:var(--gold);font-size:16px;letter-spacing:2px">Cảm ơn, cảm ơn, cảm ơn.</span>
+      <span style="color:var(--gold);font-size:20px;letter-spacing:2px">Cảm ơn, cảm ơn, cảm ơn.</span>
     </div>
 
     <div style="text-align:center;margin-top:20px;position:relative">
@@ -2961,31 +2967,25 @@ function pruneOldData() {
   } catch(e) { console.warn('Prune failed:', e.message); }
 }
 
-function checkNewDay() {
-  const k = todayKey();
-  // FIX DAY REFRESH: Track ngày cuối đã refresh UI
-  // Nếu data[k] có rồi NHƯNG UI chưa được refresh cho ngày này → vẫn cần refresh
-  const lastRefreshedDay = window._lastRefreshedDay || '';
-  if (data[k] && lastRefreshedDay === k) return; // đã refresh rồi → không làm gì
-  window._lastRefreshedDay = k; // đánh dấu đã refresh ngày này
-  if (data[k]) {
-    // data[k] đã có nhưng UI chưa refresh (ví dụ user vừa wake up điện thoại)
-    // Đảm bảo rituals là object trước khi render (tránh crash nếu Firebase merge thiếu field)
-    if (!data[k].rituals || typeof data[k].rituals !== 'object') data[k].rituals = {};
-    if (!data[k].dims    || typeof data[k].dims    !== 'object') data[k].dims    = {};
-    loadTodayFields();
-    renderRituals();
-    renderTasksList();
-    setDateBars();
-    return;
-  }
-  // Hôm nay chưa có entry → tạo mới trong bộ nhớ nhưng KHÔNG save/push ngay
-  // Lý do: nếu push ngay sẽ ghi {} lên Firebase, xóa mất dữ liệu đã sync
-  // Data sẽ được save khi member thực sự điền nội dung
-  data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
-  // Chỉ lưu localStorage (không trigger scheduleSyncPush) để giữ state UI
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
-  // Clear 5 tab rèn luyện hàng ngày: Today, Energy, Gratitude, Finance, Wish
+// ── Hằng số key localStorage để track ngày đã reset UI ──
+const LAST_RESET_DAY_KEY = 'nn5_last_reset_day';
+
+// ── Tính số ms còn lại đến 00:00:00 theo giờ VN (UTC+7) ──
+function msUntilMidnightVN() {
+  const nowUTC = Date.now();
+  const nowVN  = nowUTC + 7 * 60 * 60 * 1000; // shift sang VN
+  const vnDate = new Date(nowVN);
+  // Đầu ngày VN tiếp theo (tính trên trục UTC+7)
+  const nextMidnightVN = Date.UTC(
+    vnDate.getUTCFullYear(),
+    vnDate.getUTCMonth(),
+    vnDate.getUTCDate() + 1  // +1 ngày → 00:00:00 VN
+  ) - 7 * 60 * 60 * 1000;   // convert về UTC thật
+  return Math.max(nextMidnightVN - nowUTC, 0);
+}
+
+// ── Reset toàn bộ các field rèn luyện về trạng thái trống ──
+function clearDailyFields() {
   const DAILY_FIELDS = [
     'lesson-text','seed-green','seed-red','daily-good','daily-improve',
     'gratitude-1','gratitude-2','gratitude-3','self-letter','self-proud',
@@ -3001,19 +3001,68 @@ function checkNewDay() {
   const energyEl = document.getElementById('overall-energy');
   if (energyEl) { energyEl.value = 5; updateSlider('overall-energy','overall-thumb','overall-val'); }
   // Reset NN sliders về 5
-  NN_LIST.forEach(nn => {
-    const el = document.getElementById('nne-'+nn.key);
-    if (el) { el.value = 5; updateSlider('nne-'+nn.key,'nne-thumb-'+nn.key,'nne-val-'+nn.key); }
-  });
-  // FIX L2: Ẩn badge "Đã lưu" khi sang ngày mới
+  if (typeof NN_LIST !== 'undefined') {
+    NN_LIST.forEach(nn => {
+      const el = document.getElementById('nne-'+nn.key);
+      if (el) { el.value = 5; updateSlider('nne-'+nn.key,'nne-thumb-'+nn.key,'nne-val-'+nn.key); }
+    });
+  }
+  // Ẩn badge "Đã lưu"
   const savedBadge = document.getElementById('today-saved-badge');
   if (savedBadge) savedBadge.style.display = 'none';
+}
+
+// ── Đặt timer đếm ngược đến 00:00 VN rồi tự động reset ──
+function scheduleMidnightReset() {
+  const ms = msUntilMidnightVN();
+
+  setTimeout(() => {
+    // Đúng 00:00 VN: thực hiện reset ngay
+    doNewDayReset(true);
+    // Sau đó lên lịch cho ngày hôm sau (đệ quy, chạy mỗi ngày)
+    scheduleMidnightReset();
+  }, ms + 500); // +500ms đệm nhỏ tránh chạy sớm hơn 1 giây
+}
+
+// ── Thực hiện reset ngày mới (gọi khi bước sang 00:00 hoặc khi mở app ngày mới) ──
+function doNewDayReset(showToastMsg) {
+  const k = todayKey();
+  // Ghi nhớ ngày đã reset vào localStorage (persist qua reload)
+  try { localStorage.setItem(LAST_RESET_DAY_KEY, k); } catch(e) {}
+  window._lastRefreshedDay = k;
+
+  // Tạo entry mới cho hôm nay (trống)
+  data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+
+  // Xoá trắng các field UI
+  clearDailyFields();
   renderRituals();
   renderTasksList();
-  // Thông báo nhẹ khi sang ngày mới (chỉ khi app đã boot xong, không phải lần đầu)
-  if (document.getElementById('toast')) {
+  setDateBars();
+
+  if (showToastMsg && document.getElementById('toast')) {
     setTimeout(() => showToast('🌅 Chào ngày mới! Trang nhật ký đã được làm mới.'), 500);
   }
+}
+
+// ── Kiểm tra khi mở app / quay lại tab: đã reset hôm nay chưa? ──
+function checkNewDay() {
+  const k = todayKey();
+
+  // Đọc ngày đã reset từ localStorage (đáng tin hơn biến JS, persist qua reload)
+  const lastResetDay = (() => {
+    try { return localStorage.getItem(LAST_RESET_DAY_KEY) || ''; } catch(e) { return ''; }
+  })();
+
+  // Nếu đã reset đúng ngày hôm nay rồi → không làm gì thêm
+  if (lastResetDay === k) {
+    window._lastRefreshedDay = k;
+    return;
+  }
+
+  // Chưa reset cho ngày hôm nay → thực hiện reset (không show toast khi mở app lần đầu)
+  doNewDayReset(false);
 }
 function formatDate(d) {
   const days=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
@@ -3643,6 +3692,21 @@ function doLogout() {
   }
 }
 
+
+// ── Nav scroll arrows ──
+function scrollNavBy(px) {
+  const nav = document.getElementById('main-nav');
+  if (nav) nav.scrollBy({ left: px, behavior: 'smooth' });
+}
+function updateNavArrows() {
+  const nav = document.getElementById('main-nav');
+  const btnL = document.getElementById('nav-scroll-left');
+  const btnR = document.getElementById('nav-scroll-right');
+  if (!nav || !btnL || !btnR) return;
+  btnL.style.display = nav.scrollLeft > 5 ? 'block' : 'none';
+  btnR.style.display = (nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 5) ? 'block' : 'none';
+}
+
 function bootApp() {
   _bootTime = Date.now(); // Dùng để tránh push quá sớm sau boot
   // Kiểm tra sang ngày mới trước tiên
@@ -3699,18 +3763,28 @@ function bootApp() {
   // Setup autosave for all fields
   setupAutosave();
 
+  // Setup nav scroll arrows
+  const _mainNav = document.getElementById('main-nav');
+  if (_mainNav) {
+    _mainNav.addEventListener('scroll', updateNavArrows);
+    setTimeout(updateNavArrows, 200);
+  }
+
   // FIX INTERVAL: Guard - tránh đăng ký lại interval nếu bootApp bị gọi nhiều lần
   if (!window._intervalsRegistered) {
     window._intervalsRegistered = true;
-    // Kiểm tra sang ngày mới mỗi phút (thiết bị bật cả đêm)
-    setInterval(() => { checkNewDay(); }, 60000);
-    // FIX DAY REFRESH: Khi user quay lại app (điện thoại wake up, đổi tab)
-    // → kiểm tra ngày ngay lập tức thay vì chờ interval 60s
-    // Giải quyết vấn đề "10h sáng mới refresh" do JS bị throttle khi điện thoại sleep
+
+    // ── Timer chính xác: đếm ngược đến đúng 00:00 VN rồi reset ──
+    scheduleMidnightReset();
+
+    // ── Fallback: check mỗi 30s đề phòng JS bị throttle khi điện thoại sleep ──
+    setInterval(() => { checkNewDay(); }, 30000);
+
+    // ── Khi user quay lại tab / mở khoá điện thoại → check ngay lập tức ──
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         checkNewDay();
-        setDateBars(); // Cập nhật header date luôn
+        setDateBars();
       }
     });
   }
@@ -7376,7 +7450,24 @@ function showPage(name, btn) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name)?.classList.add('active');
-  if (btn) btn.classList.add('active');
+  if (btn) {
+    btn.classList.add('active');
+    // Scroll tab active vào vùng nhìn thấy
+    setTimeout(() => {
+      const nav = btn.closest('.nav');
+      if (nav) {
+        const btnLeft = btn.offsetLeft;
+        const btnRight = btnLeft + btn.offsetWidth;
+        const navScrollLeft = nav.scrollLeft;
+        const navWidth = nav.clientWidth;
+        if (btnLeft < navScrollLeft + 20) {
+          nav.scrollTo({ left: btnLeft - 20, behavior: 'smooth' });
+        } else if (btnRight > navScrollLeft + navWidth - 20) {
+          nav.scrollTo({ left: btnRight - navWidth + 20, behavior: 'smooth' });
+        }
+      }
+    }, 30);
+  }
   // FIX L6: Destroy charts trước khi render trang mới, tránh "Canvas already in use"
   if (name==='dashboard') {
     Object.keys(chartInstances).forEach(k => destroyChart(k));
