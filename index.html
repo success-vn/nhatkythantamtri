@@ -583,6 +583,197 @@ textarea { min-height: 80px; }
   from { opacity:0; transform:translateY(20px); }
   to   { opacity:1; transform:translateY(0); }
 }
+
+/* ── MONTHLY TAB ── */
+
+:root{
+  --gold:#c9a84c;--gold-dark:#8a6a1e;--gold-light:#f5ecd1;
+  --ink:#1a1410;--ink-muted:#7a6552;
+  --card:#fffdf8;--border:rgba(201,168,76,0.25);
+  --jade:#4a8c6f;--jade-light:#d4ede2;
+  --rose:#c0606a;--rose-light:#f7e0e2;
+  --sky:#4a7fa8;--sky-light:#d4e8f5;
+  --violet:#7c5cbf;--violet-light:#e8e0f5;
+  --amber:#d4872a;--amber-light:#fef0d6;
+  --bg:#f5ede0;
+  --shadow:0 4px 24px rgba(90,55,10,0.10);
+  --radius:16px;--radius-sm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+
+.app-header{background:linear-gradient(135deg,#1a1410 0%,#3d2e1e 100%);padding:18px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 20px rgba(90,55,10,0.3);}
+.app-header h1{font-family:'Cormorant Garamond',serif;font-size:clamp(18px,4vw,26px);font-weight:300;color:#fdf8f0;letter-spacing:2px;line-height:1.25;}
+.app-header h1 span{color:var(--gold);font-style:italic;font-weight:600;}
+.app-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:var(--gold-light);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:0.8px;}
+
+.nav{background:var(--card);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;position:sticky;top:61px;z-index:100;box-shadow:0 2px 12px rgba(90,55,10,0.08);}
+.nav::-webkit-scrollbar{display:none;}
+.nav-tab{flex:none;padding:14px 18px;font-size:12px;font-weight:700;letter-spacing:0.5px;color:var(--ink-muted);cursor:pointer;border:none;background:none;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap;font-family:'Nunito',sans-serif;}
+.nav-tab.active{color:var(--gold-dark);border-bottom-color:var(--gold);}
+.nav-tab:hover{color:var(--gold-dark);}
+
+.main{max-width:760px;margin:0 auto;padding:20px 16px 80px;}
+.page{display:none;}
+.page.active{display:block;animation:fadeIn 0.25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.sc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow);}
+.st{display:flex;align-items:center;gap:10px;font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;font-weight:600;color:var(--ink);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.si{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+
+.btn{padding:8px 18px;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border:none;}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(201,168,76,0.35);}
+.btn-sm{padding:5px 14px;font-size:12px;}
+.btn-out{background:transparent;border:1.5px solid var(--border);color:var(--ink-muted);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:8px 18px;}
+.btn-out:hover{border-color:var(--gold);color:var(--gold-dark);}
+.btn-sky{background:var(--sky-light);border:1.5px solid rgba(74,127,168,0.3);color:var(--sky);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:5px 14px;transition:all 0.2s;}
+.btn-sky:hover{background:var(--sky);color:white;}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;}
+
+/* month nav bar */
+.month-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.month-nav select,.month-nav input[type=number]{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;color:var(--ink);background:var(--card);outline:none;}
+.month-nav select:focus,.month-nav input:focus{border-color:var(--gold);}
+.month-status{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;}
+.status-new{background:var(--sky-light);color:var(--sky);}
+.status-exists{background:var(--jade-light);color:var(--jade);}
+
+.met{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.mc{text-align:center;padding:12px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--card);}
+.mn{font-size:20px;font-weight:700;display:block;}
+.ml{font-size:10px;color:var(--ink-muted);font-weight:600;letter-spacing:0.5px;}
+
+.ch{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;}
+.cdn{text-align:center;font-size:11px;font-weight:700;color:var(--ink-muted);padding:6px 2px;letter-spacing:0.5px;}
+.cg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cc{min-height:62px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px;background:var(--card);cursor:pointer;transition:all 0.15s;}
+.cc:hover{border-color:var(--gold);background:var(--gold-light);}
+.cc.emp{background:rgba(201,168,76,0.04);cursor:default;}
+.cc.emp:hover{border-color:var(--border);background:rgba(201,168,76,0.04);}
+.cc.tod{border-color:var(--gold);border-width:2px;background:var(--gold-light);}
+.cc.hev{border-color:var(--jade);}
+.cnum{font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:3px;}
+.cc.tod .cnum{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.edot{font-size:9px;padding:1px 5px;border-radius:4px;display:block;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5;}
+.ej{background:var(--jade-light);color:var(--jade);}
+.er{background:var(--rose-light);color:var(--rose);}
+.es{background:var(--sky-light);color:var(--sky);}
+.ev2{background:var(--violet-light);color:var(--violet);}
+.eg{background:var(--gold-light);color:var(--gold-dark);}
+
+/* houses */
+.hg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.hcard{border-radius:var(--radius-sm);border:1.5px solid var(--border);overflow:hidden;position:relative;}
+.hhdr{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+.hico{font-size:18px;line-height:1;flex-shrink:0;}
+.hname{font-size:13px;font-weight:700;flex:1;min-width:0;}
+.hname-inp{border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;width:100%;outline:none;padding:0;}
+.h-del{width:22px;height:22px;border-radius:50%;border:none;background:var(--rose-light);color:var(--rose);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity 0.2s;line-height:1;padding:0;}
+.hcard:hover .h-del{opacity:1;}
+.hbody{padding:10px 14px 14px;}
+.hta{width:100%;border:1px dashed rgba(201,168,76,0.3);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;color:var(--ink);background:rgba(255,253,248,0.7);resize:none;line-height:1.6;min-height:80px;outline:none;transition:border-color 0.2s;}
+.hta:focus{border-color:var(--gold);}
+.hta::placeholder{color:rgba(122,101,82,0.42);font-style:italic;}
+.add-house-row{margin-top:6px;}
+.add-house-btn{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius-sm);border:1.5px dashed rgba(201,168,76,0.4);background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--gold-dark);cursor:pointer;transition:all 0.2s;width:100%;}
+.add-house-btn:hover{background:var(--gold-light);border-color:var(--gold);}
+.add-house-plus{width:26px;height:26px;border-radius:50%;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
+
+/* okr */
+.wg{display:grid;grid-template-columns:1fr 1fr;gap:16px;}@media(max-width:600px){.wg{grid-template-columns:1fr;}.hg{grid-template-columns:1fr;}.rg{grid-template-columns:1fr;}}
+.okrc{border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--card);overflow:hidden;}
+.okrhdr{padding:10px 14px;display:flex;justify-content:space-between;align-items:center;}
+.okrwl{font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;color:white;}
+.okrwd{font-size:10px;font-weight:600;opacity:0.7;}
+.okrwp{font-size:13px;font-weight:700;color:white;}
+.okrbar{height:4px;background:rgba(201,168,76,0.15);}
+.okrfill{height:100%;transition:width 0.4s;}
+.okrbody{padding:12px 14px;}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:0.7px;padding:2px 8px;border-radius:10px;margin-bottom:6px;}
+.cO{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;}
+.cKR{background:var(--sky-light);color:var(--sky);}
+.cKZ{background:var(--rose-light);color:var(--rose);}
+.orow{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.oleft{flex:1;min-width:0;}
+.oit{width:100%;border:none;background:transparent;font-family:inherit;font-size:12px;color:var(--ink);outline:none;padding:0;line-height:1.5;resize:none;overflow:hidden;min-height:18px;}
+.oit::placeholder{color:rgba(122,101,82,0.4);font-style:italic;}
+.oit.done{text-decoration:line-through;color:var(--jade);font-weight:600;}
+.scol{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;width:54px;}
+.slbl{font-size:9px;color:var(--ink-muted);font-weight:700;letter-spacing:0.4px;text-align:center;}
+.sinp{width:48px;text-align:center;border:1.5px solid var(--border);border-radius:8px;padding:4px 2px;font-family:inherit;font-size:15px;font-weight:700;color:var(--ink);background:var(--card);outline:none;transition:border-color 0.2s,background 0.2s;-moz-appearance:textfield;}
+.sinp::-webkit-outer-spin-button,.sinp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.sinp:focus{border-color:var(--gold);}
+.sinp.ds{background:var(--jade-light);border-color:var(--jade);color:var(--jade);}
+.smax{font-size:8px;color:var(--ink-muted);text-align:center;margin-top:1px;font-weight:600;}
+.mbw{width:46px;height:5px;background:rgba(201,168,76,0.15);border-radius:10px;overflow:hidden;margin-top:2px;}
+.mbf{height:100%;border-radius:10px;transition:width 0.3s;}
+.krrow{display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px dashed rgba(201,168,76,0.15);}
+.krrow:last-child{border-bottom:none;}
+.krl{flex:1;min-width:0;display:flex;align-items:flex-start;gap:5px;}
+.krn{font-size:10px;font-weight:700;color:var(--ink-muted);flex-shrink:0;margin-top:2px;width:14px;}
+.delbtn{width:18px;height:18px;border-radius:50%;border:none;background:var(--rose-light);color:var(--rose);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;padding:0;margin-top:2px;opacity:0.45;transition:opacity 0.2s,transform 0.15s;}
+.delbtn:hover{opacity:1;transform:scale(1.15);}
+.addkrrow{margin-top:6px;}
+.addkrinp{width:100%;border:1px dashed rgba(201,168,76,0.35);border-radius:8px;padding:8px 12px;font-family:inherit;font-size:13px;color:var(--ink);background:transparent;outline:none;transition:all 0.2s;box-sizing:border-box;}
+.addkrinp:focus{border-color:var(--gold);background:var(--gold-light);}
+.addkrbtn{width:26px;height:26px;border-radius:50%;background:var(--gold);border:none;color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;transition:transform 0.15s;flex-shrink:0;}
+.addkrbtn:hover{transform:scale(1.12);}
+.kzta{width:100%;border:1px dashed rgba(192,96,106,0.25);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:11px;color:var(--ink);background:rgba(192,96,106,0.03);resize:none;outline:none;line-height:1.6;min-height:50px;transition:border-color 0.2s;}
+.kzta:focus{border-color:var(--rose);}
+.kzta::placeholder{color:rgba(192,96,106,0.4);font-style:italic;}
+.msum{display:flex;align-items:center;gap:12px;padding:10px 0 4px;}
+.mbw2{flex:1;height:8px;background:rgba(201,168,76,0.15);border-radius:10px;overflow:hidden;}
+.mbf2{height:100%;border-radius:10px;transition:width 0.5s;}
+.mpct{font-size:14px;font-weight:700;min-width:42px;text-align:right;}
+.dbadge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--jade-light);color:var(--jade);margin-left:6px;vertical-align:middle;}
+
+/* copy from prev banner */
+.copy-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--sky-light);border:1px solid rgba(74,127,168,0.25);border-radius:var(--radius-sm);margin-bottom:14px;}
+.copy-banner p{font-size:12px;color:var(--sky);font-weight:600;line-height:1.4;}
+.copy-banner p span{font-weight:700;}
+
+/* reflection */
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.rb{padding:14px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+.rb h4{font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.rta{width:100%;border:1px dashed rgba(201,168,76,0.3);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;color:var(--ink);background:rgba(255,253,248,0.7);resize:none;line-height:1.6;min-height:80px;outline:none;transition:border-color 0.2s;}
+.rta:focus{border-color:var(--gold);}
+.rta::placeholder{color:rgba(122,101,82,0.42);font-style:italic;}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1410;color:#fdf8f0;padding:12px 24px;border-radius:30px;font-size:13px;font-weight:700;z-index:999;transition:transform 0.3s ease;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.3);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* modal */
+.mov{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,20,16,0.5);z-index:500;display:none;align-items:center;justify-content:center;}
+.mbox{background:var(--card);border-radius:var(--radius);padding:24px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(90,55,10,0.25);border:1px solid var(--border);}
+.mtit{font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;font-weight:600;margin-bottom:14px;color:var(--ink);}
+.minp{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;margin-bottom:10px;background:var(--card);color:var(--ink);outline:none;}
+.minp:focus{border-color:var(--gold);}
+.mact{display:flex;gap:10px;margin-top:14px;justify-content:flex-end;}
+.trow{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
+.tc{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid transparent;transition:all 0.15s;}
+.tc.act{border-color:currentColor;}
+
+@media(max-width:560px){
+  .wg,.hg,.rg,.met{grid-template-columns:1fr;}
+  .met{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ── KR CHECKBOX ── */
+.kr-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;color:transparent;transition:all 0.2s;margin-top:2px;padding:0;}
+.kr-check:hover{border-color:var(--jade);color:var(--jade);}
+.kr-check.kr-done{background:var(--jade);border-color:var(--jade);color:white;}
+.oit{width:100%;border:none;background:transparent;font-family:inherit;font-size:12px;color:var(--ink);outline:none;padding:0;line-height:1.5;resize:none;overflow:hidden;min-height:18px;}
+.oit::placeholder{color:rgba(122,101,82,0.4);font-style:italic;}
+.oit.done{text-decoration:line-through;color:var(--jade);font-weight:600;}
+.dbadge{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--jade-light);color:var(--jade);margin-left:6px;vertical-align:middle;}
+.delbtn{width:18px;height:18px;border-radius:50%;border:none;background:var(--rose-light);color:var(--rose);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;padding:0;margin-top:2px;opacity:0.45;transition:opacity 0.2s,transform 0.15s;}
+.delbtn:hover{opacity:1;transform:scale(1.15);}
+.krrow{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed rgba(201,168,76,0.15);}
+.krrow:last-child{border-bottom:none;}
 </style>
 </head>
 <body>
@@ -1005,6 +1196,7 @@ textarea { min-height: 80px; }
 <div style="position:sticky;top:0;z-index:101;display:flex;align-items:stretch;background:var(--card);border-bottom:1px solid var(--border);box-shadow:0 2px 12px rgba(90,55,10,0.08)">
   <button id="nav-scroll-left" onclick="scrollNavBy(-180)" style="display:none;flex-shrink:0;width:28px;border:none;background:linear-gradient(to right,var(--card) 60%,transparent);color:var(--gold-dark);font-size:16px;cursor:pointer;padding:0;z-index:1">‹</button>
   <nav class="nav" id="main-nav" style="flex:1;box-shadow:none;border:none;position:static">
+  <button class="nav-tab" onclick="showPage('monthly',this)">🗓️ Mục Tiêu Tháng</button>
   <button class="nav-tab active" onclick="showPage('today',this)">📖 Hôm Nay</button>
   <button class="nav-tab" onclick="showPage('seeds',this)">😔 Hạt Giống</button>
   <button class="nav-tab" onclick="showPage('energy',this)">⚡ Năng Lượng</button>
@@ -1338,6 +1530,95 @@ textarea { min-height: 80px; }
     </div>
   </div>
 </div>
+
+<div class="page" id="page-monthly">
+
+  <!-- 1. CALENDAR -->
+  <div class="sc">
+    <div class="st"><span class="si" style="background:var(--gold-light);">🗓️</span>Lịch Tháng &amp; Tổng Quan</div>
+    <div class="month-nav">
+      <select id="sel-m"></select>
+      <input type="number" id="sel-y" value="2026" min="2020" max="2035" style="width:86px;">
+      <button class="btn btn-gold" onclick="switchMonth()">Xem Lịch</button>
+      <span id="month-status" class="month-status status-exists" style="display:none;"></span>
+    </div>
+    <div class="met">
+      <div class="mc"><span class="mn" id="m-ev" style="color:var(--jade);">0</span><span class="ml">SỰ KIỆN</span></div>
+      <div class="mc"><span class="mn" id="m-tk" style="color:var(--gold-dark);">0</span><span class="ml">NHIỆM VỤ</span></div>
+      <div class="mc"><span class="mn" id="m-sc" style="color:var(--violet);">0/10</span><span class="ml">ĐIỂM TB</span></div>
+      <div class="mc"><span class="mn" id="m-wk" style="color:var(--sky);">5</span><span class="ml">TUẦN</span></div>
+    </div>
+    <div class="ch">
+      <div class="cdn">CN</div><div class="cdn">T2</div><div class="cdn">T3</div>
+      <div class="cdn">T4</div><div class="cdn">T5</div><div class="cdn">T6</div><div class="cdn">T7</div>
+    </div>
+    <div class="cg" id="cal-grid"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center;">
+      <span style="font-size:11px;color:var(--ink-muted);font-weight:700;">LOẠI:</span>
+      <span class="badge" style="background:var(--jade-light);color:var(--jade);">🟢 Họp/Nhóm</span>
+      <span class="badge" style="background:var(--rose-light);color:var(--rose);">🔴 Deadline</span>
+      <span class="badge" style="background:var(--sky-light);color:var(--sky);">🔵 Cá nhân</span>
+      <span class="badge" style="background:var(--violet-light);color:var(--violet);">🟣 Học tập</span>
+      <span class="badge" style="background:var(--gold-light);color:var(--gold-dark);">🟡 Khác</span>
+    </div>
+  </div>
+
+  <!-- 2. MONTHLY GOALS -->
+  <div class="sc">
+    <div class="st">
+      <span class="si" style="background:var(--amber-light);">🎯</span>
+      Mục Tiêu Tháng — 5 Ngôi Nhà
+      <span id="cur-month-label" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--gold-dark);font-family:'Nunito',sans-serif;"></span>
+    </div>
+    <!-- banner gợi ý copy tháng trước -->
+    <div class="copy-banner" id="copy-banner" style="display:none;">
+      <p>📋 Tháng này chưa có dữ liệu. <span>Sao chép mục tiêu từ tháng trước</span> để bắt đầu nhanh hơn?</p>
+      <button class="btn-sky" onclick="copyFromPrev()">Sao chép</button>
+    </div>
+    <div class="hg" id="houses-grid"></div>
+    <div class="add-house-row" style="margin-top:14px;">
+      <button class="add-house-btn" onclick="addHouse()">
+        <span class="add-house-plus">+</span>
+        Thêm nhóm mục tiêu mới
+      </button>
+    </div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:10px;">
+      <button class="btn-out btn-sm" onclick="clearHouses()" style="padding:5px 14px;font-size:12px;cursor:pointer;">Xóa nội dung</button>
+      <button class="btn btn-gold btn-sm" onclick="saveHouses()">Lưu Mục Tiêu</button>
+    </div>
+  </div>
+
+  <!-- 3. OKR WEEKLY -->
+  <div class="sc">
+    <div class="st">
+      <span class="si" style="background:var(--rose-light);">📋</span>
+      Kế Hoạch Theo Tuần — OKR
+      <span id="mtl" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--jade);font-family:'Nunito',sans-serif;"></span>
+    </div>
+    <div class="msum">
+      <span style="font-size:12px;font-weight:700;color:var(--ink-muted);">TỔNG THÁNG</span>
+      <div class="mbw2"><div class="mbf2" id="mbar" style="width:0%;"></div></div>
+      <span class="mpct" id="mpct" style="color:var(--jade);">0/10</span>
+    </div>
+    <div style="height:12px;"></div>
+    <div class="wg" id="okr-grid"></div>
+  </div>
+
+  <!-- 4. REFLECTION -->
+  <div class="sc">
+    <div class="st"><span class="si" style="background:var(--rose-light);">♻️</span>Kaizen Cuối Tháng — Cần Cải Thiện</div>
+    <div id="reflect-grid"></div>
+  </div>
+
+</div><!-- /page-monthly -->
+
+
+
+
+
+
+</div>
+
 
 <!-- Modal check-in hàng ngày cho 1 hạt giống -->
 <div id="seed-checkin-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);overflow-y:auto;padding:20px">
@@ -1803,56 +2084,7 @@ textarea { min-height: 80px; }
     </div>
   </div>
 
-  <!-- Self-assessment & Kaizen -->
-  <div class="section-card">
-    <div class="section-title">
-      <div class="section-icon" style="background:rgba(124,92,191,0.12)">🪞</div>
-      Tự Đánh Giá Hành Trình
-    </div>
-    <div class="note-quote" style="margin-bottom:14px">
-      "Kaizen – Cải tiến nhỏ mỗi ngày. Nhìn lại để biết mình đang ở đâu và muốn tiến về đâu."
-    </div>
 
-    <!-- Weekly self-rate -->
-    <div style="margin-bottom:16px">
-      <div class="sp-section-title">⭐ Tự Cho Điểm Tuần Này</div>
-      <div style="font-size:12.5px;color:var(--ink-muted);margin-bottom:8px">Bấm vào ngôi sao để tự đánh giá mức độ rèn luyện tuần này</div>
-      <div class="self-rate-stars" id="weekly-stars">
-        <button class="star-btn" onclick="setWeeklyRate(1)">⭐</button>
-        <button class="star-btn" onclick="setWeeklyRate(2)">⭐</button>
-        <button class="star-btn" onclick="setWeeklyRate(3)">⭐</button>
-        <button class="star-btn" onclick="setWeeklyRate(4)">⭐</button>
-        <button class="star-btn" onclick="setWeeklyRate(5)">⭐</button>
-      </div>
-      <div style="font-size:12px;color:var(--ink-muted);margin-top:6px" id="weekly-rate-label"></div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- Kaizen entries by week -->
-    <div style="margin-bottom:12px">
-      <div class="sp-section-title">🔄 Kaizen – Cải Tiến Tuần Này</div>
-    </div>
-
-    <div class="field-row">
-      <label class="field-label">✅ Tuần này tôi đã làm tốt điều gì?</label>
-      <textarea id="kaizen-good" placeholder="Điều tôi thực hiện được tốt trong tuần..." rows="3"></textarea>
-    </div>
-    <div class="field-row">
-      <label class="field-label">🔧 Điều tôi cần cải thiện tuần tới</label>
-      <textarea id="kaizen-improve" placeholder="Tuần tới tôi sẽ làm khác đi bằng cách..." rows="3"></textarea>
-    </div>
-    <div class="field-row">
-      <label class="field-label">🌱 Một hạt giống tôi sẽ trồng tuần tới</label>
-      <textarea id="kaizen-seed" placeholder="Tôi cam kết trồng hạt giống... vào tuần tới" rows="2"></textarea>
-    </div>
-    <button class="save-btn" onclick="saveKaizen()" style="background:linear-gradient(135deg,var(--violet),#5a3a9f)">
-      💜 LƯU KAIZEN TUẦN NÀY
-    </button>
-
-    <!-- Previous Kaizen -->
-    <div id="kaizen-history" style="margin-top:16px"></div>
-  </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
   <button class="btn-outline" onclick="exportData()" style="width:100%">📤 Xuất Dữ Liệu (Backup)</button>
@@ -5315,6 +5547,7 @@ function saveKaizen() {
 function renderKaizenHistory() {
   const el=document.getElementById('kaizen-history');
   if(!el) return;
+  if(!el) return;
   if(!kzData.length){ el.innerHTML=''; return; }
   const stars=['','⭐','⭐⭐','⭐⭐⭐','⭐⭐⭐⭐','⭐⭐⭐⭐⭐'];
   el.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--ink-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Lịch sử Kaizen</div>'+
@@ -7450,6 +7683,7 @@ function showPage(name, btn) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name)?.classList.add('active');
+  if(name==='monthly'&&typeof initMonthlyTab==='function'&&!window._monthlyReady){initMonthlyTab();}
   if (btn) {
     btn.classList.add('active');
     // Scroll tab active vào vùng nhìn thấy
@@ -10884,6 +11118,597 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+
+/* ═══ MONTHLY TAB JS ═══ */
+
+/* ═══════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════ */
+const MV=['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+          'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+const WC=[
+  {bg:'linear-gradient(135deg,#4a8c6f,#3a7a5e)',bd:'rgba(74,140,111,0.3)',ic:'🌿'},
+  {bg:'linear-gradient(135deg,#4a7fa8,#3a6f98)',bd:'rgba(74,127,168,0.3)',ic:'🌊'},
+  {bg:'linear-gradient(135deg,#7c5cbf,#6b4cb0)',bd:'rgba(124,92,191,0.3)',ic:'⭐'},
+  {bg:'linear-gradient(135deg,#c9a84c,#8a6a1e)',bd:'rgba(201,168,76,0.3)',ic:'🔥'},
+  {bg:'linear-gradient(135deg,#c0606a,#a0505a)',bd:'rgba(192,96,106,0.3)',ic:'💎'},
+  {bg:'linear-gradient(135deg,#5b8a6e,#4a7a5e)',bd:'rgba(74,140,111,0.3)',ic:'🌱'},
+];
+const ICONS=['🌟','🎨','🏃','📚','❤️','🎯','🌈','🔮','🏆','💡','🎵','🧠'];
+const HCOLORS=[
+  {color:'var(--amber)',bg:'var(--amber-light)',border:'rgba(212,135,42,0.25)'},
+  {color:'var(--jade)',bg:'var(--jade-light)',border:'rgba(74,140,111,0.25)'},
+  {color:'var(--sky)',bg:'var(--sky-light)',border:'rgba(74,127,168,0.25)'},
+  {color:'var(--violet)',bg:'var(--violet-light)',border:'rgba(124,92,191,0.25)'},
+  {color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)'},
+];
+const DEFAULT_HOUSES=()=>[
+  {id:'h1',icon:'🏠',name:'5 Ngôi Nhà',color:'var(--amber)',bg:'var(--amber-light)',border:'rgba(212,135,42,0.25)',ph:'Mục tiêu rèn luyện thân-tâm-trí, nội lực, kết nối năng lượng...',text:'',custom:false},
+  {id:'h2',icon:'💰',name:'Tài Chính',color:'var(--jade)',bg:'var(--jade-light)',border:'rgba(74,140,111,0.25)',ph:'Mục tiêu thu nhập, tiết kiệm, đầu tư...',text:'',custom:false},
+  {id:'h3',icon:'💼',name:'Sự Nghiệp, Đội Nhóm',color:'var(--sky)',bg:'var(--sky-light)',border:'rgba(74,127,168,0.25)',ph:'Mục tiêu công việc, phát triển đội nhóm...',text:'',custom:false},
+  {id:'h4',icon:'🙏',name:'Cống Hiến, Phụng Sự',color:'var(--violet)',bg:'var(--violet-light)',border:'rgba(124,92,191,0.25)',ph:'Mục tiêu đóng góp, lan toả giá trị...',text:'',custom:false},
+  {id:'h5',icon:'✨',name:'',color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)',ph:'Điền mục tiêu theo lĩnh vực bạn chọn...',text:'',custom:true},
+];
+const DEFAULT_KAIZEN_ITEMS=()=>[
+  {id:'k1',text:''},
+  {id:'k2',text:''},
+  {id:'k3',text:''},
+];
+const DEFAULT_REFLECT=()=>({
+  kaizen: DEFAULT_KAIZEN_ITEMS(),
+  note: '',
+});
+
+/* ═══════════════════════════════════════════
+   STORAGE HELPERS — lưu riêng theo tháng/năm
+═══════════════════════════════════════════ */
+function storageKey(y,m){return 'monthly_'+y+'_'+m;}
+
+function loadMonthData(y,m){
+  try{
+    const raw=localStorage.getItem(storageKey(y,m));
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null; // null = chưa có dữ liệu tháng này
+}
+
+function saveMonthData(y,m,data){
+  try{
+    localStorage.setItem(storageKey(y,m), JSON.stringify(data));
+  }catch(e){}
+}
+
+function buildEmptyMonth(){
+  return {
+    houses: DEFAULT_HOUSES(),
+    weekOKR: {},
+    events: {},
+    reflect: DEFAULT_REFLECT(),
+    houseCounter: 6,
+    skippedWeeks: [],
+  };
+}
+
+/* ═══════════════════════════════════════════
+   ACTIVE STATE
+═══════════════════════════════════════════ */
+let CY, CM;          // current year/month being viewed
+let monthData={};    // active month's data object
+let curCell=null, selEType='j';
+
+function getWD(wk){
+  if(!monthData.weekOKR[wk])
+    monthData.weekOKR[wk]={objective:'',objScore:0,krs:[],kaizen:''};
+  return monthData.weekOKR[wk];
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+
+var selM=null;
+function initMonthlyTab(){
+  if(window._monthlyReady) return;
+  window._monthlyReady=true;
+selM=document.getElementById('sel-m');
+MV.forEach((n,i)=>{const o=document.createElement('option');o.value=i;o.textContent=n;selM.appendChild(o);});
+const now=new Date();
+selM.value=now.getMonth();
+document.getElementById('sel-y').value=now.getFullYear();
+
+// Load current month on start
+switchMonth();
+}
+
+
+/* ═══════════════════════════════════════════
+   SWITCH MONTH — core function
+═══════════════════════════════════════════ */
+function switchMonth(){
+  // 1. Save current month before switching (if we already have one loaded)
+  if(CY !== undefined) persistCurrentMonth();
+
+  // 2. Update active year/month
+  CM = +selM.value;
+  CY = +document.getElementById('sel-y').value;
+
+  // 3. Load or create data for new month
+  const existing = loadMonthData(CY, CM);
+  const isNew = !existing;
+
+  if(existing){
+    monthData = existing;
+    // Migration guard: reflect was previously an array — upgrade to new structure
+    if(!monthData.reflect || Array.isArray(monthData.reflect) || !monthData.reflect.kaizen){
+      monthData.reflect = DEFAULT_REFLECT();
+    }
+    if(!monthData.reflect.note) monthData.reflect.note='';
+    if(!monthData.events) monthData.events={};
+    if(!monthData.weekOKR) monthData.weekOKR={};
+    if(!monthData.houses||!monthData.houses.length) monthData.houses=DEFAULT_HOUSES();
+    if(!monthData.houseCounter) monthData.houseCounter=6;
+    if(!monthData.skippedWeeks) monthData.skippedWeeks=[];
+    Object.values(monthData.weekOKR||{}).forEach(w=>{(w.krs||[]).forEach(kr=>{if(kr.done===undefined)kr.done=(kr.score||0)>=10;});});
+  } else {
+    monthData = buildEmptyMonth();
+  }
+
+  // 4. Update month status badge
+  const badge = document.getElementById('month-status');
+  badge.style.display = 'inline-flex';
+  if(isNew){
+    badge.className = 'month-status status-new';
+    badge.textContent = '✨ Tháng mới';
+  } else {
+    badge.className = 'month-status status-exists';
+    badge.textContent = '✓ Đã có dữ liệu';
+  }
+
+  // 5. Show copy-from-prev banner only for new months that have a prev month
+  const prevKey = getPrevMonthKey(CY,CM);
+  const hasPrev = !!localStorage.getItem(prevKey);
+  document.getElementById('copy-banner').style.display =
+    (isNew && hasPrev) ? 'flex' : 'none';
+
+  // 6. Update month label
+  document.getElementById('cur-month-label').textContent = MV[CM]+' '+CY;
+
+  // 7. Render everything
+  renderAll();
+  showToast('📅 Đã chuyển sang '+MV[CM]+' '+CY+(isNew?' (mới)':' (đã lưu)'));
+}
+
+function getPrevMonthKey(y,m){
+  if(m===0) return storageKey(y-1,11);
+  return storageKey(y,m-1);
+}
+
+/* Save current monthData back to localStorage */
+function persistCurrentMonth(){
+  // collect textarea values before saving
+  monthData.houses.forEach(h=>{
+    const ta=document.getElementById('hta-'+h.id);
+    if(ta) h.text=ta.value;
+  });
+  monthData.reflect.kaizen.forEach(k=>{
+    const ta=document.getElementById('rta-'+k.id);
+    if(ta) k.text=ta.value;
+  });
+  const nt=document.getElementById('kaizen-note');
+  if(nt) monthData.reflect.note=nt.value;
+  saveMonthData(CY, CM, monthData);
+}
+
+/* Auto-save on page visibility change / before unload */
+document.addEventListener('visibilitychange',()=>{if(document.hidden && CY!==undefined) persistCurrentMonth();});
+window.addEventListener('beforeunload',()=>{if(CY!==undefined) persistCurrentMonth();});
+
+/* ═══════════════════════════════════════════
+   COPY FROM PREVIOUS MONTH
+═══════════════════════════════════════════ */
+function copyFromPrev(){
+  const prevKey=getPrevMonthKey(CY,CM);
+  try{
+    const raw=localStorage.getItem(prevKey);
+    if(!raw) return;
+    const prev=JSON.parse(raw);
+    // Copy houses structure but clear text
+    monthData.houses = prev.houses.map(h=>({...h, text:''}));
+    monthData.houseCounter = prev.houseCounter||6;
+    // Don't copy OKR / events / reflect — those are month-specific
+    document.getElementById('copy-banner').style.display='none';
+    renderHouses();
+    showToast('✅ Đã sao chép cấu trúc mục tiêu từ tháng trước');
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   RENDER ALL
+═══════════════════════════════════════════ */
+function renderAll(){renderCal();renderHouses();renderOKR();renderReflect();}
+
+/* ═══════════════════════════════════════════
+   CALENDAR
+═══════════════════════════════════════════ */
+function renderCal(){
+  document.getElementById('cal-title') && (document.getElementById('cal-title').textContent='');
+  const m=CM, y=CY;
+  const td=new Date(), fd=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate();
+  const grid=document.getElementById('cal-grid'); grid.innerHTML='';
+  let ec=0;
+  for(let i=0;i<fd;i++){const c=document.createElement('div');c.className='cc emp';grid.appendChild(c);}
+  for(let d=1;d<=dim;d++){
+    const c=document.createElement('div');c.className='cc';
+    if(td.getFullYear()===y&&td.getMonth()===m&&td.getDate()===d) c.classList.add('tod');
+    const ns=document.createElement('span');ns.className='cnum';ns.textContent=d;c.appendChild(ns);
+    const key=y+'-'+m+'-'+d;
+    if(monthData.events[key]){
+      monthData.events[key].forEach(ev=>{
+        const dot=document.createElement('span');dot.className='edot e'+ev.t;dot.textContent=ev.n;c.appendChild(dot);ec++;
+      });
+      c.classList.add('hev');
+    }
+    c.onclick=()=>openMod(y,m,d);
+    grid.appendChild(c);
+  }
+  document.getElementById('m-ev').textContent=ec;
+  document.getElementById('m-wk').textContent=Math.ceil((fd+dim)/7);
+}
+
+/* ═══════════════════════════════════════════
+   5 HOUSES
+═══════════════════════════════════════════ */
+function renderHouses(){
+  const grid=document.getElementById('houses-grid'); grid.innerHTML='';
+  monthData.houses.forEach((h,idx)=>{
+    const card=document.createElement('div');
+    card.className='hcard'; card.style.borderColor=h.border;
+    const nameHtml=h.custom
+      ?`<input class="hname-inp" value="${esc(h.name)}" placeholder="Tên lĩnh vực..." style="color:${h.color};" onchange="monthData.houses[${idx}].name=this.value">`
+      :`<span class="hname" style="color:${h.color};">${h.name}</span>`;
+    card.innerHTML=`
+      <div class="hhdr" style="background:${h.bg};border-bottom-color:${h.border};">
+        <span class="hico">${h.icon}</span>${nameHtml}
+        <button class="h-del" onclick="delHouse('${h.id}')" title="Xoá nhóm này">×</button>
+      </div>
+      <div class="hbody">
+        <textarea class="hta" id="hta-${h.id}" placeholder="${h.ph}" rows="4"
+          onchange="monthData.houses[${idx}].text=this.value">${esc(h.text)}</textarea>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+function delHouse(id){
+  if(monthData.houses.length<=1){alert('Cần giữ ít nhất 1 nhóm.');return;}
+  monthData.houses=monthData.houses.filter(h=>h.id!==id);
+  renderHouses();
+}
+function addHouse(){
+  const ic=ICONS[monthData.houseCounter%ICONS.length];
+  const c=HCOLORS[monthData.houseCounter%HCOLORS.length];
+  monthData.houses.push({id:'h'+monthData.houseCounter,icon:ic,name:'',color:c.color,bg:c.bg,border:c.border,ph:'Điền mục tiêu cho nhóm này...',text:'',custom:true});
+  monthData.houseCounter++;
+  renderHouses();
+  setTimeout(()=>{const l=document.querySelector('.hcard:last-child');if(l)l.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
+}
+function clearHouses(){monthData.houses.forEach(h=>h.text='');renderHouses();}
+function saveHouses(){
+  monthData.houses.forEach(h=>{const ta=document.getElementById('hta-'+h.id);if(ta)h.text=ta.value;});
+  persistCurrentMonth();
+  showToast('✅ Đã lưu mục tiêu tháng '+MV[CM]);
+}
+
+/* ═══════════════════════════════════════════
+   OKR
+═══════════════════════════════════════════ */
+function computeWeeks(){
+  const m=CM,y=CY,fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
+  const wks=[];let d=1,wk=1;
+  while(d<=dim){const s=d,e=Math.min(d+(wk===1?6-fd:6),dim);wks.push({wk,s,e});d=e+1;if(wk===1)d=7-fd+1;wk++;if(wk>6)break;}
+  return wks;
+}
+function renderOKR(){
+  const wks=computeWeeks(),grid=document.getElementById('okr-grid');
+  grid.innerHTML='';
+  const skipped=monthData.skippedWeeks||[];
+  const hiddenWks=wks.filter(w=>skipped.includes(w.wk));
+  const oldBar=document.getElementById('wk-restore-bar');
+  if(oldBar)oldBar.remove();
+  if(hiddenWks.length){
+    const bar=document.createElement('div');
+    bar.id='wk-restore-bar';
+    bar.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:rgba(201,168,76,0.08);border:1px dashed rgba(201,168,76,0.35);border-radius:10px;margin-bottom:14px;';
+    bar.innerHTML='<span style="font-size:12px;font-weight:700;color:var(--gold-dark);">Tuần đã ẩn:</span>'+hiddenWks.map(w=>'<button onclick="restoreWeek('+w.wk+')" style="padding:3px 12px;border-radius:20px;border:1.5px solid rgba(201,168,76,0.4);background:var(--gold-light);color:var(--gold-dark);font-size:11px;font-weight:700;cursor:pointer;">+ Tuần '+w.wk+'</button>').join('');
+    grid.before(bar);
+  }
+  wks.filter(w=>!skipped.includes(w.wk)).forEach(({wk,s,e})=>{
+    const col=WC[(wk-1)%WC.length];
+    const div=document.createElement('div');
+    div.className='okrc';div.id='okrc-'+wk;div.style.borderColor=col.bd;
+    div.innerHTML=buildOKR(wk,s,e,col);
+    grid.appendChild(div);
+  });
+  updMon();postRender();
+}
+function buildOKR(wk,s,e,col){
+  const data=getWD(wk),avg=wkAvg(wk),fc=scolor(avg);
+  const od=data.objScore>=10,op=data.objScore/10*100;
+  let krh='';
+  data.krs.forEach((kr,i)=>{
+    const done=!!kr.done;
+    krh+=`<div class="krrow" id="kr-${wk}-${i}">
+      <button class="kr-check${done?' kr-done':''}" onmousedown="event.preventDefault();toggleKR(${wk},${i})" title="Hoàn thành">${done?'✓':''}</button>
+      <textarea class="oit${done?' done':''}" rows="1" placeholder="Key Result ${i+1}..."
+        oninput="aRes(this)" onchange="setKR(${wk},${i},'text',this.value)"
+      >${esc(kr.text)}</textarea>
+      ${done?'<span class="dbadge" style="flex-shrink:0">✓ XONG</span>':''}
+      <button class="delbtn" onmousedown="event.preventDefault();delKR(${wk},${i})">×</button>
+    </div>`;
+  });
+  return `
+  <div class="okrhdr" style="background:${col.bg};">
+    <span class="okrwl">${col.ic} Tuần ${wk}<span class="okrwd">Ngày ${s}–${e} ${MV[CM]}</span></span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="okrwp">${avg.toFixed(1)}/10</span>
+      <button onmousedown="event.preventDefault();deleteWeek(${wk})" style="width:20px;height:20px;border-radius:50%;border:none;background:rgba(255,255,255,0.25);color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;" title="Ẩn tuần">×</button>
+    </div>
+  </div>
+  <div class="okrbar"><div class="okrfill" id="fill-${wk}" style="width:${avg/10*100}%;background:${fc};"></div></div>
+  <div class="okrbody">
+    <span class="chip cO">🎯 O — MỤC TIÊU</span>
+    <div class="orow">
+      <div class="oleft">
+        <textarea class="oit${od?' done':''}" rows="1" style="font-weight:600;font-size:13px;"
+          placeholder="Viết mục tiêu lớn của tuần..."
+          oninput="aRes(this)" onchange="setObj(${wk},'objective',this.value)"
+        >${esc(data.objective)}</textarea>${od?'<span class="dbadge">✓ HOÀN THÀNH</span>':''}
+      </div>
+      <div class="scol">
+        <span class="slbl">KẾT QUẢ</span>
+        <input class="sinp${od?' ds':''}" type="number" min="0" max="10" step="0.5"
+          value="${data.objScore}" style="color:${scolor(data.objScore)};"
+          oninput="onSI(this,${wk},-1,'obj')" onkeydown="return aKey(event)">
+        <div class="smax">/10</div>
+        <div class="mbw"><div class="mbf" style="width:${op}%;background:${scolor(data.objScore)};"></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="chip cKR">🔑 KR — KEY RESULTS</span>
+      <div id="krs-${wk}">${krh}</div>
+      <div class="addkrrow" style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(201,168,76,0.2);">
+        <input class="addkrinp" id="addkr-${wk}"
+          placeholder="↵ Nhập hành động rồi nhấn Enter để thêm..."
+          onkeydown="if(event.key==='Enter'){addKR(${wk});event.preventDefault();}">
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;">
+      <span class="chip cKZ">♻️ KAIZEN — CẢI TIẾN</span>
+      <textarea class="kzta" rows="2"
+        placeholder="Bài học rút ra, điều cần cải thiện cho tuần sau..."
+        onchange="setObj(${wk},'kaizen',this.value)"
+      >${esc(data.kaizen)}</textarea>
+    </div>
+  </div>`;
+}
+function aKey(e){return['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','.','0','1','2','3','4','5','6','7','8','9'].includes(e.key);}
+function onSI(el,wk,idx,type){
+  let v=parseFloat(el.value);if(isNaN(v))v=0;
+  const c=Math.min(10,Math.max(0,v));
+  el.style.color=scolor(c);
+  if(type==='obj') getWD(wk).objScore=c;
+  else if(getWD(wk).krs[idx]) getWD(wk).krs[idx].score=c;
+  const bf=el.closest('.scol').querySelector('.mbf');
+  if(bf){bf.style.width=(c/10*100)+'%';bf.style.background=scolor(c);}
+  if(c>=10||v<10) refreshCard(wk); else{updWkHdr(wk);updMon();}
+  persistCurrentMonth();
+}
+function updWkHdr(wk){
+  const avg=wkAvg(wk);
+  const h=document.querySelector('#okrc-'+wk+' .okrwp');
+  const b=document.getElementById('fill-'+wk);
+  if(h)h.textContent=avg.toFixed(1)+'/10';
+  if(b){b.style.width=(avg/10*100)+'%';b.style.background=scolor(avg);}
+}
+function wkAvg(wk){
+  const d=getWD(wk);
+  const objPart=d.objScore||0;
+  const krCount=d.krs.length;
+  const krDone=d.krs.filter(k=>k.done).length;
+  const krScore=krCount>0?(krDone/krCount)*10:0;
+  const parts=[objPart];
+  if(krCount>0)parts.push(krScore);
+  if(!parts.length)return 0;
+  return parts.reduce((a,b)=>a+b,0)/parts.length;
+}
+function scolor(v){if(v>=7)return 'var(--jade)';if(v>=5)return 'var(--gold)';if(v>0)return 'var(--rose)';return 'rgba(201,168,76,0.3)';}
+function setObj(wk,f,v){getWD(wk)[f]=v;persistCurrentMonth();}
+function setKR(wk,i,f,v){const kr=getWD(wk).krs[i];if(kr){kr[f]=v;persistCurrentMonth();}}
+function toggleKR(wk,i){const kr=getWD(wk).krs[i];if(!kr)return;kr.done=!kr.done;persistCurrentMonth();refreshCard(wk);}
+function addKR(wk){
+  const inp=document.getElementById('addkr-'+wk);
+  const txt=inp?inp.value.trim():'';
+  if(!txt)return;
+  inp.value='';
+  getWD(wk).krs.push({text:txt,done:false});
+  refreshCard(wk);persistCurrentMonth();
+  setTimeout(()=>{const ni=document.getElementById('addkr-'+wk);if(ni)ni.focus();},30);
+}
+function delKR(wk,i){getWD(wk).krs.splice(i,1);refreshCard(wk);persistCurrentMonth();}
+function deleteWeek(wk){
+  if(!monthData.skippedWeeks)monthData.skippedWeeks=[];
+  if(!monthData.skippedWeeks.includes(wk))monthData.skippedWeeks.push(wk);
+  persistCurrentMonth();renderOKR();
+}
+function restoreWeek(wk){
+  if(!monthData.skippedWeeks)return;
+  monthData.skippedWeeks=monthData.skippedWeeks.filter(w=>w!==wk);
+  persistCurrentMonth();renderOKR();
+}
+function refreshCard(wk){
+  const wks=computeWeeks(),w=wks.find(x=>x.wk===wk);if(!w)return;
+  const col=WC[(wk-1)%WC.length];
+  const card=document.getElementById('okrc-'+wk);
+  if(card){card.innerHTML=buildOKR(wk,w.s,w.e,col);}
+  postRender();updMon();
+}
+function updMon(){
+  const wks=computeWeeks();let sum=0;
+  wks.forEach(({wk})=>sum+=wkAvg(wk));
+  const avg=wks.length?sum/wks.length:0;
+  const b=document.getElementById('mbar'),t=document.getElementById('mpct'),l=document.getElementById('mtl');
+  if(b){b.style.width=(avg/10*100)+'%';b.style.background=avg>=7?'linear-gradient(to right,var(--jade),var(--gold))':avg>=5?'var(--gold)':'var(--rose)';}
+  if(t){t.textContent=avg.toFixed(1)+'/10';t.style.color=scolor(avg);}
+  if(l)l.textContent=wks.length?`Điểm TB: ${avg.toFixed(1)}/10`:'';
+  document.getElementById('m-sc').textContent=avg.toFixed(1)+'/10';
+  let tc=0;wks.forEach(({wk})=>tc+=getWD(wk).krs.length);
+  document.getElementById('m-tk').textContent=tc;
+}
+
+/* ═══════════════════════════════════════════
+   KAIZEN CUỐI THÁNG
+═══════════════════════════════════════════ */
+function renderReflect(){
+  const grid=document.getElementById('reflect-grid');
+  // Safety: ensure reflect structure is valid
+  if(!monthData.reflect || !monthData.reflect.kaizen){
+    monthData.reflect = DEFAULT_REFLECT();
+  }
+  const items=monthData.reflect.kaizen;
+  let itemsHtml=items.map((k,i)=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px dashed rgba(192,96,106,0.15);">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--rose-light);color:var(--rose);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;">${i+1}</span>
+      <textarea id="rta-${k.id}" rows="1"
+        style="flex:1;border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--ink);outline:none;padding:0;line-height:1.6;resize:none;overflow:hidden;min-height:20px;"
+        placeholder="Điều cần cải thiện ${i+1}..."
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';"
+        onchange="monthData.reflect.kaizen[${i}].text=this.value;persistCurrentMonth();"
+      >${esc(k.text)}</textarea>
+      <button onclick="delKaizenItem(${i})" style="width:18px;height:18px;border-radius:50%;border:none;background:var(--rose-light);color:var(--rose);font-size:12px;cursor:pointer;opacity:0.45;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;padding:0;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.45">×</button>
+    </div>`).join('');
+
+  grid.innerHTML=`
+    <div style="background:rgba(192,96,106,0.04);border:1.5px solid rgba(192,96,106,0.18);border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:700;color:var(--rose);">♻️ Danh sách cần cải thiện tháng ${MV[CM]} ${CY}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--ink-muted);">${items.length} mục</span>
+      </div>
+      <div id="kaizen-items">${itemsHtml}</div>
+      <button onclick="addKaizenItem()"
+        style="display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 16px;border-radius:var(--radius-sm);border:1.5px dashed rgba(192,96,106,0.35);background:transparent;font-family:inherit;font-size:12px;font-weight:700;color:var(--rose);cursor:pointer;width:100%;transition:all 0.2s;"
+        onmouseover="this.style.background='var(--rose-light)'" onmouseout="this.style.background='transparent'">
+        <span style="width:22px;height:22px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">+</span>
+        Thêm điểm cần cải thiện
+      </button>
+    </div>
+    <div style="background:rgba(201,168,76,0.05);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:8px;">📝 Ghi chú hành động cải tiến</div>
+      <textarea id="kaizen-note" rows="3"
+        style="width:100%;border:1px dashed rgba(201,168,76,0.3);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;color:var(--ink);background:rgba(255,253,248,0.7);resize:none;outline:none;line-height:1.6;min-height:70px;transition:border-color 0.2s;"
+        placeholder="Hành động cụ thể sẽ thực hiện để cải thiện tháng tới..."
+        onchange="monthData.reflect.note=this.value;persistCurrentMonth();"
+        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='rgba(201,168,76,0.3)'"
+      >${esc(monthData.reflect.note||'')}</textarea>
+    </div>`;
+
+  // auto resize all textareas
+  setTimeout(()=>{
+    document.querySelectorAll('#kaizen-items textarea').forEach(ta=>{
+      ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';
+    });
+  },10);
+}
+
+function addKaizenItem(){
+  monthData.reflect.kaizen.push({id:'k'+Date.now(),text:''});
+  renderReflect();persistCurrentMonth();
+  setTimeout(()=>{
+    const tas=document.querySelectorAll('#kaizen-items textarea');
+    if(tas.length) tas[tas.length-1].focus();
+  },30);
+}
+
+function delKaizenItem(i){
+  if(monthData.reflect.kaizen.length<=1){return;}
+  monthData.reflect.kaizen.splice(i,1);
+  renderReflect();persistCurrentMonth();
+}
+
+/* ═══════════════════════════════════════════
+   EVENT MODAL
+═══════════════════════════════════════════ */
+function openMod(y,m,d){
+  curCell={y,m,d};
+  document.getElementById('mod-title').textContent='Sự kiện: ngày '+d+' '+MV[m]+' '+y;
+  document.getElementById('ev-name').value='';document.getElementById('ev-note').value='';
+  renderEvList();
+  document.getElementById('ev-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('ev-name').focus(),80);
+}
+function closeMod(){document.getElementById('ev-modal').style.display='none';renderCal();}
+function selT(el,t){document.querySelectorAll('.tc').forEach(c=>c.classList.remove('act'));el.classList.add('act');selEType=t;}
+function addEv(){
+  const n=document.getElementById('ev-name').value.trim();if(!n)return;
+  const nt=document.getElementById('ev-note').value.trim();
+  const key=curCell.y+'-'+curCell.m+'-'+curCell.d;
+  if(!monthData.events[key])monthData.events[key]=[];
+  monthData.events[key].push({n,t:selEType,nt});
+  document.getElementById('ev-name').value='';
+  renderEvList();persistCurrentMonth();
+}
+function renderEvList(){
+  const key=curCell.y+'-'+curCell.m+'-'+curCell.d;
+  const list=document.getElementById('ev-list');list.innerHTML='';
+  (monthData.events[key]||[]).forEach((ev,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dashed rgba(201,168,76,0.2);';
+    row.innerHTML=`<span class="edot e${ev.t}" style="flex:1;max-width:none;">${ev.n}</span>
+      <button onclick="rmEv('${key}',${i})" style="border:none;background:none;color:var(--rose);cursor:pointer;font-size:18px;padding:0;line-height:1;">×</button>`;
+    list.appendChild(row);
+  });
+}
+function rmEv(key,i){monthData.events[key].splice(i,1);if(!monthData.events[key].length)delete monthData.events[key];renderEvList();persistCurrentMonth();}
+
+/* ═══════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════ */
+function aRes(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function postRender(){document.querySelectorAll('.oit,.kzta').forEach(aRes);}
+
+
+var toastTimer=null;
+// showToast: dùng function gốc của index
+
 </script>
+
+<!-- EVENT MODAL -->
+<div class="mov" id="ev-modal" onclick="if(event.target===this)closeMod()">
+  <div class="mbox">
+    <div class="mtit" id="mod-title">Thêm Sự Kiện</div>
+    <input class="minp" id="ev-name" placeholder="Tên sự kiện...">
+    <div class="trow">
+      <span class="tc act" style="background:var(--jade-light);color:var(--jade);" onclick="selT(this,'j')">Nhóm</span>
+      <span class="tc" style="background:var(--rose-light);color:var(--rose);" onclick="selT(this,'r')">Deadline</span>
+      <span class="tc" style="background:var(--sky-light);color:var(--sky);" onclick="selT(this,'s')">Cá nhân</span>
+      <span class="tc" style="background:var(--violet-light);color:var(--violet);" onclick="selT(this,'v')">Học tập</span>
+      <span class="tc" style="background:var(--gold-light);color:var(--gold-dark);" onclick="selT(this,'g')">Khác</span>
+    </div>
+    <input class="minp" id="ev-note" placeholder="Ghi chú (tùy chọn)...">
+    <div id="ev-list" style="max-height:100px;overflow-y:auto;margin:6px 0;"></div>
+    <div class="mact">
+      <button class="btn-out" onclick="closeMod()" style="padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;">Đóng</button>
+      <button class="btn btn-gold" onclick="addEv()">Thêm</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+
+
 </body>
 </html>
