@@ -676,6 +676,13 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
 .hta{width:100%;border:1px dashed rgba(201,168,76,0.3);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;color:var(--ink);background:rgba(255,253,248,0.7);resize:none;line-height:1.6;min-height:80px;outline:none;transition:border-color 0.2s;}
 .hta:focus{border-color:var(--gold);}
 .hta::placeholder{color:rgba(122,101,82,0.42);font-style:italic;}
+.hsm-wrap{padding:6px 14px 10px;border-top:1px dashed rgba(201,168,76,0.25);background:rgba(201,168,76,0.04);}
+.hsm-label{font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
+.hsm-inp{width:100%;border:1px solid rgba(201,168,76,0.3);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:11.5px;color:var(--ink);background:var(--card);outline:none;transition:border-color 0.2s;}
+.hsm-inp:focus{border-color:var(--gold);}
+.hsm-inp::placeholder{color:rgba(122,101,82,0.38);font-style:italic;}
+.hsm-progress{margin-top:6px;height:5px;background:rgba(201,168,76,0.15);border-radius:3px;overflow:hidden;}
+.hsm-bar{height:100%;border-radius:3px;transition:width 0.4s;}
 .add-house-row{margin-top:6px;}
 .add-house-btn{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius-sm);border:1.5px dashed rgba(201,168,76,0.4);background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--gold-dark);cursor:pointer;transition:all 0.2s;width:100%;}
 .add-house-btn:hover{background:var(--gold-light);border-color:var(--gold);}
@@ -1541,6 +1548,7 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
       <input type="number" id="sel-y" value="2026" min="2020" max="2035" style="width:86px;">
       <button class="btn btn-gold" onclick="switchMonth()">Xem Lịch</button>
       <span id="month-status" class="month-status status-exists" style="display:none;"></span>
+      <button onclick="openBaoCao()" style="margin-left:auto;padding:7px 14px;border-radius:var(--radius-sm);border:1.5px solid rgba(201,168,76,0.5);background:var(--gold-light);color:var(--gold-dark);font-size:13px;font-weight:700;cursor:pointer;">📊 Báo cáo</button>
     </div>
     <div class="met">
       <div class="mc"><span class="mn" id="m-ev" style="color:var(--jade);">0</span><span class="ml">SỰ KIỆN</span></div>
@@ -11139,11 +11147,11 @@ const HCOLORS=[
   {color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)'},
 ];
 const DEFAULT_HOUSES=()=>[
-  {id:'h1',icon:'🏠',name:'5 Ngôi Nhà',color:'var(--amber)',bg:'var(--amber-light)',border:'rgba(212,135,42,0.25)',ph:'Mục tiêu rèn luyện thân-tâm-trí, nội lực, kết nối năng lượng...',text:'',custom:false},
-  {id:'h2',icon:'💰',name:'Tài Chính',color:'var(--jade)',bg:'var(--jade-light)',border:'rgba(74,140,111,0.25)',ph:'Mục tiêu thu nhập, tiết kiệm, đầu tư...',text:'',custom:false},
-  {id:'h3',icon:'💼',name:'Sự Nghiệp, Đội Nhóm',color:'var(--sky)',bg:'var(--sky-light)',border:'rgba(74,127,168,0.25)',ph:'Mục tiêu công việc, phát triển đội nhóm...',text:'',custom:false},
-  {id:'h4',icon:'🙏',name:'Cống Hiến, Phụng Sự',color:'var(--violet)',bg:'var(--violet-light)',border:'rgba(124,92,191,0.25)',ph:'Mục tiêu đóng góp, lan toả giá trị...',text:'',custom:false},
-  {id:'h5',icon:'✨',name:'',color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)',ph:'Điền mục tiêu theo lĩnh vực bạn chọn...',text:'',custom:true},
+  {id:'h1',icon:'🏠',name:'5 Ngôi Nhà',color:'var(--amber)',bg:'var(--amber-light)',border:'rgba(212,135,42,0.25)',ph:'Mục tiêu rèn luyện thân-tâm-trí, nội lực, kết nối năng lượng...',text:'',successMetric:'',custom:false},
+  {id:'h2',icon:'💰',name:'Tài Chính',color:'var(--jade)',bg:'var(--jade-light)',border:'rgba(74,140,111,0.25)',ph:'Mục tiêu thu nhập, tiết kiệm, đầu tư...',text:'',successMetric:'',custom:false},
+  {id:'h3',icon:'💼',name:'Sự Nghiệp, Đội Nhóm',color:'var(--sky)',bg:'var(--sky-light)',border:'rgba(74,127,168,0.25)',ph:'Mục tiêu công việc, phát triển đội nhóm...',text:'',successMetric:'',custom:false},
+  {id:'h4',icon:'🙏',name:'Cống Hiến, Phụng Sự',color:'var(--violet)',bg:'var(--violet-light)',border:'rgba(124,92,191,0.25)',ph:'Mục tiêu đóng góp, lan toả giá trị...',text:'',successMetric:'',custom:false},
+  {id:'h5',icon:'✨',name:'',color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)',ph:'Điền mục tiêu theo lĩnh vực bạn chọn...',text:'',successMetric:'',custom:true},
 ];
 const DEFAULT_KAIZEN_ITEMS=()=>[
   {id:'k1',text:''},
@@ -11626,19 +11634,44 @@ function renderHouses(){
     const card=document.createElement('div');
     card.className='hcard'; card.style.borderColor=h.border;
     const nameHtml=h.custom
-      ?`<input class="hname-inp" value="${esc(h.name)}" placeholder="Tên lĩnh vực..." style="color:${h.color};" onchange="monthData.houses[${idx}].name=this.value">`
-      :`<span class="hname" style="color:${h.color};">${h.name}</span>`;
-    card.innerHTML=`
-      <div class="hhdr" style="background:${h.bg};border-bottom-color:${h.border};">
-        <span class="hico">${h.icon}</span>${nameHtml}
-        <button class="h-del" onclick="delHouse('${h.id}')" title="Xoá nhóm này">×</button>
-      </div>
-      <div class="hbody">
-        <textarea class="hta" id="hta-${h.id}" placeholder="${h.ph}" rows="4"
-          onchange="monthData.houses[${idx}].text=this.value">${esc(h.text)}</textarea>
-      </div>`;
+      ?('<input class="hname-inp" value="'+esc(h.name)+'" placeholder="Tên lĩnh vực..." style="color:'+h.color+';" onchange="monthData.houses['+idx+'].name=this.value">')
+      :('<span class="hname" style="color:'+h.color+';">'+h.name+'</span>');
+    // Tính tiến độ từ OKR (% KR done của các O thuộc house này)
+    const prog=_calcHouseProgress(h.id);
+    const pct=Math.round(prog*100);
+    const barColor=pct>=70?'var(--jade)':pct>=40?'var(--gold)':'var(--rose)';
+    const smVal=h.successMetric||'';
+    const progHtml='<div class="hsm-wrap">'
+      +'<div class="hsm-label">📏 TIÊU CHÍ THÀNH CÔNG'
+      +'<span style="margin-left:auto;font-size:10px;color:'+barColor+';font-weight:700;">'+pct+'% hoàn thành</span></div>'
+      +'<input class="hsm-inp" value="'+esc(smVal)+'" placeholder="VD: Thu nhập tăng 20%, tập gym 3x/tuần..."'
+      +' onchange="monthData.houses['+idx+'].successMetric=this.value;persistCurrentMonth();">'
+      +'<div class="hsm-progress"><div class="hsm-bar" style="width:'+pct+'%;background:'+barColor+';"></div></div>'
+      +'</div>';
+    card.innerHTML=''
+      +'<div class="hhdr" style="background:'+h.bg+';border-bottom-color:'+h.border+';">'
+      +'<span class="hico">'+h.icon+'</span>'+nameHtml
+      +'<button class="h-del" onclick="delHouse(\''+h.id+'\')" title="Xoá nhóm này">×</button></div>'
+      +'<div class="hbody"><textarea class="hta" id="hta-'+h.id+'" placeholder="'+h.ph+'" rows="4"'
+      +' onchange="monthData.houses['+idx+'].text=this.value">'+esc(h.text)+'</textarea></div>'
+      +progHtml;
     grid.appendChild(card);
   });
+}
+
+// Tính % tiến độ của 1 House dựa trên KR done trong tất cả các tuần
+function _calcHouseProgress(houseId){
+  let totalKR=0,doneKR=0;
+  Object.values(monthData.weekOKR||{}).forEach(w=>{
+    (w.objectives||[]).forEach(obj=>{
+      if(obj.houseId!==houseId)return;
+      const krs=obj.krs||[];
+      totalKR+=krs.length;
+      doneKR+=krs.filter(kr=>kr.done).length;
+    });
+  });
+  if(!totalKR)return 0;
+  return doneKR/totalKR;
 }
 function delHouse(id){
   if(monthData.houses.length<=1){alert('Cần giữ ít nhất 1 nhóm.');return;}
@@ -11648,7 +11681,7 @@ function delHouse(id){
 function addHouse(){
   const ic=ICONS[monthData.houseCounter%ICONS.length];
   const c=HCOLORS[monthData.houseCounter%HCOLORS.length];
-  monthData.houses.push({id:'h'+monthData.houseCounter,icon:ic,name:'',color:c.color,bg:c.bg,border:c.border,ph:'Điền mục tiêu cho nhóm này...',text:'',custom:true});
+  monthData.houses.push({id:'h'+monthData.houseCounter,icon:ic,name:'',color:c.color,bg:c.bg,border:c.border,ph:'Điền mục tiêu cho nhóm này...',text:'',successMetric:'',custom:true});
   monthData.houseCounter++;
   renderHouses();
   setTimeout(()=>{const l=document.querySelector('.hcard:last-child');if(l)l.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
@@ -11695,14 +11728,21 @@ function renderOKR(){
 function buildOKR(wk,s,e,col){
   const data=getWD(wk),avg=wkAvg(wk),fc=scolor(avg);
   const houses=monthData.houses||[];
-  const houseOpts=houses.map(h=>`<option value="${h.id}">${h.icon||''} ${h.name||'(Chưa đặt tên)'}</option>`).join('');
   // Build từng O
   let objsHtml='';
   (data.objectives||[]).forEach((obj,oi)=>{
-    const od=obj.score>=10,op=obj.score/10*100;
+    // FIX 2: Score O được tính TỰ ĐỘNG từ tỉ lệ KR done
+    const krs=obj.krs||[];
+    const autoScore=krs.length>0 ? Math.round((krs.filter(kr=>kr.done).length/krs.length)*100)/10 : 0;
+    // Cập nhật score vào data (không để user nhập tay)
+    obj.score=autoScore;
+    const od=autoScore>=10,op=autoScore/10*100;
+    const krDoneCount=krs.filter(kr=>kr.done).length;
+    const krTotal=krs.length;
+    const scoreColor=scolor(autoScore);
     // KR của O này
     let krh='';
-    (obj.krs||[]).forEach((kr,i)=>{
+    krs.forEach((kr,i)=>{
       const done=!!kr.done;
       krh+=`<div class="krrow" id="kr-${wk}-${oi}-${i}">
         <button class="kr-check${done?' kr-done':''}" onmousedown="event.preventDefault();toggleKRv2(${wk},${oi},${i})" title="Hoàn thành">${done?'✓':''}</button>
@@ -11716,10 +11756,12 @@ function buildOKR(wk,s,e,col){
     const sep=oi>0?'<div style="border-top:1px dashed rgba(201,168,76,0.25);margin:10px 0 8px;"></div>':'';
     const delBtn=oi>0?`<button onmousedown="event.preventDefault();delObj(${wk},${oi})"
       style="border:none;background:none;cursor:pointer;font-size:14px;color:var(--rose);padding:0 0 0 4px;line-height:1;flex-shrink:0;" title="Xoá O này">×</button>`:'';
+    // Tooltip giải thích cách tính
+    const noKrHint=krTotal===0?'<div style="font-size:10px;color:var(--ink-muted);text-align:center;margin-top:4px;">Thêm KR để tính điểm</div>':'';
     objsHtml+=`${sep}<div class="orow" id="orow-${wk}-${oi}">
       <div class="oleft">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
-          <select onchange="setObjField(${wk},${oi},'houseId',this.value)"
+          <select onchange="setObjField(${wk},${oi},'houseId',this.value);renderHouses();"
             style="font-size:10px;padding:2px 6px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink-muted);cursor:pointer;flex:1;max-width:160px;">
             <option value=""${!obj.houseId?' selected':''}>— Nhóm mục tiêu —</option>
             ${houses.map(h=>`<option value="${h.id}"${obj.houseId===h.id?' selected':''}>${h.icon||''} ${h.name||'(Chưa đặt tên)'}</option>`).join('')}
@@ -11740,15 +11782,12 @@ function buildOKR(wk,s,e,col){
         </div>
       </div>
       <div class="scol">
-        <span class="slbl">ĐẠT ĐƯỢC</span>
-        <input type="checkbox" title="Hoàn thành 10/10" ${od?'checked':''}
-          style="width:14px;height:14px;cursor:pointer;accent-color:var(--jade);margin-bottom:2px;"
-          onchange="toggleODonev2(${wk},${oi},this.checked)">
-        <input class="sinp${od?' ds':''}" type="number" min="0" max="10" step="0.5"
-          value="${obj.score}" style="color:${scolor(obj.score)};"
-          oninput="onSIv2(this,${wk},${oi})" onkeydown="return aKey(event)">
+        <span class="slbl" style="font-size:9px;">TỰ ĐỘNG</span>
+        <div class="sinp" style="color:${scoreColor};font-size:18px;font-weight:800;text-align:center;padding:4px 0;background:transparent;border:none;outline:none;width:100%;" title="Điểm tự tính từ KR hoàn thành">${autoScore.toFixed(1)}</div>
         <div class="smax">/10</div>
-        <div class="mbw"><div class="mbf" style="width:${op}%;background:${scolor(obj.score)};"></div></div>
+        <div style="font-size:9px;color:var(--ink-muted);text-align:center;margin-bottom:2px;">${krDoneCount}/${krTotal} KR</div>
+        <div class="mbw"><div class="mbf" style="width:${op}%;background:${scoreColor};"></div></div>
+        ${noKrHint}
       </div>
     </div>`;
   });
@@ -11787,26 +11826,12 @@ function setObjField(wk,oi,field,val){
   if(field==='score'){updWkHdr(wk);updMon();}
 }
 function setObjKaizen(wk,val){getWD(wk).kaizen=val;persistCurrentMonth();}
-function onSIv2(el,wk,oi){
-  let v=parseFloat(el.value);if(isNaN(v))v=0;
-  const c=Math.min(10,Math.max(0,v));
-  el.style.color=scolor(c);
-  const d=getWD(wk);
-  if(d.objectives[oi])d.objectives[oi].score=c;
-  const scol=el.closest('.scol');
-  const cb=scol?.querySelector('input[type=checkbox]');if(cb)cb.checked=(c>=10);
-  const bf=scol?.querySelector('.mbf');
-  if(bf){bf.style.width=(c/10*100)+'%';bf.style.background=scolor(c);}
-  if(c>=10||v<10) refreshCard(wk); else{updWkHdr(wk);updMon();}
-  persistCurrentMonth();
-}
-function toggleODonev2(wk,oi,checked){
-  const d=getWD(wk);
-  if(!d.objectives[oi])return;
-  d.objectives[oi].score=checked?10:0;
-  persistCurrentMonth();refreshCard(wk);
-}
+// onSIv2 & toggleODonev2 không còn dùng sau khi score được tính tự động từ KR
+function onSIv2(el,wk,oi){/* deprecated - score tự tính từ KR */}
+function toggleODonev2(wk,oi,checked){/* deprecated */}
 function addObj(wk){
+  // FIX 3: Nếu đây là tuần mới (chưa có O có text), kiểm tra tuần trước đã review chưa
+  _checkWeeklyReviewPrompt(wk);
   getWD(wk).objectives.push({text:'',score:0,houseId:'',krs:[]});
   refreshCard(wk);persistCurrentMonth();
   setTimeout(()=>{
@@ -11830,6 +11855,8 @@ function toggleKRv2(wk,oi,i){
   if(!d.objectives[oi]||!d.objectives[oi].krs[i])return;
   d.objectives[oi].krs[i].done=!d.objectives[oi].krs[i].done;
   persistCurrentMonth();refreshCard(wk);
+  // Cập nhật progress Houses sau khi tick KR
+  setTimeout(()=>renderHouses(),50);
 }
 function addKRv2(wk,oi){
   const inp=document.getElementById('addkr-'+wk+'-'+oi);
@@ -11859,7 +11886,12 @@ function wkAvg(wk){
   const d=getWD(wk);
   const objs=d.objectives||[];
   if(!objs.length)return 0;
-  return objs.reduce((sum,o)=>sum+(o.score||0),0)/objs.length;
+  const scores=objs.map(obj=>{
+    const krs=obj.krs||[];
+    if(!krs.length)return 0;
+    return (krs.filter(kr=>kr.done).length/krs.length)*10;
+  });
+  return scores.reduce((s,v)=>s+v,0)/scores.length;
 }
 function scolor(v){if(v>=7)return 'var(--jade)';if(v>=5)return 'var(--gold)';if(v>0)return 'var(--rose)';return 'rgba(201,168,76,0.3)';}
 function setObj(wk,f,v){if(f==='kaizen'){setObjKaizen(wk,v);return;}setObjField(wk,0,f==='objective'?'text':f,v);}
@@ -12105,6 +12137,376 @@ function rmEv(key,i){
     const [y,m,d]=key.split('-').map(Number);
     showEvForm(y,m,d);
   }
+}
+
+
+/* ═══════════════════════════════════════════
+   BÁO CÁO TỔNG KẾT
+═══════════════════════════════════════════ */
+function openBaoCao(){
+  const modal=document.createElement('div');
+  modal.id='bao-cao-modal';
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,20,16,0.6);z-index:700;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0;';
+  modal.innerHTML=`<div style="background:var(--bg);border-radius:var(--radius);width:90%;max-width:680px;padding:0 0 32px;box-shadow:0 20px 60px rgba(90,55,10,0.3);">
+    <div style="background:var(--card);border-radius:var(--radius) var(--radius) 0 0;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);">📊 Báo cáo tổng kết</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;" id="bc-subtitle">Đang tải...</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="bc-range" onchange="renderBaoCao()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--card);">
+          <option value="month">Tháng này</option>
+          <option value="3months">3 tháng gần đây</option>
+          <option value="6months">6 tháng gần đây</option>
+          <option value="year" selected>1 năm gần đây</option>
+        </select>
+        <button onclick="document.getElementById('bao-cao-modal').remove()" style="border:none;background:none;font-size:22px;cursor:pointer;color:var(--ink-muted);padding:0;">×</button>
+      </div>
+    </div>
+    <div id="bc-content" style="padding:0 20px;"></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  setTimeout(renderBaoCao,50);
+}
+
+function _bcGetMonths(range){
+  const now=new Date();
+  const months=[];
+  let count=range==='month'?1:range==='3months'?3:range==='6months'?6:12;
+  for(let i=count-1;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({y:d.getFullYear(),m:d.getMonth()});
+  }
+  return months;
+}
+
+function _bcGetDaysInRange(months){
+  // Trả về tất cả key ngày trong khoảng
+  const keys=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  if(!months||!months.length)return keys;
+  const first=`${months[0].y}-${String(months[0].m+1).padStart(2,'0')}-01`;
+  const lastM=months[months.length-1];
+  const lastDay=new Date(lastM.y,lastM.m+1,0).getDate();
+  const last=`${lastM.y}-${String(lastM.m+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  return keys.filter(k=>k>=first&&k<=last);
+}
+
+function renderBaoCao(){
+  const range=document.getElementById('bc-range')?.value||'year';
+  const months=_bcGetMonths(range);
+  const days=_bcGetDaysInRange(months);
+  const content=document.getElementById('bc-content');
+  const subtitle=document.getElementById('bc-subtitle');
+  if(!content)return;
+
+  const rangeLabel={'month':'Tháng này','3months':'3 tháng gần đây','6months':'6 tháng gần đây','year':'1 năm gần đây'}[range];
+  subtitle.textContent=rangeLabel+' · '+days.length+' ngày có dữ liệu';
+
+  // ── ACTIVITY KPI (cũ) ──
+  const totalDays=days.length;
+  const daysWithActivity=days.filter(k=>{
+    const e=data[k];if(!e)return false;
+    return Object.values(e.rituals||{}).some(Boolean)||e.energy||e.dailyGood||e.dailyImprove||e.gratitude1;
+  }).length;
+  const totalRituals=days.reduce((s,k)=>s+Object.values(data[k]?.rituals||{}).filter(Boolean).length,0);
+  const maxRituals=totalDays*9;
+  const ritualPct=maxRituals>0?Math.round(totalRituals/maxRituals*100):0;
+  const avgEnergy=totalDays>0?(days.reduce((s,k)=>s+(data[k]?.energy||0),0)/totalDays).toFixed(1):0;
+  let maxStreak=0,curRun=0,prev=null;
+  days.filter(k=>Object.values(data[k]?.rituals||{}).some(Boolean)).forEach(k=>{
+    if(!prev){curRun=1;}
+    else{const diff=(new Date(k)-new Date(prev))/86400000;curRun=diff===1?curRun+1:1;}
+    maxStreak=Math.max(maxStreak,curRun);prev=k;
+  });
+
+  // ── OUTCOME KPI (MỚI — FIX 3) ──
+  // Tính từ OKR data của từng tháng
+  let totalO=0, doneO=0;
+  const houseScores={};
+  const houseProgressByMonth={}; // {houseName: [pct per month]}
+  const okrScoreByMonth=[];      // [{label, score}]
+
+  months.forEach(({y,m})=>{
+    try{
+      const raw=localStorage.getItem('monthly_'+y+'_'+m);
+      if(!raw)return;
+      const md=JSON.parse(raw);
+      const houses=md.houses||[];
+      let monthTotalO=0,monthDoneO=0;
+
+      Object.values(md.weekOKR||{}).forEach(w=>{
+        (w.objectives||[]).forEach(obj=>{
+          if(!obj||!obj.text)return;
+          const krs=obj.krs||[];
+          if(!krs.length)return;
+          const autoScore=krs.filter(kr=>kr.done).length/krs.length*10;
+          totalO++;monthTotalO++;
+          if(autoScore>=7){doneO++;monthDoneO++;}
+          if(!obj.houseId)return;
+          const h=houses.find(h=>h.id===obj.houseId);
+          if(!h)return;
+          const name=(h.icon||'')+' '+(h.name||'?');
+          if(!houseScores[name])houseScores[name]={totalKR:0,doneKR:0,objectives:0,doneObj:0,successMetric:h.successMetric||''};
+          houseScores[name].objectives++;
+          if(autoScore>=7)houseScores[name].doneObj++;
+          houseScores[name].totalKR+=krs.length;
+          houseScores[name].doneKR+=krs.filter(kr=>kr.done).length;
+        });
+      });
+      const mLabel='T'+(m+1)+(months.length>6?'/'+String(y).slice(2):'');
+      const avgScore=monthTotalO>0?Math.round(monthDoneO/monthTotalO*100):null;
+      okrScoreByMonth.push({label:mLabel,pct:avgScore,totalO:monthTotalO,doneO:monthDoneO});
+    }catch(e){}
+  });
+  const outcomeRate=totalO>0?Math.round(doneO/totalO*100):0;
+
+  // Chart data
+  const chartLabels=okrScoreByMonth.map(d=>d.label);
+  const chartRitualData=months.map(({y,m})=>{
+    const mKey=`${y}-${String(m+1).padStart(2,'0')}`;
+    const mDays=days.filter(k=>k.startsWith(mKey));
+    if(!mDays.length)return 0;
+    const done=mDays.reduce((s,k)=>s+Object.values(data[k]?.rituals||{}).filter(Boolean).length,0);
+    return Math.round(done/(mDays.length*9)*100);
+  });
+  const chartOkrData=okrScoreByMonth.map(d=>d.pct);
+
+  // ── Câu hỏi nhìn lại ──
+  const reflectKey='bc-reflect-'+range;
+  let reflectData={};
+  try{reflectData=JSON.parse(localStorage.getItem(reflectKey)||'{}');}catch(e){}
+  const reflectQs=[
+    {k:'proud',q:'Điều tôi tự hào nhất trong kỳ này...'},
+    {k:'lesson',q:'Bài học lớn nhất tôi học được...'},
+    {k:'improve',q:'Điều tôi muốn làm khác đi...'},
+    {k:'word',q:'Một từ / câu mô tả kỳ này của tôi...'},
+    {k:'keep',q:'Điều tôi muốn giữ lại / phát triển tiếp...'},
+  ];
+
+  // ── Build HTML (tránh nested backtick) ──
+  function _kpiCard(v,l,s,c){
+    var border=c?'border:1.5px solid '+(c==='var(--jade)'?'rgba(74,140,111,0.3)':c==='var(--rose)'?'rgba(192,96,106,0.3)':'var(--border)'):'border:1px solid var(--border)';
+    var numColor=c?c:'var(--gold-dark)';
+    return '<div style="background:var(--card);border-radius:var(--radius-sm);padding:12px 8px;text-align:center;'+border+';"><div style="font-size:20px;font-weight:800;color:'+numColor+';">'+v+'</div><div style="font-size:11px;font-weight:700;color:var(--ink);margin-top:2px;">'+l+'</div><div style="font-size:10px;color:var(--ink-muted);">'+s+'</div></div>';
+  }
+
+  var kpi1Html=_kpiCard(daysWithActivity,'Ngày rèn luyện','trong '+totalDays+' ngày','')
+    +_kpiCard(maxStreak,'Chuỗi dài nhất','ngày liên tiếp','')
+    +_kpiCard(ritualPct+'%','% Nghi thức',totalRituals+'/'+maxRituals+' lần','')
+    +_kpiCard(avgEnergy,'Năng lượng TB','/10 điểm','');
+
+  var outcomeSub=totalO>0?(doneO+'/'+totalO+' mục tiêu'):'Chưa có dữ liệu';
+  var outcomeColor=outcomeRate>=70?'var(--jade)':outcomeRate>=40?'var(--gold)':'var(--rose)';
+  var kpi2Html=_kpiCard(totalO,'Tổng O đặt ra','objectives có KR','var(--sky)')
+    +_kpiCard(doneO,'O hoàn thành ≥70%','(score ≥ 7/10)','var(--jade)')
+    +_kpiCard(outcomeRate+'%','Tỉ lệ đạt',outcomeSub,outcomeColor);
+
+  var houseHtml='';
+  if(Object.keys(houseScores).length===0){
+    houseHtml='<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:12px;">Chưa có O được gắn vào Ngôi Nhà. Hãy gán "Nhóm mục tiêu" cho từng O trong OKR.</div>';
+  } else {
+    Object.entries(houseScores).forEach(function(entry){
+      var name=entry[0],info=entry[1];
+      var krPct=info.totalKR>0?Math.round(info.doneKR/info.totalKR*100):0;
+      var barColor=krPct>=70?'var(--jade)':krPct>=40?'var(--gold)':'var(--rose)';
+      var smHtml=info.successMetric?('<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;font-style:italic;">📏 '+info.successMetric+'</div>'):'';
+      houseHtml+='<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">'
+        +'<span style="font-size:13px;font-weight:700;color:var(--ink);">'+name+'</span>'
+        +'<span style="font-size:12px;font-weight:700;color:'+barColor+';">'+krPct+'% KR hoàn thành</span></div>'
+        +smHtml
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+        +'<div style="flex:1;height:7px;background:rgba(201,168,76,0.15);border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+krPct+'%;background:'+barColor+';border-radius:4px;transition:width 0.5s;"></div></div>'
+        +'<span style="font-size:11px;color:var(--ink-muted);white-space:nowrap;">'+info.doneKR+'/'+info.totalKR+' KR · '+info.doneObj+'/'+info.objectives+' O ≥70%</span>'
+        +'</div></div>';
+    });
+  }
+
+  var reflectHtml='';
+  reflectQs.forEach(function(q){
+    var val=(reflectData[q.k]||'').replace(/</g,'&lt;');
+    reflectHtml+='<div style="margin-bottom:12px;">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--ink-muted);margin-bottom:4px;">'+q.q+'</div>'
+      +'<textarea style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--card);resize:none;min-height:60px;outline:none;box-sizing:border-box;"'
+      +' placeholder="Viết câu trả lời của bạn..."'
+      +' onchange="bcSaveReflect(\''+reflectKey+'\',\''+q.k+'\',this.value)"'
+      +' onfocus="this.style.borderColor=\'var(--gold)\'"'
+      +' onblur="this.style.borderColor=\'var(--border)\'"'
+      +'>'+val+'</textarea></div>';
+  });
+
+  content.innerHTML=''
+    +'<div style="margin:16px 0 8px;font-size:11px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;">📊 HOẠT ĐỘNG</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;">'+kpi1Html+'</div>'
+    +'<div style="margin:4px 0 8px;font-size:11px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;">🎯 KẾT QUẢ THỰC SỰ (từ OKR)</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">'+kpi2Html+'</div>'
+    +'<div style="background:var(--card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:4px;">📅 Xu hướng theo tháng</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px;">🟡 % Nghi thức &nbsp;|&nbsp; 🟢 % O đạt ≥7/10</div>'
+    +'<div style="position:relative;height:160px;"><canvas id="bc-chart"></canvas></div></div>'
+    +'<div style="background:var(--card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:4px;">🏠 Tiến độ theo Ngôi Nhà — Mục tiêu ↔ OKR</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px;">Mỗi House: Tiêu chí thành công đã đặt + % KR thực hiện được</div>'
+    +houseHtml+'</div>'
+    +'<div style="background:var(--card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:4px;">✍️ Nhìn lại & Bài học</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px;">Viết xuống để lưu lại — tự động lưu khi bạn gõ xong</div>'
+    +reflectHtml+'</div>';
+
+  // Vẽ chart kép
+  setTimeout(()=>{
+    const ctx=document.getElementById('bc-chart');
+    if(!ctx)return;
+    if(window._bcChartInst)window._bcChartInst.destroy();
+    if(typeof Chart==='undefined')return;
+    window._bcChartInst=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:chartLabels,
+        datasets:[
+          {
+            label:'% Nghi thức',
+            data:chartRitualData,
+            backgroundColor:'rgba(201,168,76,0.25)',
+            borderColor:'var(--gold)',
+            borderWidth:1.5,
+            borderRadius:3,
+            order:2,
+          },
+          {
+            label:'% O đạt ≥7/10',
+            data:chartOkrData,
+            type:'line',
+            borderColor:'var(--jade)',
+            backgroundColor:'rgba(74,140,111,0.15)',
+            borderWidth:2,
+            pointRadius:4,
+            pointBackgroundColor:'var(--jade)',
+            tension:0.3,
+            fill:true,
+            order:1,
+          }
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'bottom',labels:{font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>ctx.raw!==null?ctx.raw+'%':'Không có dữ liệu'}}},
+        scales:{
+          x:{grid:{display:false},ticks:{font:{size:11}},border:{display:false}},
+          y:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'},border:{display:false}}
+        }
+      }
+    });
+  },100);
+}
+
+
+/* ═══════════════════════════════════════════
+   WEEKLY REVIEW POPUP — FIX 3
+   Hiện popup khi bắt đầu tuần mới nếu tuần trước chưa review
+═══════════════════════════════════════════ */
+function _checkWeeklyReviewPrompt(newWk){
+  const prevWk=newWk-1;
+  if(prevWk<1)return;
+  const reviewKey='wk-review-'+CY+'-'+CM+'-'+prevWk;
+  const alreadyReviewed=localStorage.getItem(reviewKey);
+  if(alreadyReviewed)return;
+  const prevData=getWD(prevWk);
+  const hasO=prevData.objectives.some(o=>o.text&&o.text.trim());
+  if(!hasO)return; // tuần trước không có O nào → không cần review
+  // Hiện popup sau 300ms để tránh flicker
+  setTimeout(()=>openWeeklyReview(prevWk,reviewKey),300);
+}
+
+function openWeeklyReview(wk,reviewKey){
+  if(document.getElementById('wk-review-modal'))return;
+  const d=getWD(wk);
+  const wks=computeWeeks();const w=wks.find(x=>x.wk===wk);
+  const dateRange=w?('Ngày '+w.s+'\u2013'+w.e+' '+MV[CM]):'';
+  // Tính KPI tuần
+  const allO=d.objectives.filter(o=>o.text&&o.text.trim());
+  const scores=allO.map(obj=>{
+    const krs=obj.krs||[];
+    return krs.length?krs.filter(kr=>kr.done).length/krs.length*10:0;
+  });
+  const avg=scores.length?scores.reduce((s,v)=>s+v,0)/scores.length:0;
+  const doneCount=scores.filter(s=>s>=7).length;
+  const avgColor=avg>=7?'var(--jade)':avg>=5?'var(--gold)':'var(--rose)';
+
+  // Build KPI grid
+  var kpiItems=[
+    {v:allO.length,l:'Objectives',c:'var(--ink)'},
+    {v:doneCount+'/'+allO.length,l:'O đạt ≥70%',c:'var(--jade)'},
+    {v:avg.toFixed(1)+'/10',l:'Điểm TB',c:avgColor},
+  ];
+  var kpiHtml=kpiItems.map(function(x){
+    return '<div style="background:var(--card);padding:12px;text-align:center;"><div style="font-size:18px;font-weight:800;color:'+x.c+';">'+x.v+'</div><div style="font-size:10px;color:var(--ink-muted);font-weight:700;">'+x.l+'</div></div>';
+  }).join('');
+
+  // Build danh sách O
+  var oListHtml='';
+  if(allO.length===0){
+    oListHtml='<p style="font-size:12px;color:var(--ink-muted);text-align:center;">Tuần này chưa có Objective nào.</p>';
+  } else {
+    allO.forEach(function(obj){
+      var krs=obj.krs||[];
+      var sc=krs.length?krs.filter(function(kr){return kr.done;}).length/krs.length*10:0;
+      var sc_c=sc>=7?'var(--jade)':sc>=5?'var(--gold)':'var(--rose)';
+      var kr_done=krs.filter(function(kr){return kr.done;}).length;
+      oListHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px;background:var(--card);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="flex:1;font-size:12px;font-weight:600;color:var(--ink);">'+(esc(obj.text)||'(Chưa có tên)')+'</div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+sc_c+';white-space:nowrap;">'+kr_done+'/'+krs.length+' KR · '+sc.toFixed(1)+'/10</div></div>';
+    });
+  }
+
+  const modal=document.createElement('div');
+  modal.id='wk-review-modal';
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,20,16,0.75);z-index:800;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML=''
+    +'<div style="background:var(--bg);border-radius:var(--radius);width:100%;max-width:520px;box-shadow:0 20px 60px rgba(90,55,10,0.35);overflow:hidden;">'
+    +'<div style="background:linear-gradient(135deg,#3d2e1e,#1a1410);padding:18px 20px;">'
+    +'<div style="font-size:11px;font-weight:700;color:rgba(201,168,76,0.7);letter-spacing:1px;margin-bottom:4px;">\u267b\ufe0f REVIEW TU\u1ea6N '+wk+' \u2014 '+dateRange+'</div>'
+    +'<div style="font-size:17px;font-weight:700;color:#fdf8f0;">T\u1ed5ng k\u1ebft tr\u01b0\u1edbc khi b\u01b0\u1edbc sang tu\u1ea7n m\u1edbi</div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);">'+kpiHtml+'</div>'
+    +'<div style="padding:16px 20px;max-height:200px;overflow-y:auto;border-bottom:1px solid var(--border);">'+oListHtml+'</div>'
+    +'<div style="padding:16px 20px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--ink-muted);margin-bottom:6px;">\u267b\ufe0f KAIZEN \u2014 B\u00e0i h\u1ecdc & \u0111i\u1ec1u mu\u1ed1n c\u1ea3i thi\u1ec7n tu\u1ea7n t\u1edbi</div>'
+    +'<textarea id="wk-review-kaizen" rows="3" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--card);resize:none;outline:none;box-sizing:border-box;" placeholder="Tu\u1ea7n n\u00e0y t\u00f4i h\u1ecdc \u0111\u01b0\u1ee3c... / Tu\u1ea7n t\u1edbi t\u00f4i s\u1ebd..." onfocus="this.style.borderColor=\'var(--gold)\'" onblur="this.style.borderColor=\'var(--border)\'">'+esc(d.kaizen||'')+'</textarea>'
+    +'<div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;">'
+    +'<button onclick="_skipWeeklyReview(\''+reviewKey+'\')" style="padding:8px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--ink-muted);cursor:pointer;">B\u1ecf qua</button>'
+    +'<button onclick="_saveWeeklyReview('+wk+',\''+reviewKey+'\')" style="padding:8px 20px;border-radius:var(--radius-sm);border:none;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">\u2705 L\u01b0u & Ti\u1ebfp t\u1ee5c</button>'
+    +'</div></div></div>';
+  document.body.appendChild(modal);
+}
+
+function _saveWeeklyReview(wk,reviewKey){
+  const ta=document.getElementById('wk-review-kaizen');
+  if(ta){
+    const d=getWD(wk);
+    d.kaizen=ta.value;
+    persistCurrentMonth();
+  }
+  localStorage.setItem(reviewKey,'1');
+  const m=document.getElementById('wk-review-modal');
+  if(m)m.remove();
+  showToast('✅ Đã lưu review tuần '+wk);
+  renderOKR(); // refresh để hiển thị kaizen mới
+}
+
+function _skipWeeklyReview(reviewKey){
+  localStorage.setItem(reviewKey,'skipped');
+  const m=document.getElementById('wk-review-modal');
+  if(m)m.remove();
+}
+
+function bcSaveReflect(key,field,val){
+  try{
+    let d={};try{d=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
+    d[field]=val;
+    localStorage.setItem(key,JSON.stringify(d));
+  }catch(e){}
 }
 
 /* ═══════════════════════════════════════════
