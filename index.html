@@ -676,6 +676,12 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
 .hta{width:100%;border:1px dashed rgba(201,168,76,0.3);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;color:var(--ink);background:rgba(255,253,248,0.7);resize:none;line-height:1.6;min-height:80px;outline:none;transition:border-color 0.2s;}
 .hta:focus{border-color:var(--gold);}
 .hta::placeholder{color:rgba(122,101,82,0.42);font-style:italic;}
+.hsm-wrap{padding:6px 14px 10px;border-top:1px dashed rgba(201,168,76,0.2);background:rgba(201,168,76,0.03);}
+.hsm-label{font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
+.hsm-inp{width:100%;border:1px solid rgba(201,168,76,0.3);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:11.5px;color:var(--ink);background:var(--card);outline:none;box-sizing:border-box;}
+.hsm-inp:focus{border-color:var(--gold);}
+.hsm-progress{margin-top:5px;height:4px;background:rgba(201,168,76,0.15);border-radius:3px;overflow:hidden;}
+.hsm-bar{height:100%;border-radius:3px;transition:width 0.4s;}
 .add-house-row{margin-top:6px;}
 .add-house-btn{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius-sm);border:1.5px dashed rgba(201,168,76,0.4);background:transparent;font-family:inherit;font-size:13px;font-weight:700;color:var(--gold-dark);cursor:pointer;transition:all 0.2s;width:100%;}
 .add-house-btn:hover{background:var(--gold-light);border-color:var(--gold);}
@@ -1562,14 +1568,16 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
   <div class="sc">
     <div class="st">
       <span class="si" style="background:var(--amber-light);">🎯</span>
-      Mục Tiêu Tháng — 5 Ngôi Nhà
+      Mục Tiêu Tháng
       <span id="cur-month-label" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--gold-dark);font-family:'Nunito',sans-serif;"></span>
+      <button onclick="openBaoCao()" style="margin-left:8px;padding:5px 12px;border-radius:var(--radius-sm);border:1.5px solid rgba(201,168,76,0.5);background:var(--gold-light);color:var(--gold-dark);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">📊 Báo cáo</button>
     </div>
     <!-- banner gợi ý copy tháng trước -->
     <div class="copy-banner" id="copy-banner" style="display:none;">
       <p>📋 Tháng này chưa có dữ liệu. <span>Sao chép mục tiêu từ tháng trước</span> để bắt đầu nhanh hơn?</p>
       <button class="btn-sky" onclick="copyFromPrev()">Sao chép</button>
     </div>
+    <div id="monthly-outcome-stats" style="margin-bottom:12px;"></div>
     <div class="hg" id="houses-grid"></div>
     <div class="add-house-row" style="margin-top:14px;">
       <button class="add-house-btn" onclick="addHouse()">
@@ -2728,6 +2736,20 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
 
     <!-- Tab: Trưởng nhóm đã duyệt -->
     <div id="admin-tab-leaders" style="display:none">
+      <!-- Phần theo dõi trưởng nhóm (admin đồng hành TN) -->
+      <div id="admin-leader-monitor-section" style="display:none;margin-bottom:16px">
+        <div class="section-card" style="border:1.5px solid rgba(192,96,106,0.25);padding:0;overflow:hidden">
+          <div style="padding:12px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+            <div class="section-icon" style="background:rgba(192,96,106,0.1)">🔔</div>
+            <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:16px;font-weight:600;color:var(--ink);flex:1">Trưởng Nhóm Cần Đồng Hành</div>
+            <span id="admin-leader-alert-badge" style="display:none;background:var(--rose);color:white;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px">0</span>
+          </div>
+          <div id="admin-leader-alerts-list" style="padding:10px 14px">
+            <div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:6px">Đang phân tích...</div>
+          </div>
+        </div>
+      </div>
+      <!-- Danh sách nhóm / trưởng nhóm gốc -->
       <div id="admin-leaders-list">
         <div class="empty-state"><div class="empty-icon">👑</div><p>Đang tải...</p></div>
       </div>
@@ -3254,16 +3276,31 @@ function scheduleMidnightReset() {
 // ── Thực hiện reset ngày mới (gọi khi bước sang 00:00 hoặc khi mở app ngày mới) ──
 function doNewDayReset(showToastMsg) {
   const k = todayKey();
+
+  // FIX A: Flush autosave timer ngay trước khi reset — tránh text đang gõ dở
+  // (debounce 500ms chưa kịp chạy) bị mất khi entry hôm nay bị xoá trắng.
+  if (typeof autosaveTimer !== 'undefined' && autosaveTimer) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    if (typeof forceSaveAll === 'function') forceSaveAll();
+  }
+
   // Ghi nhớ ngày đã reset vào localStorage (persist qua reload)
   try { localStorage.setItem(LAST_RESET_DAY_KEY, k); } catch(e) {}
   window._lastRefreshedDay = k;
 
-  // Tạo entry mới cho hôm nay (trống)
-  data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+  // FIX B: Chỉ tạo entry trắng nếu hôm nay CHƯA có dữ liệu gì.
+  // Tránh ghi đè khi: user vừa lưu field, Firebase vừa sync về,
+  // hoặc checkNewDay chạy lại sau khi app đã boot ngày mới.
+  if (!data[k]) {
+    data[k] = { rituals:{}, dims:{}, _updatedAt: Date.now() };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+  }
 
-  // Xoá trắng các field UI
+  // Xoá trắng UI rồi load lại từ entry hôm nay:
+  // entry trống → field trắng; entry đã có data → field hiện lại đúng.
   clearDailyFields();
+  loadTodayFields();
   renderRituals();
   renderTasksList();
   setDateBars();
@@ -5400,25 +5437,24 @@ function renderDashboard() {
   }
 
   // Current streak: đếm ngược từ hôm nay
+  // FIX TIMEZONE: luôn dùng UTC+7 offset để tránh lệch ngày lúc 23:xx VN
   let streak = 0;
-  let d = new Date();
+  let d = new Date(Date.now() + 7 * 60 * 60 * 1000); // VN "now"
+  const todayK = todayKey(); // dùng todayKey() chuẩn VN
   // Nếu hôm nay chưa có activity thì bắt đầu từ hôm qua
-  const todayK = todayKey(); // FIX TIMEZONE: dùng todayKey() chuẩn VN
   if (!hasActivity(data[todayK])) {
-    d.setDate(d.getDate() - 1);
+    d.setUTCDate(d.getUTCDate() - 1);
   }
   while (true) {
-    const k = dateToVNKey(d); // FIX TIMEZONE
+    const k = d.toISOString().split('T')[0]; // đã là VN time trong UTC space
     if (hasActivity(data[k])) {
       streak++;
-      d.setDate(d.getDate() - 1);
+      d.setUTCDate(d.getUTCDate() - 1);
     } else {
       break;
     }
     if (streak > 1000) break;
   }
-  // Nếu hôm nay có activity, cộng thêm 1
-  if (hasActivity(data[todayK])) streak = streak; // đã tính
 
   // Max streak: đếm chuỗi dài nhất trong lịch sử
   let maxStreak = 0, curRun = 0, prevDate = null;
@@ -5449,10 +5485,11 @@ function renderDashboard() {
   // Streak grid
   const grid=document.getElementById('streak-grid');
   grid.innerHTML='';
-  const now=new Date();
+  // FIX TIMEZONE: dùng UTC+7 offset để tránh lệch ô ngày lúc gần nửa đêm VN
+  const now=new Date(Date.now() + 7 * 60 * 60 * 1000);
   for(let i=29;i>=0;i--){
-    const dd=new Date(now);dd.setDate(dd.getDate()-i);
-    const k=dateToVNKey(dd); // FIX TIMEZONE
+    const dd=new Date(now);dd.setUTCDate(dd.getUTCDate()-i);
+    const k=dd.toISOString().split('T')[0]; // đã là VN date
     const e=data[k];
     let cls='miss';
     if(e && hasActivity(e)){
@@ -5468,7 +5505,8 @@ function renderDashboard() {
   // Energy chart
   destroyChart('energy-chart');
   const last14=[];
-  for(let i=13;i>=0;i--){const dd=new Date(now);dd.setDate(dd.getDate()-i);const k=dateToVNKey(dd);last14.push({label:`${dd.getDate()}/${dd.getMonth()+1}`,val:data[k]?.energy||null});}
+  // FIX TIMEZONE: now đã là UTC+7, dùng setUTCDate để nhất quán
+  for(let i=13;i>=0;i--){const dd=new Date(now);dd.setUTCDate(dd.getUTCDate()-i);const k=dd.toISOString().split('T')[0];last14.push({label:`${dd.getUTCDate()}/${dd.getUTCMonth()+1}`,val:data[k]?.energy||null});}
   chartInstances['energy-chart']=new Chart(document.getElementById('energy-chart'),{
     type:'line',data:{labels:last14.map(d=>d.label),datasets:[{label:'Năng lượng',data:last14.map(d=>d.val),borderColor:'#c9a84c',backgroundColor:'rgba(201,168,76,0.1)',tension:0.4,fill:true,pointRadius:4,pointBackgroundColor:'#c9a84c',spanGaps:true}]},
     options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:1,max:10,ticks:{stepSize:2}},x:{grid:{display:false}}},plugins:{legend:{display:false}}}
@@ -6396,6 +6434,25 @@ function deleteMilestone(id) {
 }
 
 function openMilestoneDetail(id) {
+  // FIX #6: Nếu đang mở milestone khác → flush autosave pending ngay
+  // để không mất text user đã gõ (autosave debounce 500ms có thể chưa chạy).
+  if (currentMsId && currentMsId !== id) {
+    const prevMs = msData.find(m => m.id === currentMsId);
+    if (prevMs) {
+      const msTextMap = {
+        'ms-holes':'holes','ms-assets':'assets','ms-debt':'debt','ms-income':'income',
+        'ms-money-mind':'moneyMind','ms-seeds-changed':'seedsChanged',
+        'ms-proud':'proud','ms-commit':'commit'
+      };
+      Object.entries(msTextMap).forEach(([elId, key]) => {
+        const el = document.getElementById(elId);
+        if (el) prevMs[key] = el.value;
+      });
+      save(MS_KEY, msData);
+    }
+    if (typeof autosaveTimer !== 'undefined') clearTimeout(autosaveTimer);
+  }
+
   currentMsId = id;
   const ms = msData.find(m => m.id === id);
   if (!ms) return;
@@ -6466,7 +6523,12 @@ function getCurrentMS() { return msData.find(m => m.id === currentMsId); }
 
 function updateMSRadar() {
   const ms = getCurrentMS(); if (!ms) return;
-  const vals = NN_LIST.map(nn => ms[nn.key]||5);
+  // FIX #3: Đọc từ slider DOM nếu có (phản ánh giá trị user đang kéo realtime),
+  // fallback về ms[nn.key] nếu slider chưa render (ví dụ lúc mới mở trang).
+  const vals = NN_LIST.map(nn => {
+    const el = document.getElementById('ms-nn-'+nn.key);
+    return el ? +el.value : (ms[nn.key]||5);
+  });
   const spVals = NN_LIST.map(nn => spData[nn.key]||5);
   destroyChart('ms-radar'); destroyChart('ms-compare-radar');
   const ctx1 = document.getElementById('ms-radar');
@@ -7632,7 +7694,7 @@ async function doRegister() {
       // Liên kết firebaseUid → memberId để sau này tra cứu
       await database.ref('uid_to_member/' + firebaseUid).set({ memberId, groupCode: group });
       await database.ref('members/' + memberId).set(
-        Object.assign(memberBase, { isLeader: false, isLeaderPending: isLeaderReg })
+        Object.assign(memberBase, { isLeader: false, isLeaderPending: isLeaderReg, approved: false })
       );
 
       if (isLeaderReg) {
@@ -8090,13 +8152,11 @@ function renderLeaderAlerts(members, todayK) {
 
   const RITUAL_BIET_ON  = 'r6';
   const RITUAL_KHIEM_HA = 'r7';
-
   const alerts = [];
 
   members.forEach(([mid, m]) => {
     const entries = m.entries || {};
     const keys    = Object.keys(entries).sort().reverse();
-    const seeds   = m.seeds || [];
 
     // 1. Tỉ lệ ghi 7 ngày gần nhất
     const last7Keys = [];
@@ -8130,9 +8190,9 @@ function renderLeaderAlerts(members, todayK) {
     const missKhiemHa = skipKhiemHa >= 2;
 
     // 4. NL 5 Ngôi Nhà
-    const refKey    = (m.stats?.date === todayK ? todayK : keys[0]);
-    const refEntry  = refKey ? entries[refKey] : null;
-    const nnEnergy  = refEntry?.nnEnergy || (m.stats ? {
+    const refKey   = (m.stats?.date === todayK ? todayK : keys[0]);
+    const refEntry = refKey ? entries[refKey] : null;
+    const nnEnergy = refEntry?.nnEnergy || (m.stats ? {
       nn1:m.stats.nn?.[0], nn2:m.stats.nn?.[1], nn3:m.stats.nn?.[2],
       nn4:m.stats.nn?.[3], nn5:m.stats.nn?.[4]
     } : {});
@@ -8166,19 +8226,26 @@ function renderLeaderAlerts(members, todayK) {
     const moneyRedNet = mRed - mGreen;
     const hasMoneyRed = moneyRedNet > 0;
 
-    // 6. Hạt giống
+    // 6. Hạt giống — dùng seedsActive/seedsDone (journals chỉ sync số lượng, không sync tên)
     const now21 = new Date(Date.now() + 7*60*60*1000);
     now21.setUTCDate(now21.getUTCDate() - 21);
-    const ago21Str   = now21.toISOString().split('T')[0];
-    const wk7        = new Date(Date.now() + 7*60*60*1000);
+    const ago21Str = now21.toISOString().split('T')[0];
+    const wk7 = new Date(Date.now() + 7*60*60*1000);
     wk7.setUTCDate(wk7.getUTCDate() - 7);
-    const wk7Str     = wk7.toISOString().split('T')[0];
-    const activeSeeds    = seeds.filter(s => s.status === 'active');
-    const doneSeeds      = seeds.filter(s => s.status === 'done');
-    const reappearSeeds  = activeSeeds.filter(s => (s.checkins||[]).some(c => c.appeared && c.date >= wk7Str));
-    const noConvSeeds    = activeSeeds.filter(s => { const d = s.createdAt||(s.checkins?.[0]?.date); return d && d <= ago21Str; });
-    const seedOverload   = activeSeeds.length >= 10;
-    const newSeeds7d     = activeSeeds.filter(s => { const d = s.createdAt||(s.checkins?.[0]?.date); return d && d >= wk7Str; }).length;
+    const wk7Str = wk7.toISOString().split('T')[0];
+
+    // Đọc seedsActive từ journal entry gần nhất
+    const seedsActiveCount = m.seedsActive || 0;
+    const seedOverload = seedsActiveCount >= 10;
+
+    // Tìm xu hướng hạt giống: so sánh seedsActive 7 ngày trước vs hiện tại
+    const oldSeedKey = keys.find(k => k < wk7Str);
+    const oldSeedEntry = oldSeedKey ? entries[oldSeedKey] : null;
+    const oldSeedsActive = oldSeedEntry?.seedsActive ?? seedsActiveCount;
+    const newSeeds7d = Math.max(0, seedsActiveCount - oldSeedsActive);
+
+    // Không có tên hạt giống cụ thể (bảo vệ riêng tư) — dùng số lượng + xu hướng
+    const reappearSeedsDetail = []; // journals không chứa tên/checkins hạt giống
 
     const noToday = m.stats?.date !== todayK;
 
@@ -8195,58 +8262,65 @@ function renderLeaderAlerts(members, todayK) {
     if (hasMoneyRed) score += 1;
     if (missBietOn || missKhiemHa) score += 1;
 
-    const isSeedOnly = score === 0 && (seedOverload || noConvSeeds.length > 0);
+    const isSeedOnly = score === 0 && seedOverload;
     if (score === 0 && !isSeedOnly && !noToday) return;
 
-    // CÂU GỢI Ý ĐỒNG HÀNH
-    const shortName = m.name.split(' ').pop();
-    const problems  = [];
-    if (skipDays >= 3) problems.push(skipDays + ' ngày không thực hành nghi thức');
-    else if (writtenDays <= 3) problems.push('chỉ ghi ' + writtenDays + '/7 ngày gần đây');
-    if (nnDrops.length) problems.push(nnDrops[0].icon + ' ' + nnDrops[0].label + ' giảm từ ' + nnDrops[0].from + ' \u2192 ' + nnDrops[0].to);
-    else if (nnLow.length >= 2) problems.push(nnLow.length + ' ngôi nhà đang ở mức thấp');
-    if (hasMoneyRed) problems.push('năng lượng tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này');
-    if (seedOverload) problems.push(activeSeeds.length + ' hạt giống đang theo dõi chưa chuyển hoá');
-    if (missBietOn && missKhiemHa) problems.push('chưa thực hành Biết Ơn & Khiêm Hạ ' + Math.max(skipBietOn,skipKhiemHa) + ' ngày');
-    else if (missBietOn) problems.push('chưa thực hành Biết Ơn ' + skipBietOn + ' ngày');
-    else if (missKhiemHa) problems.push('chưa thực hành Khiêm Hạ ' + skipKhiemHa + ' ngày');
+    // PHÂN NHÓM VẤN ĐỀ: hành vi vs nội tâm
+    const behaviorIssues = [];
+    const innerIssues    = [];
 
-    const actionVerb = score >= 3 ? 'đồng hành thêm cùng' : (isSeedOnly ? 'để ý thêm đến' : 'hỏi thăm thêm');
-    const suggestion = 'Hãy ' + actionVerb + ' ' + shortName + (problems.length ? ' — bạn ấy đang ' + problems.slice(0,2).join(', ') : '') + '.';
-
-    // DANH SÁCH VẤN ĐỀ CHI TIẾT
-    const issueList = [];
+    // --- Hành vi ---
     if (skipDays >= 3)
-      issueList.push({ level:'red',   text:'Bỏ nghi thức ' + skipDays + ' ngày liên tiếp' + (noToday?' (chưa ghi hôm nay)':'') });
+      behaviorIssues.push({ level:'red', text:'Bỏ nghi thức ' + skipDays + ' ngày liên tiếp' + (noToday?' (chưa ghi hôm nay)':'') });
     else if (writtenDays <= 3)
-      issueList.push({ level:'amber', text:'Chỉ ghi ' + writtenDays + '/7 ngày gần nhất' });
+      behaviorIssues.push({ level:'amber', text:'Chỉ ghi ' + writtenDays + '/7 ngày gần nhất' });
     else if (noToday && keys.length > 0)
-      issueList.push({ level:'amber', text:'Chưa ghi hôm nay · Lần cuối: ' + (m.stats?.date||keys[0]) });
+      behaviorIssues.push({ level:'amber', text:'Chưa ghi hôm nay · Lần cuối: ' + (m.stats?.date||keys[0]) });
 
     if (missBietOn || missKhiemHa) {
       const parts = [];
       if (missBietOn)  parts.push('Biết Ơn (' + skipBietOn + ' ngày)');
       if (missKhiemHa) parts.push('Khiêm Hạ (' + skipKhiemHa + ' ngày)');
-      issueList.push({ level:'red', text:'Chưa thực hành: ' + parts.join(' · ') });
+      behaviorIssues.push({ level:'red', text:'Chưa thực hành: ' + parts.join(' · ') });
     }
+
+    // --- Nội tâm ---
     nnDrops.forEach(d => {
-      issueList.push({ level: d.diff <= -3 ? 'red':'amber', text: d.icon + ' ' + d.label + ': ' + d.from + ' \u2192 ' + d.to + ' (' + d.diff + ' \u0111i\u1ec3m)' });
+      innerIssues.push({ level: d.diff <= -3 ? 'red':'amber', text: d.icon + ' ' + d.label + ': ' + d.from + ' → ' + d.to + ' (' + d.diff + ' điểm)' });
     });
     if (nnLow.length && !nnDrops.length) {
       nnLow.slice(0,3).forEach(n => {
-        issueList.push({ level:'amber', text: n.icon + ' ' + n.label.replace(/NN\d · /,'') + ': đang ở mức ' + n.val + '/10' });
+        innerIssues.push({ level:'amber', text: n.icon + ' ' + n.label.replace(/NN\d · /,'') + ': mức ' + n.val + '/10' });
       });
     }
     if (hasMoneyRed)
-      issueList.push({ level:'amber', text:'Năng lượng tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này (xanh ' + _fmtMoney(mGreen) + ', đỏ ' + _fmtMoney(mRed) + ')' });
+      innerIssues.push({ level:'amber', text:'Tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này (xanh ' + _fmtMoney(mGreen) + ', đỏ ' + _fmtMoney(mRed) + ')' });
+
+    // Hạt giống — dùng số lượng (tên không có trong journals để bảo vệ riêng tư)
     if (seedOverload)
-      issueList.push({ level:'blue', text: activeSeeds.length + ' hạt giống đang theo dõi — vượt ngưỡng 10' });
-    if (noConvSeeds.length > 0)
-      issueList.push({ level:'blue', text: noConvSeeds.length + ' hạt giống chưa chuyển hoá sau 21+ ngày' });
-    if (reappearSeeds.length > 0)
-      issueList.push({ level:'amber', text: reappearSeeds.length + ' hạt giống tái phát trong 7 ngày qua' });
+      innerIssues.push({ level:'blue', text: seedsActiveCount + ' hạt giống đang theo dõi — vượt ngưỡng 10' });
     if (newSeeds7d > 0)
-      issueList.push({ level:'blue', text:'Hạt giống tăng thêm ' + newSeeds7d + ' trong 7 ngày qua' });
+      innerIssues.push({ level:'amber', text:'Tăng thêm ' + newSeeds7d + ' hạt giống trong 7 ngày qua' });
+
+    // GỢI Ý HỘI THOẠI — dựa trên vấn đề nội tâm nổi bật nhất
+    const shortName = m.name.split(' ').pop();
+    let suggestion = '';
+    if (behaviorIssues.length && !innerIssues.length) {
+      // Thuần hành vi
+      if (skipDays >= 3) suggestion = 'Bạn ấy đang ngắt quãng thực hành — có thể nhắn tin động viên, hỏi xem có điều gì đang xảy ra không.';
+      else suggestion = 'Tần suất thực hành đang giảm — một tin nhắn nhỏ hỏi thăm sẽ giúp bạn ấy quay lại.';
+    } else if (innerIssues.length && !behaviorIssues.length) {
+      // Thuần nội tâm
+      if (nnDrops.length) suggestion = 'Năng lượng ' + nnDrops[0].label + ' giảm mạnh — nên lắng nghe nhiều hơn là thúc đẩy.';
+      else if (newSeeds7d > 0) suggestion = 'Đang thêm nhiều hạt giống mới — có thể đang nhận ra nhiều vấn đề cùng lúc, cần được đồng hành.';
+      else suggestion = 'Đang gặp vấn đề nội tâm — cần hội thoại sâu, không nên chỉ nhắc nghi thức.';
+    } else if (behaviorIssues.length && innerIssues.length) {
+      // Cả hai — khả năng cao có liên quan
+      if (nnDrops.length && skipDays >= 2) suggestion = 'Năng lượng ' + nnDrops[0].label + ' giảm đồng thời bỏ thực hành — cần đồng hành ở tầng nội tâm trước, không chỉ nhắc nghi thức.';
+      else suggestion = 'Cả hành vi và nội tâm đều có dấu hiệu — nên gặp trực tiếp hoặc gọi điện thay vì nhắn tin.';
+    } else {
+      suggestion = 'Hãy hỏi thăm ' + shortName + ' trong thời gian gần nhất.';
+    }
 
     let level, priority, priorityLabel;
     if (score >= 3) {
@@ -8257,7 +8331,7 @@ function renderLeaderAlerts(members, todayK) {
       level='amber'; priority=2; priorityLabel='Ưu tiên 2 — Hỏi thăm 1–2 ngày';
     }
 
-    alerts.push({ level, priority, priorityLabel, name:m.name, mid, suggestion, issueList });
+    alerts.push({ level, priority, priorityLabel, name:m.name, mid, suggestion, behaviorIssues, innerIssues });
   });
 
   alerts.sort((a, b) => a.priority - b.priority);
@@ -8271,33 +8345,55 @@ function renderLeaderAlerts(members, todayK) {
   if (badgeEl) { badgeEl.style.display='inline-block'; badgeEl.textContent=alerts.length; }
 
   const colorMap = {
-    red:  { border:'rgba(192,96,106,0.3)',  headBg:'rgba(192,96,106,0.07)', bodyBg:'rgba(192,96,106,0.03)', toggleBg:'rgba(248,240,241,0.6)', badge:'background:#F09595;color:#501313', nameColor:'var(--rose)' },
-    amber:{ border:'rgba(201,168,76,0.35)', headBg:'rgba(201,168,76,0.07)', bodyBg:'rgba(201,168,76,0.03)', toggleBg:'rgba(253,249,240,0.6)', badge:'background:#EF9F27;color:#412402', nameColor:'var(--gold-dark)' },
-    blue: { border:'rgba(74,127,168,0.3)',  headBg:'rgba(74,127,168,0.07)', bodyBg:'rgba(74,127,168,0.03)', toggleBg:'rgba(240,246,252,0.6)', badge:'background:#85B7EB;color:#042C53', nameColor:'var(--sky)' },
+    red:  { border:'rgba(192,96,106,0.3)',  headBg:'rgba(192,96,106,0.07)', bodyBg:'rgba(192,96,106,0.03)', toggleBg:'rgba(248,240,241,0.6)', badge:'background:rgba(192,96,106,0.18);color:var(--rose)', nameColor:'var(--rose)' },
+    amber:{ border:'rgba(201,168,76,0.35)', headBg:'rgba(201,168,76,0.07)', bodyBg:'rgba(201,168,76,0.03)', toggleBg:'rgba(253,249,240,0.6)', badge:'background:rgba(201,168,76,0.18);color:var(--gold-dark)', nameColor:'var(--gold-dark)' },
+    blue: { border:'rgba(74,127,168,0.3)',  headBg:'rgba(74,127,168,0.07)', bodyBg:'rgba(74,127,168,0.03)', toggleBg:'rgba(240,246,252,0.6)', badge:'background:rgba(74,127,168,0.15);color:var(--sky)', nameColor:'var(--sky)' },
   };
   const dotCol = { red:'var(--rose)', amber:'var(--gold-dark)', blue:'var(--sky)' };
+
+  function _issueRows(list) {
+    return list.map(iss =>
+      '<div style="display:flex;align-items:flex-start;gap:7px;padding:3px 0;font-size:11.5px;color:var(--ink-soft);line-height:1.45">' +
+      '<span style="width:6px;height:6px;border-radius:50%;background:' + dotCol[iss.level] + ';flex-shrink:0;margin-top:4px;display:inline-block"></span>' +
+      escHtml(iss.text) + '</div>'
+    ).join('');
+  }
 
   window._alertMids = alerts.map(a => a.mid);
   alertsEl.innerHTML = alerts.map((a, idx) => {
     const c = colorMap[a.level];
-    const issueHTML = a.issueList.map(iss =>
-      '<div style="display:flex;align-items:flex-start;gap:7px;padding:4px 0;font-size:11.5px;color:var(--ink-soft);line-height:1.45">' +
-      '<span style="width:7px;height:7px;border-radius:50%;background:' + dotCol[iss.level] + ';flex-shrink:0;margin-top:4px;display:inline-block"></span>' +
-      escHtml(iss.text) + '</div>'
-    ).join('');
+    const hasBehavior = a.behaviorIssues.length > 0;
+    const hasInner    = a.innerIssues.length > 0;
+
+    const groupedHTML =
+      (hasBehavior ? (
+        '<div style="margin-bottom:' + (hasInner?'10px':'0') + '">' +
+        '<div style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(136,135,128,0.12);color:var(--ink-muted);margin-bottom:5px">Hành vi</div>' +
+        _issueRows(a.behaviorIssues) +
+        '</div>'
+      ) : '') +
+      (hasInner ? (
+        '<div>' +
+        '<div style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(83,74,183,0.1);color:#534AB7;margin-bottom:5px">Nội tâm</div>' +
+        _issueRows(a.innerIssues) +
+        '</div>'
+      ) : '');
+
     return '<div style="border-radius:10px;margin-bottom:8px;overflow:hidden;border:1px solid ' + c.border + '">' +
       '<div style="padding:10px 12px;background:' + c.headBg + '">' +
         '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;' + c.badge + '">' + escHtml(a.priorityLabel) + '</span>' +
-        '<div style="font-size:13px;font-weight:800;margin-bottom:3px;color:' + c.nameColor + '">' + escHtml(a.name) + '</div>' +
-        '<div style="font-size:11.5px;color:var(--ink-muted);line-height:1.55">' + escHtml(a.suggestion) + '</div>' +
+        '<div style="font-size:13px;font-weight:800;margin-bottom:4px;color:' + c.nameColor + '">' + escHtml(a.name) + '</div>' +
+        '<div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;background:rgba(245,237,224,0.5);border-radius:7px;padding:7px 9px">' +
+          '💬 ' + escHtml(a.suggestion) +
+        '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;background:' + c.toggleBg + ';border-top:0.5px solid var(--border)" onclick="leaderAlertToggle(' + idx + ')">' +
-        '<span style="font-size:11px;color:var(--ink-muted)">Xem thêm vấn đề đang gặp</span>' +
+        '<span style="font-size:11px;color:var(--ink-muted)">Xem chi tiết vấn đề</span>' +
         '<span id="al-arrow-' + idx + '" style="font-size:11px;color:var(--ink-muted)">&#9662;</span>' +
       '</div>' +
-      '<div id="al-body-' + idx + '" style="display:none;padding:8px 12px 10px;background:' + c.bodyBg + ';border-top:0.5px solid var(--border)">' +
-        issueHTML +
-        '<div style="height:0.5px;background:var(--border);margin:8px 0"></div>' +
+      '<div id="al-body-' + idx + '" style="display:none;padding:10px 12px 12px;background:' + c.bodyBg + ';border-top:0.5px solid var(--border)">' +
+        groupedHTML +
+        '<div style="height:0.5px;background:var(--border);margin:10px 0 8px"></div>' +
         '<button onclick="leaderOpenDetail(' + idx + ')" style="width:100%;padding:7px;border-radius:8px;border:0.5px solid var(--border);background:rgba(245,237,224,0.5);font-size:11.5px;color:var(--ink-muted);cursor:pointer;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif">' +
           'Xem chuỗi chỉ số rèn luyện →' +
         '</button>' +
@@ -9409,6 +9505,16 @@ async function loadAdminData() {
     ].filter(g => !deletedCodes.has(g)));
 
     renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCodes);
+    // Load ghi chú admin từ Firebase trước khi render monitor
+    try {
+      const notesSnap = await database.ref('admin_notes').once('value');
+      window._adminLeaderNotes = {};
+      Object.entries(notesSnap.val() || {}).forEach(([k, v]) => {
+        const mid = k.replace(/^leader_/, '');
+        window._adminLeaderNotes[mid] = v.note || '';
+      });
+    } catch(e) { window._adminLeaderNotes = window._adminLeaderNotes || {}; }
+    renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll);
     renderAdminGroups(groupsAll, membersAll, leaderByGroup, allGroupCodes);
 
   } catch(e) {
@@ -9456,6 +9562,148 @@ async function adminRenewMember(memberId, memberName) {
     showToast(`✅ Đã gia hạn ${memberName} đến ${newExpiry.toLocaleDateString('vi')}`);
     loadAdminData();
   } catch(e) { showToast('⚠️ Lỗi: ' + e.message); }
+}
+
+// ── Admin: Theo dõi & đồng hành trưởng nhóm ─────────────────────────
+// Lưu ý: admin chỉ có /members/ data (không có /journals/) nên chỉ dùng
+// các trường cơ bản: registeredAt, isLeader, groupCode, name, phone
+// Chỉ số rèn luyện chi tiết của TN không available ở admin → hiển thị
+// trạng thái nhóm + liên kết sang tab chi tiết
+function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll) {
+  const sectionEl = document.getElementById('admin-leader-monitor-section');
+  const listEl    = document.getElementById('admin-leader-alerts-list');
+  const badgeEl   = document.getElementById('admin-leader-alert-badge');
+  if (!listEl) return;
+
+  const leaderEntries = [];
+  Object.entries(leaderByGroup).forEach(([groupCode, lr]) => {
+    const mid = lr.memberId || lr.id;
+    if (!mid) return;
+    const mData = membersAll[mid];
+    if (!mData) return;
+    leaderEntries.push({ groupCode, lr, mid, mData });
+  });
+
+  if (!leaderEntries.length) {
+    if (sectionEl) sectionEl.style.display = 'none';
+    return;
+  }
+  if (sectionEl) sectionEl.style.display = 'block';
+
+  const todayK = todayKey();
+  const alerts = [];
+
+  leaderEntries.forEach(({ groupCode, lr, mid, mData }) => {
+    // Chỉ số nhóm — dùng membersByGroup (có sẵn từ /members/)
+    const groupMembers = (membersByGroup[groupCode] || []).filter(m => !m.isLeader);
+    const groupCount   = groupMembers.length;
+
+    // Tính tỉ lệ thành viên chưa hoạt động (không có stats hôm nay)
+    // /members/ không có entries chi tiết → dùng registeredAt để ước tính độ mới
+    const recentJoin  = groupMembers.filter(m => {
+      if (!m.registeredAt) return false;
+      const daysSince = (Date.now() - new Date(m.registeredAt).getTime()) / 86400000;
+      return daysSince <= 14;
+    }).length;
+    const expiredCount = groupMembers.filter(m => {
+      const exp = getExpiryInfo(m.expiryDate || m.approvedAt);
+      return exp.expired;
+    }).length;
+
+    // Tình trạng trưởng nhóm — chỉ dựa trên ngày phê duyệt & hết hạn
+    const lrExp = getExpiryInfo(lr.approvedAt);
+    const lrDaysLeft = lrExp.daysLeft;
+    const lrExpiringSoon = lrDaysLeft !== null && lrDaysLeft <= 30 && !lrExp.expired;
+    const lrExpired = lrExp.expired;
+
+    // Chỉ alert nếu có tín hiệu cụ thể
+    const hasAlert = lrExpiringSoon || lrExpired || expiredCount > 0 || (groupCount === 0);
+    const hasWatch = recentJoin >= 3 || groupCount >= 8;
+
+    if (!hasAlert && !hasWatch) return;
+
+    // Ghi chú admin — lưu Firebase để đồng bộ đa thiết bị
+    const noteKey   = 'admin_leader_note_' + mid;
+    const savedNote = window._adminLeaderNotes ? (window._adminLeaderNotes[mid] || '') : '';
+
+    const level    = hasAlert ? (lrExpired ? 'red' : 'amber') : 'blue';
+    const priority = lrExpired ? 1 : lrExpiringSoon ? 2 : 3;
+
+    alerts.push({ level, priority, name: lr.name || mData.name, groupCode, mid,
+      groupCount, recentJoin, expiredCount, lrExp, lrExpiringSoon, lrExpired,
+      noteKey, savedNote });
+  });
+
+  alerts.sort((a,b) => a.priority - b.priority);
+
+  if (badgeEl) {
+    const urgentCount = alerts.filter(a=>a.level==='red').length;
+    badgeEl.style.display = urgentCount > 0 ? 'inline-block' : 'none';
+    badgeEl.textContent = urgentCount;
+  }
+
+  if (!alerts.length) {
+    listEl.innerHTML = '<div style="font-size:12.5px;color:var(--jade);font-weight:700;padding:6px 0;text-align:center">✅ Tất cả trưởng nhóm đang ổn</div>';
+    return;
+  }
+
+  listEl.innerHTML = alerts.map((a) => {
+    const borderCol = a.level==='red' ? 'rgba(192,96,106,0.3)' : a.level==='amber' ? 'rgba(201,168,76,0.35)' : 'rgba(74,127,168,0.3)';
+    const headBg    = a.level==='red' ? 'rgba(192,96,106,0.07)' : a.level==='amber' ? 'rgba(201,168,76,0.07)' : 'rgba(74,127,168,0.07)';
+    const badgeSt   = a.level==='red' ? 'background:rgba(192,96,106,0.18);color:var(--rose)' : a.level==='amber' ? 'background:rgba(201,168,76,0.18);color:var(--gold-dark)' : 'background:rgba(74,127,168,0.15);color:var(--sky)';
+    const nameColor = a.level==='red' ? 'var(--rose)' : a.level==='amber' ? 'var(--gold-dark)' : 'var(--sky)';
+    const label     = a.lrExpired ? 'Tài khoản đã hết hạn' : a.lrExpiringSoon ? 'Sắp hết hạn' : 'Theo dõi thêm';
+
+    const issues = [];
+    if (a.lrExpired)      issues.push({ l:'red',   t:'Tài khoản trưởng nhóm đã hết hạn — cần gia hạn' });
+    if (a.lrExpiringSoon) issues.push({ l:'amber',  t:'Còn ' + a.lrExp.daysLeft + ' ngày đến hết hạn — nên gia hạn sớm' });
+    if (a.expiredCount)   issues.push({ l:'amber',  t: a.expiredCount + ' thành viên trong nhóm đã hết hạn' });
+    if (a.groupCount===0) issues.push({ l:'blue',   t:'Nhóm chưa có thành viên nào' });
+    if (a.recentJoin>=3)  issues.push({ l:'blue',   t: a.recentJoin + ' thành viên mới gia nhập trong 14 ngày — nhóm đang lớn nhanh' });
+
+    const issueHTML = issues.map(r =>
+      '<div style="display:flex;align-items:flex-start;gap:6px;padding:3px 0;font-size:11.5px;color:var(--ink-soft)">' +
+      '<span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;display:inline-block;background:' +
+      (r.l==='red'?'var(--rose)':r.l==='amber'?'var(--gold-dark)':'var(--sky)') + '"></span>' +
+      escHtml(r.t) + '</div>'
+    ).join('');
+
+    const midSafe = escHtml(a.mid);
+    return '<div style="border-radius:10px;margin-bottom:10px;overflow:hidden;border:1px solid '+borderCol+'">' +
+      '<div style="padding:10px 12px 8px;background:'+headBg+'">' +
+        '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;'+badgeSt+'">'+escHtml(label)+'</span>' +
+        '<div style="font-size:13px;font-weight:800;color:'+nameColor+'">'+escHtml(a.name)+'</div>' +
+        '<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">Nhóm: '+escHtml(a.groupCode)+' · '+a.groupCount+' thành viên</div>' +
+      '</div>' +
+      '<div style="padding:8px 12px;border-bottom:0.5px solid var(--border)">' + issueHTML + '</div>' +
+      '<div style="padding:8px 12px">' +
+        '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:5px">Ghi chú đồng hành <span style="font-weight:400">(đồng bộ đa thiết bị)</span></div>' +
+        '<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" ' +
+          'placeholder="Ghi lại bối cảnh, lịch sử, quan sát..." ' +
+          'style="width:100%;min-height:52px;font-size:12px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink)">'+escHtml(a.savedNote)+'</textarea>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Lưu ghi chú admin lên Firebase để đồng bộ đa thiết bị
+async function adminSaveLeaderNote(mid, noteKey) {
+  const el = document.getElementById('admin-ln-' + mid);
+  if (!el) return;
+  const val = el.value;
+  // Cache local ngay
+  if (!window._adminLeaderNotes) window._adminLeaderNotes = {};
+  window._adminLeaderNotes[mid] = val;
+  // Debounce ghi Firebase 1.5s — dùng timer riêng cho từng mid tránh xung đột
+  if (!window._adminNoteTimers) window._adminNoteTimers = {};
+  clearTimeout(window._adminNoteTimers[mid]);
+  window._adminNoteTimers[mid] = setTimeout(async () => {
+    try {
+      const database = await loadFirebase();
+      if (!database) return;
+      await database.ref('admin_notes/leader_' + mid).set({ note: val, updatedAt: Date.now() });
+    } catch(e) { console.warn('Save leader note:', e.message); }
+  }, 1500);
 }
 
 function renderAdminPending(pending) {
@@ -10336,13 +10584,15 @@ function addNewSeed() {
 
 // ── Render toàn bộ trang Hạt Giống ──────────────────────────────
 function renderSeedsPage() {
-  // Luôn đọc lại từ localStorage để bắt kịp data mới nhất
+  // FIX #2: Luôn dùng localStorage làm nguồn sự thật (source of truth).
+  // Logic cũ chỉ update khi localStorage DÀI HƠN → mất data khi xoá hạt giống.
+  // Giờ luôn sync từ localStorage nếu parse được, bất kể số lượng.
   const stored = localStorage.getItem(SEEDS_KEY);
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > seedsData.length) {
-        seedsData = parsed;
+      if (Array.isArray(parsed)) {
+        seedsData = parsed; // luôn tin localStorage
       }
     } catch(e) {}
   }
@@ -11139,11 +11389,11 @@ const HCOLORS=[
   {color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)'},
 ];
 const DEFAULT_HOUSES=()=>[
-  {id:'h1',icon:'🏠',name:'5 Ngôi Nhà',color:'var(--amber)',bg:'var(--amber-light)',border:'rgba(212,135,42,0.25)',ph:'Mục tiêu rèn luyện thân-tâm-trí, nội lực, kết nối năng lượng...',text:'',custom:false},
-  {id:'h2',icon:'💰',name:'Tài Chính',color:'var(--jade)',bg:'var(--jade-light)',border:'rgba(74,140,111,0.25)',ph:'Mục tiêu thu nhập, tiết kiệm, đầu tư...',text:'',custom:false},
-  {id:'h3',icon:'💼',name:'Sự Nghiệp, Đội Nhóm',color:'var(--sky)',bg:'var(--sky-light)',border:'rgba(74,127,168,0.25)',ph:'Mục tiêu công việc, phát triển đội nhóm...',text:'',custom:false},
-  {id:'h4',icon:'🙏',name:'Cống Hiến, Phụng Sự',color:'var(--violet)',bg:'var(--violet-light)',border:'rgba(124,92,191,0.25)',ph:'Mục tiêu đóng góp, lan toả giá trị...',text:'',custom:false},
-  {id:'h5',icon:'✨',name:'',color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)',ph:'Điền mục tiêu theo lĩnh vực bạn chọn...',text:'',custom:true},
+  {id:'h1',icon:'🏠',name:'Thân · Tâm · Trí',color:'var(--amber)',bg:'var(--amber-light)',border:'rgba(212,135,42,0.25)',ph:'Mục tiêu rèn luyện thân-tâm-trí, nội lực, kết nối năng lượng...',text:'',successMetric:'',custom:false},
+  {id:'h2',icon:'💰',name:'Tài Chính',color:'var(--jade)',bg:'var(--jade-light)',border:'rgba(74,140,111,0.25)',ph:'Mục tiêu thu nhập, tiết kiệm, đầu tư...',text:'',successMetric:'',custom:false},
+  {id:'h3',icon:'💼',name:'Sự Nghiệp, Đội Nhóm',color:'var(--sky)',bg:'var(--sky-light)',border:'rgba(74,127,168,0.25)',ph:'Mục tiêu công việc, phát triển đội nhóm...',text:'',successMetric:'',custom:false},
+  {id:'h4',icon:'🙏',name:'Cống Hiến, Phụng Sự',color:'var(--violet)',bg:'var(--violet-light)',border:'rgba(124,92,191,0.25)',ph:'Mục tiêu đóng góp, lan toả giá trị...',text:'',successMetric:'',custom:false},
+  {id:'h5',icon:'✨',name:'',color:'var(--rose)',bg:'var(--rose-light)',border:'rgba(192,96,106,0.25)',ph:'Điền mục tiêu theo lĩnh vực bạn chọn...',text:'',successMetric:'',custom:true},
 ];
 const DEFAULT_KAIZEN_ITEMS=()=>[
   {id:'k1',text:''},
@@ -11404,10 +11654,22 @@ function updateETypeColor(i,colorIdx){
 function deleteEType(i){
   const types=getETypes();
   if(types.length<=1)return;
+  const deletedId=types[i].id;
   types.splice(i,1);
   saveETypes(types);
+  // FIX #4: Reassign sự kiện mồ côi (eTypeId bị xoá) về loại đầu tiên còn lại,
+  // tránh badge lỗi style xám vô nghĩa trên calendar.
+  const fallbackId=types[0].id;
+  if(monthData && monthData.events){
+    let changed=false;
+    Object.values(monthData.events).forEach(evList=>{
+      if(!Array.isArray(evList))return;
+      evList.forEach(ev=>{ if(ev.t===deletedId){ ev.t=fallbackId; changed=true; } });
+    });
+    if(changed) persistCurrentMonth();
+  }
   if(!types.find(e=>e.id===selEType))selEType=types[0].id;
-  renderCalLegend();renderETypeChips();
+  renderCalLegend();renderETypeChips();renderCal();
   _refreshETypeList();
 }
 
@@ -11623,11 +11885,21 @@ function renderCal(){
 function renderHouses(){
   const grid=document.getElementById('houses-grid'); grid.innerHTML='';
   monthData.houses.forEach((h,idx)=>{
+    if(!h.successMetric) h.successMetric=''; // migrate data cũ
     const card=document.createElement('div');
     card.className='hcard'; card.style.borderColor=h.border;
     const nameHtml=h.custom
       ?`<input class="hname-inp" value="${esc(h.name)}" placeholder="Tên lĩnh vực..." style="color:${h.color};" onchange="monthData.houses[${idx}].name=this.value">`
       :`<span class="hname" style="color:${h.color};">${h.name}</span>`;
+    const pct=Math.round(_calcHouseProgress(h.id)*100);
+    const bc=pct>=70?'var(--jade)':pct>=40?'var(--gold)':'var(--rose)';
+    const smHtml='<div class="hsm-wrap">'
+      +'<div class="hsm-label">📏 TIÊU CHÍ THÀNH CÔNG'
+      +'<span style="margin-left:auto;color:'+bc+';font-weight:700;">'+pct+'% KR hoàn thành</span></div>'
+      +'<input class="hsm-inp" value="'+esc(h.successMetric)+'" placeholder="VD: Thu nhập tăng 20%, tập gym 3x/tuần..."'
+      +' onchange="monthData.houses['+idx+'].successMetric=this.value;persistCurrentMonth();">'
+      +'<div class="hsm-progress"><div class="hsm-bar" style="width:'+pct+'%;background:'+bc+';"></div></div>'
+      +'</div>';
     card.innerHTML=`
       <div class="hhdr" style="background:${h.bg};border-bottom-color:${h.border};">
         <span class="hico">${h.icon}</span>${nameHtml}
@@ -11637,6 +11909,7 @@ function renderHouses(){
         <textarea class="hta" id="hta-${h.id}" placeholder="${h.ph}" rows="4"
           onchange="monthData.houses[${idx}].text=this.value">${esc(h.text)}</textarea>
       </div>`;
+    card.innerHTML+=smHtml;
     grid.appendChild(card);
   });
 }
@@ -11648,7 +11921,7 @@ function delHouse(id){
 function addHouse(){
   const ic=ICONS[monthData.houseCounter%ICONS.length];
   const c=HCOLORS[monthData.houseCounter%HCOLORS.length];
-  monthData.houses.push({id:'h'+monthData.houseCounter,icon:ic,name:'',color:c.color,bg:c.bg,border:c.border,ph:'Điền mục tiêu cho nhóm này...',text:'',custom:true});
+  monthData.houses.push({id:'h'+monthData.houseCounter,icon:ic,name:'',color:c.color,bg:c.bg,border:c.border,ph:'Điền mục tiêu cho nhóm này...',text:'',successMetric:'',custom:true});
   monthData.houseCounter++;
   renderHouses();
   setTimeout(()=>{const l=document.querySelector('.hcard:last-child');if(l)l.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
@@ -11916,7 +12189,7 @@ function renderReflect(){
         oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';"
         onchange="monthData.reflect.kaizen[${i}].text=this.value;persistCurrentMonth();"
       >${esc(k.text)}</textarea>
-      <button onclick="delKaizenItem(${i})" style="width:18px;height:18px;border-radius:50%;border:none;background:var(--rose-light);color:var(--rose);font-size:12px;cursor:pointer;opacity:0.45;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;padding:0;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.45">×</button>
+      ${items.length>1?`<button onclick="delKaizenItem(${i})" style="width:18px;height:18px;border-radius:50%;border:none;background:var(--rose-light);color:var(--rose);font-size:12px;cursor:pointer;opacity:0.45;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;padding:0;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.45">×</button>`:'<div style="width:18px;flex-shrink:0"></div>'}
     </div>`).join('');
 
   grid.innerHTML=`
@@ -12154,6 +12427,393 @@ var toastTimer=null;
 
 <!-- TOAST -->
 
+
+<!-- ═══ TÍNH NĂNG MỚI: Score tự động + Stats + Báo cáo ═══ -->
+<script>
+/* Tính % KR done của 1 House */
+function _calcHouseProgress(houseId){
+  var tot=0,done=0;
+  Object.values(monthData.weekOKR||{}).forEach(function(w){
+    if(!w||typeof w!=='object')return;
+    (w.objectives||[]).forEach(function(obj){
+      if(!obj||obj.houseId!==houseId)return;
+      var krs=obj.krs||[];
+      tot+=krs.length;
+      done+=krs.filter(function(kr){return kr.done;}).length;
+    });
+  });
+  return tot>0?done/tot:0;
+}
+
+/* Score O = tự động từ KR (dùng trong renderAll để sync) */
+function _autoScoreObj(obj){
+  var krs=obj.krs||[];
+  if(!krs.length)return 0;
+  return krs.filter(function(kr){return kr.done;}).length/krs.length*10;
+}
+
+/* Render stats tháng */
+function renderMonthlyOutcomeStats(){
+  var el=document.getElementById('monthly-outcome-stats');
+  if(!el)return;
+  var totalO=0,doneO=0,totalKR=0,doneKR=0;
+  var houseMap={};
+  (monthData.houses||[]).forEach(function(h){
+    houseMap[h.id]={name:(h.icon||'')+' '+(h.name||'?'),done:0,total:0};
+  });
+  Object.values(monthData.weekOKR||{}).forEach(function(w){
+    if(!w||typeof w!=='object')return;
+    (w.objectives||[]).forEach(function(obj){
+      if(!obj||!obj.text)return;
+      var krs=obj.krs||[];
+      if(!krs.length)return;
+      totalO++;
+      var done=krs.filter(function(kr){return kr.done;}).length;
+      totalKR+=krs.length; doneKR+=done;
+      var sc=done/krs.length*10;
+      if(sc>=7)doneO++;
+      if(obj.houseId&&houseMap[obj.houseId]){
+        houseMap[obj.houseId].total++;
+        if(sc>=7)houseMap[obj.houseId].done++;
+      }
+    });
+  });
+  var krPct=totalKR>0?Math.round(doneKR/totalKR*100):0;
+  var oPct=totalO>0?Math.round(doneO/totalO*100):0;
+  var oC=oPct>=70?'var(--jade)':oPct>=40?'var(--gold)':'var(--rose)';
+  var kC=krPct>=70?'var(--jade)':krPct>=40?'var(--gold)':'var(--rose)';
+  function kpi(v,l,s,c){
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;text-align:center;">'
+      +'<div style="font-size:19px;font-weight:800;color:'+c+';">'+v+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--ink);margin-top:1px;">'+l+'</div>'
+      +'<div style="font-size:10px;color:var(--ink-muted);">'+s+'</div></div>';
+  }
+  var html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">'
+    +kpi(totalO,'Objectives','có Key Results','var(--sky)')
+    +kpi(doneO+'/'+totalO,'O đạt ≥70%','score tự động',oC)
+    +kpi(doneKR+'/'+totalKR,'KR hoàn thành','key results',kC)
+    +kpi(krPct+'%','Tỉ lệ đạt','toàn tháng',kC)
+    +'</div>';
+  var housesWithData=Object.values(houseMap).filter(function(h){return h.total>0;});
+  if(housesWithData.length>0){
+    html+='<div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius-sm);padding:10px 14px;">';
+    html+='<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;margin-bottom:8px;">KẾT QUẢ THEO NHÓM MỤC TIÊU</div>';
+    housesWithData.forEach(function(h){
+      var pct=Math.round(h.done/h.total*100);
+      var c=pct>=70?'var(--jade)':pct>=40?'var(--gold)':'var(--rose)';
+      html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+        +'<span style="font-size:12px;font-weight:700;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+h.name+'</span>'
+        +'<div style="width:90px;height:5px;background:rgba(201,168,76,0.15);border-radius:3px;overflow:hidden;flex-shrink:0;">'
+        +'<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:3px;"></div></div>'
+        +'<span style="font-size:11px;font-weight:700;color:'+c+';width:34px;text-align:right;flex-shrink:0;">'+pct+'%</span>'
+        +'<span style="font-size:10px;color:var(--ink-muted);flex-shrink:0;">'+h.done+'/'+h.total+' O</span>'
+        +'</div>';
+    });
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+/* Override renderAll để thêm stats */
+(function(){
+  var _origRenderAll=renderAll;
+  renderAll=function(){
+    _origRenderAll();
+    renderMonthlyOutcomeStats();
+  };
+})();
+
+/* Override toggleKRv2 để cập nhật stats sau tick */
+(function(){
+  var _origToggle=toggleKRv2;
+  toggleKRv2=function(wk,oi,i){
+    _origToggle(wk,oi,i);
+    setTimeout(function(){renderMonthlyOutcomeStats();},50);
+  };
+})();
+
+/* ═══ BÁO CÁO ═══ */
+function _bcGetMonths(range){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth(),res=[];
+  var n={'month':1,'3months':3,'6months':6,'year':12}[range]||12;
+  for(var i=n-1;i>=0;i--){
+    var d=new Date(y,m-i,1);
+    res.push({y:d.getFullYear(),m:d.getMonth()});
+  }
+  return res;
+}
+function _bcGetDaysInRange(months){
+  var keys=[];
+  months.forEach(function(mo){
+    var prefix=mo.y+'-'+String(mo.m+1).padStart(2,'0');
+    Object.keys(data||{}).filter(function(k){return k.startsWith(prefix);}).forEach(function(k){keys.push(k);});
+  });
+  return keys.sort();
+}
+function bcSaveReflect(key,field,val){
+  try{var d={};try{d=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
+  d[field]=val;localStorage.setItem(key,JSON.stringify(d));}catch(e){}
+}
+function openBaoCao(){
+  if(document.getElementById('bao-cao-modal'))return;
+  const modal=document.createElement('div');
+  modal.id='bao-cao-modal';
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,20,16,0.6);z-index:700;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0;';
+  modal.innerHTML='<div style="background:var(--bg);border-radius:var(--radius);width:90%;max-width:680px;padding:0 0 32px;box-shadow:0 20px 60px rgba(90,55,10,0.3);">'
+    +'<div style="background:var(--card);border-radius:var(--radius) var(--radius) 0 0;padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">'
+    +'<div style="flex:1;min-width:0;">'
+    +'<div style="font-size:16px;font-weight:800;color:var(--ink);white-space:nowrap;">📊 Báo cáo tổng kết</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-top:1px;" id="bc-subtitle">Đang tải...</div></div>'
+    +'<select id="bc-range" onchange="renderBaoCao()" style="flex-shrink:0;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--card);">'
+    +'<option value="month">Tháng này</option>'
+    +'<option value="3months">3 tháng gần đây</option>'
+    +'<option value="6months">6 tháng gần đây</option>'
+    +'<option value="year" selected>1 năm gần đây</option>'
+    +'</select>'
+    +'<button onclick="document.getElementById(\'bao-cao-modal\').remove()" style="flex-shrink:0;border:none;background:none;font-size:22px;cursor:pointer;color:var(--ink-muted);padding:0;line-height:1;">×</button>'
+    +'</div>'
+    +'<div id="bc-content" style="padding:0 20px;"></div>'
+    +'</div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  setTimeout(renderBaoCao,50);
+}
+
+function renderBaoCao(){
+  const range=document.getElementById('bc-range')&&document.getElementById('bc-range').value||'year';
+  const months=_bcGetMonths(range);
+  const days=_bcGetDaysInRange(months);
+  const content=document.getElementById('bc-content');
+  const subtitle=document.getElementById('bc-subtitle');
+  if(!content)return;
+
+  const rangeLabel={'month':'Tháng này','3months':'3 tháng gần đây','6months':'6 tháng gần đây','year':'1 năm gần đây'}[range];
+  subtitle.textContent=rangeLabel+' · '+days.length+' ngày có dữ liệu';
+
+  // ── HOẠT ĐỘNG ──
+  const totalDays=days.length;
+  const daysWithActivity=days.filter(function(k){
+    const e=data[k];if(!e)return false;
+    return Object.values(e.rituals||{}).some(Boolean)||e.energy||e.dailyGood||e.dailyImprove||e.gratitude1;
+  }).length;
+  const totalRituals=days.reduce(function(s,k){return s+Object.values(data[k]&&data[k].rituals||{}).filter(Boolean).length;},0);
+  const maxRituals=totalDays*9;
+  const ritualPct=maxRituals>0?Math.round(totalRituals/maxRituals*100):0;
+  const avgEnergy=totalDays>0?(days.reduce(function(s,k){return s+(data[k]&&data[k].energy||0);},0)/totalDays).toFixed(1):0;
+  let maxStreak=0,curRun=0,prev=null;
+  days.filter(function(k){return Object.values(data[k]&&data[k].rituals||{}).some(Boolean);}).forEach(function(k){
+    if(!prev){curRun=1;}else{const diff=(new Date(k)-new Date(prev))/86400000;curRun=diff===1?curRun+1:1;}
+    maxStreak=Math.max(maxStreak,curRun);prev=k;
+  });
+
+  // ── KẾT QUẢ THỰC SỰ từ OKR ──
+  let totO=0,doneO=0;
+  const houseMap={};     // {name: {totKR,doneKR,objs,doneObj,sm}}
+  const okrByMonth=[];   // [{label, ritPct, okrPct}]
+
+  months.forEach(function(mo){
+    try{
+      const raw=localStorage.getItem('monthly_'+mo.y+'_'+mo.m);
+      const mKey=mo.y+'-'+String(mo.m+1).padStart(2,'0');
+      const mDays=days.filter(function(k){return k.startsWith(mKey);});
+      const ritPctM=mDays.length?Math.round(mDays.reduce(function(s,k){return s+Object.values(data[k]&&data[k].rituals||{}).filter(Boolean).length;},0)/(mDays.length*9)*100):0;
+      let mTotO=0,mDoneO=0;
+      if(raw){
+        const md=JSON.parse(raw);
+        const houses=md.houses||[];
+        Object.values(md.weekOKR||{}).forEach(function(w){
+          if(!w||typeof w!=='object')return;
+          (w.objectives||[]).forEach(function(obj){
+            if(!obj||!obj.text)return;
+            const krs=obj.krs||[];
+            if(!krs.length)return;
+            const sc=krs.filter(function(kr){return kr.done;}).length/krs.length*10;
+            totO++;mTotO++;
+            if(sc>=7){doneO++;mDoneO++;}
+            if(obj.houseId){
+              const h=houses.find(function(h){return h.id===obj.houseId;});
+              if(!h)return;
+              const nm=(h.icon||'')+' '+(h.name||'?');
+              if(!houseMap[nm])houseMap[nm]={totKR:0,doneKR:0,objs:0,doneObj:0,sm:h.successMetric||''};
+              houseMap[nm].objs++;
+              if(sc>=7)houseMap[nm].doneObj++;
+              houseMap[nm].totKR+=krs.length;
+              houseMap[nm].doneKR+=krs.filter(function(kr){return kr.done;}).length;
+            }
+          });
+        });
+      }
+      const lbl='T'+(mo.m+1)+(months.length>6?'/'+String(mo.y).slice(2):'');
+      okrByMonth.push({label:lbl,ritPct:ritPctM,okrPct:mTotO>0?Math.round(mDoneO/mTotO*100):null});
+    }catch(e){}
+  });
+
+  const outRate=totO>0?Math.round(doneO/totO*100):0;
+  const oC=outRate>=70?'var(--jade)':outRate>=40?'var(--gold)':'var(--rose)';
+
+  // ── Tổng kết theo range: seeds + tài chính ──
+  // startDate = ngày đầu tiên của range (YYYY-MM-DD) để filter seeds
+  const startDate=(function(){
+    var mo=months[0];
+    return mo.y+'-'+String(mo.m+1).padStart(2,'0')+'-01';
+  })();
+  // Seeds chuyển hóa trong range: dùng doneAt nếu có, fallback createdAt
+  var seedsDoneInRange=0, seedsActiveInRange=0;
+  try{
+    (seedsData||[]).forEach(function(s){
+      var ref=s.doneAt||s.createdAt||'';
+      if(ref>=startDate){
+        if(s.status==='done') seedsDoneInRange++;
+        else seedsActiveInRange++;
+      }
+    });
+  }catch(e){}
+  // Tài chính: tỉ lệ tiền xanh trong range từ daily data
+  var finGreen=0,finTotal=0;
+  days.forEach(function(k){
+    var e=data[k]||{};
+    var g=(e.recvGreen||0)+(e.spendGreen||0);
+    var r=(e.recvRed||0)+(e.spendRed||0);
+    finGreen+=g; finTotal+=g+r;
+  });
+  var finGreenPct=finTotal>0?Math.round(finGreen/finTotal*100):null;
+  var finC=finGreenPct===null?'var(--ink-muted)':finGreenPct>=75?'var(--jade)':finGreenPct>=40?'var(--gold)':'var(--rose)';
+
+
+  // ── Build HTML ──
+  function kpiCard(v,l,s,c){
+    return '<div style="background:var(--card);border-radius:var(--radius-sm);padding:14px 10px;text-align:center;border:1px solid var(--border);">'
+      +'<div style="font-size:22px;font-weight:800;color:'+c+';">'+v+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--ink);margin-top:2px;">'+l+'</div>'
+      +'<div style="font-size:10px;color:var(--ink-muted);">'+s+'</div></div>';
+  }
+
+  let kpi1='';
+  [{v:daysWithActivity,l:'Ngày rèn luyện',s:'trong '+totalDays+' ngày'},
+   {v:maxStreak,l:'Chuỗi dài nhất',s:'ngày liên tiếp'},
+   {v:ritualPct+'%',l:'% Nghi thức',s:totalRituals+'/'+maxRituals+' lần'},
+   {v:avgEnergy,l:'Năng lượng TB',s:'/10 điểm'},
+  ].forEach(function(x){kpi1+=kpiCard(x.v,x.l,x.s,'var(--gold-dark)');});
+
+  let kpi2='';
+  kpi2+=kpiCard(totO,'Tổng O đặt ra','objectives có KR','var(--sky)');
+  kpi2+=kpiCard(doneO+'/'+totO,'O hoàn thành ≥70%','score tự động','var(--jade)');
+  kpi2+=kpiCard(outRate+'%','Tỉ lệ đạt',totO>0?(doneO+'/'+totO+' mục tiêu'):'Chưa có dữ liệu',oC);
+  // Hạt Giống + Tỉ Lệ Tiền Xanh — chỉ tính được sau khi startDate/days/seedsData đã sẵn sàng
+  // Dùng biến đã tính ở phần "Tổng kết theo range" bên dưới — build kpi2 extension sau
+
+
+  // House breakdown
+  let houseHtml='';
+  const housesWithData=Object.entries(houseMap).filter(function(e){return e[1].objs>0;});
+  if(housesWithData.length===0){
+    houseHtml='<div style="font-size:12px;color:var(--ink-muted);text-align:center;padding:16px 0;">Chưa có O được gắn vào Ngôi Nhà. Hãy gán "Nhóm mục tiêu" cho từng O trong OKR.</div>';
+  } else {
+    housesWithData.forEach(function(entry){
+      const nm=entry[0],info=entry[1];
+      const pct=info.totKR>0?Math.round(info.doneKR/info.totKR*100):0;
+      const c=pct>=70?'var(--jade)':pct>=40?'var(--gold)':'var(--rose)';
+      houseHtml+='<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">'
+        +'<span style="font-size:13px;font-weight:700;color:var(--ink);">'+nm+'</span>'
+        +'<span style="font-size:12px;font-weight:700;color:'+c+';">'+pct+'% KR hoàn thành</span></div>'
+        +(info.sm?'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:5px;font-style:italic;">📏 '+info.sm+'</div>':'')
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<div style="flex:1;height:6px;background:rgba(201,168,76,0.15);border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:4px;transition:width 0.5s;"></div></div>'
+        +'<span style="font-size:10px;color:var(--ink-muted);white-space:nowrap;">'+info.doneKR+'/'+info.totKR+' KR · '+info.doneObj+'/'+info.objs+' O ≥70%</span>'
+        +'</div></div>';
+    });
+  }
+
+  content.innerHTML=''
+    // HOẠT ĐỘNG
+    +'<div style="margin:16px 0 8px;font-size:11px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;">📊 HOẠT ĐỘNG</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">'+kpi1+'</div>'
+    // KẾT QUẢ THỰC SỰ
+    +'<div style="margin-bottom:8px;font-size:11px;font-weight:700;color:var(--ink-muted);letter-spacing:0.5px;">🎯 KẾT QUẢ THỰC SỰ (từ OKR)</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">'+kpi2+'</div>'
+    // BIỂU ĐỒ xu hướng kép
+    +'<div style="background:var(--card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:4px;">📅 Xu hướng theo tháng</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px;">🟡 % Nghi thức &nbsp;|&nbsp; 🟢 % O đạt ≥7/10</div>'
+    +'<div style="position:relative;height:160px;"><canvas id="bc-chart"></canvas></div></div>'
+    // TIẾN ĐỘ NGÔI NHÀ
+    +'<div style="background:var(--card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:4px;">🏠 Tiến độ theo Nhóm Mục Tiêu ↔ OKR</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px;">Mỗi nhóm: Tiêu chí thành công đã đặt + % KR thực hiện được</div>'
+    +houseHtml+'</div>'
+    // TỔNG KẾT THEO RANGE — section tự động + reflection
+    +_bcSummaryHtml(range,rangeLabel);
+
+  // Vẽ biểu đồ kép
+  setTimeout(function(){
+    const ctx=document.getElementById('bc-chart');
+    if(!ctx)return;
+    if(window._bcChartInst)window._bcChartInst.destroy();
+    if(typeof Chart==='undefined')return;
+    window._bcChartInst=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:okrByMonth.map(function(d){return d.label;}),
+        datasets:[
+          {label:'% Nghi thức',data:okrByMonth.map(function(d){return d.ritPct;}),
+           backgroundColor:'rgba(201,168,76,0.25)',borderColor:'var(--gold)',borderWidth:1.5,borderRadius:3,order:2},
+          {label:'% O đạt ≥7/10',data:okrByMonth.map(function(d){return d.okrPct;}),
+           type:'line',borderColor:'#4a8c6f',backgroundColor:'rgba(74,140,111,0.12)',
+           borderWidth:2,pointRadius:4,pointBackgroundColor:'#4a8c6f',tension:0.3,fill:true,order:1}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{font:{size:11},boxWidth:12,padding:12}},
+          tooltip:{callbacks:{label:function(c){return c.raw!==null?c.dataset.label+': '+c.raw+'%':'Không có dữ liệu';}}}
+        },
+        scales:{
+          x:{grid:{display:false},ticks:{font:{size:11}},border:{display:false}},
+          y:{min:0,max:100,ticks:{callback:function(v){return v+'%';},font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'},border:{display:false}}
+        }
+      }
+    });
+  },100);
+}
+
+// ── Tổng kết theo range: 2 section thêm vào cuối báo cáo ──
+function _bcSummaryHtml(range,rangeLabel){
+  var summaryKey='bc-summary-'+range;
+  var summaryData={};
+  try{summaryData=JSON.parse(localStorage.getItem(summaryKey)||'{}');}catch(e){}
+
+  // Section: Reflection (3 câu, key riêng theo range)
+  var reflQs=[
+    {k:'achieve',q:'🎯 Các mục tiêu / kết quả tôi đã đạt được'},
+    {k:'lesson', q:'✅ Tôi đã thực sự làm tốt điều gì?'},
+    {k:'next',   q:'🔧 Điều tôi sẽ làm khác đi?'},
+  ];
+  var reflHtml='';
+  reflQs.forEach(function(q){
+    var val=(summaryData[q.k]||'').replace(/</g,'&lt;');
+    reflHtml+='<div style="margin-bottom:10px;">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px;">'+q.q+'</div>'
+      +'<textarea data-skey="'+summaryKey+'" data-field="'+q.k+'"'
+      +' style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);'
+      +'padding:8px 10px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--card);'
+      +'resize:none;min-height:56px;outline:none;box-sizing:border-box;line-height:1.6;"'
+      +' placeholder="Viết xuống để lưu lại..."'
+      +' onchange="bcSaveReflect(this.dataset.skey,this.dataset.field,this.value)"'
+      +' onfocus="this.style.borderColor=\"#c9a84c\""'
+      +' onblur="this.style.borderColor=\"rgba(201,168,76,0.25)\"">'  +val+'</textarea></div>';
+  });
+
+  var s2='<div style="background:var(--card);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;border:1px solid var(--border);">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:4px;">✍️ Nhìn Lại Toàn Cảnh – '+rangeLabel+'</div>'
+    +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:12px;">Tự động lưu khi bạn gõ xong · Mỗi range lưu riêng</div>'
+    +reflHtml+'</div>';
+
+  return s2;
+}
+</script>
 
 </body>
 </html>
