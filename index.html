@@ -3733,14 +3733,36 @@ async function doForgotPassword() {
     showToast('⚠️ Nhập email trước rồi bấm Quên mật khẩu');
     return;
   }
+  // Đổi button tạm thời để tránh bấm nhiều lần
+  const btn = document.querySelector('button[onclick="doForgotPassword()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
   try {
     await loadFirebase();
-    await auth.sendPasswordResetEmail(email);
-    showToast('📧 Đã gửi email đặt lại mật khẩu! Kiểm tra hộp thư nhé.');
+    // Đảm bảo auth đã được khởi tạo sau khi loadFirebase
+    if (!auth) {
+      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+        auth = firebase.auth();
+      } else {
+        throw new Error('no-auth');
+      }
+    }
+    // Kiểm tra action code settings để email reset về đúng domain
+    const actionCodeSettings = {
+      url: window.location.origin + window.location.pathname,
+      handleCodeInApp: false,
+    };
+    await auth.sendPasswordResetEmail(email, actionCodeSettings);
+    showToast('📧 Đã gửi email đặt lại mật khẩu! Kiểm tra hộp thư (kể cả thư rác) nhé.');
   } catch(e) {
-    let msg = '⚠️ Không thể gửi email.';
-    if (e.code === 'auth/user-not-found') msg = '⚠️ Email này chưa được đăng ký.';
+    let msg = '⚠️ Không thể gửi email. Vui lòng thử lại.';
+    if (e.code === 'auth/user-not-found')    msg = '⚠️ Email này chưa có tài khoản Firebase.';
+    if (e.code === 'auth/invalid-email')     msg = '⚠️ Email không đúng định dạng.';
+    if (e.code === 'auth/too-many-requests') msg = '⚠️ Gửi quá nhiều lần. Vui lòng thử lại sau vài phút.';
+    if (e.message === 'no-auth')             msg = '⚠️ Không kết nối được Firebase. Kiểm tra mạng và thử lại.';
     showToast(msg);
+    console.warn('doForgotPassword error:', e.code, e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Quên mật khẩu?'; }
   }
 }
 
@@ -4495,7 +4517,14 @@ const firebaseConfig = {
 
 function loadFirebase() {
   return new Promise((resolve) => {
-    if (db) { resolve(db); return; }
+    // Nếu db đã có nhưng auth chưa có (ví dụ: auth-compat chưa load) → tiếp tục chờ
+    if (db && auth) { resolve(db); return; }
+    // Nếu db có nhưng auth chưa có → thử lấy auth từ firebase instance
+    if (db && !auth && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+      try { auth = firebase.auth(); } catch(e) {}
+      if (auth) { resolve(db); return; }
+    }
+    if (db && !auth) { resolve(db); return; } // Fallback: resolve anyway
     const s1 = document.createElement('script');
     s1.src = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
     s1.onload = () => {
@@ -4888,7 +4917,18 @@ function _applyRemoteData(remote) {
           const _lHasRit = Object.keys(localEntry.rituals||{}).some(k => localEntry.rituals[k]);
           // Kiểm tra thêm tasksV2 — nếu có task thì không coi là trống
           const _lHasTasks = localEntry.tasksV2 && Array.isArray(localEntry.tasksV2.main) && localEntry.tasksV2.main.some(t => t.text);
-          const _lEmpty  = _lcKeys.length === 0 && !_lHasRit && !_lHasTasks;
+          // FIX: Kiểm tra thêm các field quan trọng (năng lượng, biết ơn, xin quà, bài học...)
+          // để tránh ghi đè local khi người dùng đã lưu nhưng chưa push lên Firebase kịp
+          const _lHasSavedData =
+            localEntry.savedEnergy || localEntry.savedGratitude ||
+            localEntry.savedWish   || localEntry.savedFinance   ||
+            localEntry.energy      ||
+            localEntry.gratitude1  || localEntry.gratitude2 || localEntry.gratitude3 ||
+            localEntry.wishContent || localEntry.wishReceived  ||
+            localEntry.lesson      || localEntry.seedGreen || localEntry.seedRed ||
+            localEntry.dailyGood   || localEntry.dailyImprove  ||
+            localEntry.selfLetter  || localEntry.selfProud;
+          const _lEmpty  = _lcKeys.length === 0 && !_lHasRit && !_lHasTasks && !_lHasSavedData;
           const _rHas    = Object.keys(remoteEntry).filter(k => k !== '_updatedAt').length > 1;
           if (_lEmpty && _rHas) { data[date] = remoteEntry; return; }
           // Merge: field nào mới hơn thắng
@@ -9514,7 +9554,25 @@ async function loadAdminData() {
         window._adminLeaderNotes[mid] = v.note || '';
       });
     } catch(e) { window._adminLeaderNotes = window._adminLeaderNotes || {}; }
-    renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll);
+    // Load stats rèn luyện thực tế của từng trưởng nhóm từ /groups/{groupCode}/{memberId}
+    const leaderTrainingStats = {};
+    try {
+      const leaderGroupCodes = Object.keys(leaderByGroup);
+      const groupSnapshots = await Promise.all(
+        leaderGroupCodes.map(gc => database.ref('groups/' + fbKey(gc)).once('value').catch(()=>null))
+      );
+      leaderGroupCodes.forEach((gc, i) => {
+        const snap = groupSnapshots[i];
+        if (!snap) return;
+        const groupData = snap.val() || {};
+        const lr = leaderByGroup[gc];
+        const mid = lr.memberId || lr.id;
+        if (!mid) return;
+        const lStats = groupData[mid];
+        if (lStats) leaderTrainingStats[mid] = lStats;
+      });
+    } catch(e) { console.warn('Load leader training stats:', e); }
+    renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats);
     renderAdminGroups(groupsAll, membersAll, leaderByGroup, allGroupCodes);
 
   } catch(e) {
@@ -9569,7 +9627,8 @@ async function adminRenewMember(memberId, memberName) {
 // các trường cơ bản: registeredAt, isLeader, groupCode, name, phone
 // Chỉ số rèn luyện chi tiết của TN không available ở admin → hiển thị
 // trạng thái nhóm + liên kết sang tab chi tiết
-function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll) {
+function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats) {
+  leaderTrainingStats = leaderTrainingStats || {};
   const sectionEl = document.getElementById('admin-leader-monitor-section');
   const listEl    = document.getElementById('admin-leader-alerts-list');
   const badgeEl   = document.getElementById('admin-leader-alert-badge');
@@ -9594,92 +9653,146 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll) {
   const alerts = [];
 
   leaderEntries.forEach(({ groupCode, lr, mid, mData }) => {
-    // Chỉ số nhóm — dùng membersByGroup (có sẵn từ /members/)
     const groupMembers = (membersByGroup[groupCode] || []).filter(m => !m.isLeader);
     const groupCount   = groupMembers.length;
 
-    // Tính tỉ lệ thành viên chưa hoạt động (không có stats hôm nay)
-    // /members/ không có entries chi tiết → dùng registeredAt để ước tính độ mới
-    const recentJoin  = groupMembers.filter(m => {
+    const recentJoin = groupMembers.filter(m => {
       if (!m.registeredAt) return false;
-      const daysSince = (Date.now() - new Date(m.registeredAt).getTime()) / 86400000;
-      return daysSince <= 14;
+      return (Date.now() - new Date(m.registeredAt).getTime()) / 86400000 <= 14;
     }).length;
     const expiredCount = groupMembers.filter(m => {
       const exp = getExpiryInfo(m.expiryDate || m.approvedAt);
       return exp.expired;
     }).length;
 
-    // Tình trạng trưởng nhóm — chỉ dựa trên ngày phê duyệt & hết hạn
     const lrExp = getExpiryInfo(lr.approvedAt);
     const lrDaysLeft = lrExp.daysLeft;
     const lrExpiringSoon = lrDaysLeft !== null && lrDaysLeft <= 30 && !lrExp.expired;
     const lrExpired = lrExp.expired;
 
-    // Chỉ alert nếu có tín hiệu cụ thể
-    const hasAlert = lrExpiringSoon || lrExpired || expiredCount > 0 || (groupCount === 0);
-    const hasWatch = recentJoin >= 3 || groupCount >= 8;
+    // ── Data rèn luyện thực tế của trưởng nhóm ──
+    const tStats = leaderTrainingStats[mid] || null;
+    const trainedToday = tStats && tStats.date === todayK;
+    const ritualsToday = trainedToday ? (tStats.rituals || 0) : null;
+    const nnToday      = trainedToday ? (tStats.nn || []) : null;
+    const avgNN        = nnToday && nnToday.length ? Math.round(nnToday.reduce((a,b)=>a+b,0) / nnToday.length * 10) / 10 : null;
+    const minNN        = nnToday && nnToday.length ? Math.min(...nnToday) : null;
+    // Cảnh báo NL thấp: NL TB < 5 hoặc có ngôi nhà <= 3
+    const lowEnergy    = avgNN !== null && avgNN < 5;
+    const criticalNN   = minNN !== null && minNN <= 3;
+    // Chưa rèn luyện hôm nay (stats không có hoặc ngày cũ)
+    const notTrainedToday = !trainedToday;
 
-    if (!hasAlert && !hasWatch) return;
+    const hasAlert = lrExpiringSoon || lrExpired || expiredCount > 0 || (groupCount === 0) || lowEnergy || criticalNN;
+    const hasWatch = recentJoin >= 3 || groupCount >= 8 || notTrainedToday;
 
-    // Ghi chú admin — lưu Firebase để đồng bộ đa thiết bị
-    const noteKey   = 'admin_leader_note_' + mid;
+    // Luôn hiển thị tất cả trưởng nhóm để admin theo dõi
     const savedNote = window._adminLeaderNotes ? (window._adminLeaderNotes[mid] || '') : '';
+    const noteKey   = 'admin_leader_note_' + mid;
 
-    const level    = hasAlert ? (lrExpired ? 'red' : 'amber') : 'blue';
-    const priority = lrExpired ? 1 : lrExpiringSoon ? 2 : 3;
+    const level    = hasAlert ? (lrExpired || criticalNN ? 'red' : 'amber') : hasWatch ? 'blue' : 'green';
+    const priority = lrExpired ? 1 : criticalNN ? 2 : lowEnergy ? 3 : lrExpiringSoon ? 4 : notTrainedToday ? 5 : expiredCount > 0 ? 6 : 7;
+    const label    = lrExpired ? 'Hết hạn' : criticalNN ? 'NL rất thấp — cần hỗ trợ' : lowEnergy ? 'NL thấp' : lrExpiringSoon ? 'Sắp hết hạn' : notTrainedToday ? 'Chưa rèn hôm nay' : expiredCount > 0 ? 'Thành viên hết hạn' : '✅ Đang ổn';
 
-    alerts.push({ level, priority, name: lr.name || mData.name, groupCode, mid,
+    alerts.push({
+      level, priority, label,
+      name: lr.name || mData.name || '–', groupCode, mid,
       groupCount, recentJoin, expiredCount, lrExp, lrExpiringSoon, lrExpired,
-      noteKey, savedNote });
+      noteKey, savedNote,
+      tStats, trainedToday, ritualsToday, nnToday, avgNN, minNN, lowEnergy, criticalNN, notTrainedToday
+    });
   });
 
   alerts.sort((a,b) => a.priority - b.priority);
 
   if (badgeEl) {
-    const urgentCount = alerts.filter(a=>a.level==='red').length;
+    const urgentCount = alerts.filter(a => a.level === 'red' || a.level === 'amber').length;
     badgeEl.style.display = urgentCount > 0 ? 'inline-block' : 'none';
     badgeEl.textContent = urgentCount;
   }
 
-  if (!alerts.length) {
-    listEl.innerHTML = '<div style="font-size:12.5px;color:var(--jade);font-weight:700;padding:6px 0;text-align:center">✅ Tất cả trưởng nhóm đang ổn</div>';
-    return;
-  }
-
   listEl.innerHTML = alerts.map((a) => {
-    const borderCol = a.level==='red' ? 'rgba(192,96,106,0.3)' : a.level==='amber' ? 'rgba(201,168,76,0.35)' : 'rgba(74,127,168,0.3)';
-    const headBg    = a.level==='red' ? 'rgba(192,96,106,0.07)' : a.level==='amber' ? 'rgba(201,168,76,0.07)' : 'rgba(74,127,168,0.07)';
-    const badgeSt   = a.level==='red' ? 'background:rgba(192,96,106,0.18);color:var(--rose)' : a.level==='amber' ? 'background:rgba(201,168,76,0.18);color:var(--gold-dark)' : 'background:rgba(74,127,168,0.15);color:var(--sky)';
-    const nameColor = a.level==='red' ? 'var(--rose)' : a.level==='amber' ? 'var(--gold-dark)' : 'var(--sky)';
-    const label     = a.lrExpired ? 'Tài khoản đã hết hạn' : a.lrExpiringSoon ? 'Sắp hết hạn' : 'Theo dõi thêm';
+    const colMap = {
+      red:   { border:'rgba(192,96,106,0.3)', bg:'rgba(192,96,106,0.07)', badge:'background:rgba(192,96,106,0.18);color:var(--rose)', name:'var(--rose)' },
+      amber: { border:'rgba(201,168,76,0.35)', bg:'rgba(201,168,76,0.07)', badge:'background:rgba(201,168,76,0.18);color:var(--gold-dark)', name:'var(--gold-dark)' },
+      blue:  { border:'rgba(74,127,168,0.3)', bg:'rgba(74,127,168,0.07)', badge:'background:rgba(74,127,168,0.15);color:var(--sky)', name:'var(--sky)' },
+      green: { border:'rgba(74,140,111,0.25)', bg:'rgba(74,140,111,0.06)', badge:'background:rgba(74,140,111,0.18);color:var(--jade)', name:'var(--jade)' },
+    };
+    const col = colMap[a.level] || colMap.blue;
 
+    // ── Danh sách vấn đề ──
     const issues = [];
-    if (a.lrExpired)      issues.push({ l:'red',   t:'Tài khoản trưởng nhóm đã hết hạn — cần gia hạn' });
-    if (a.lrExpiringSoon) issues.push({ l:'amber',  t:'Còn ' + a.lrExp.daysLeft + ' ngày đến hết hạn — nên gia hạn sớm' });
-    if (a.expiredCount)   issues.push({ l:'amber',  t: a.expiredCount + ' thành viên trong nhóm đã hết hạn' });
-    if (a.groupCount===0) issues.push({ l:'blue',   t:'Nhóm chưa có thành viên nào' });
-    if (a.recentJoin>=3)  issues.push({ l:'blue',   t: a.recentJoin + ' thành viên mới gia nhập trong 14 ngày — nhóm đang lớn nhanh' });
+    if (a.lrExpired)        issues.push({ l:'red',   t:'Tài khoản trưởng nhóm đã hết hạn — cần gia hạn' });
+    if (a.lrExpiringSoon)   issues.push({ l:'amber',  t:'Còn ' + a.lrExp.daysLeft + ' ngày đến hết hạn' });
+    if (a.criticalNN && a.nnToday) {
+      const lowIdx = a.nnToday.map((v,i)=>({v,i})).filter(x=>x.v<=3);
+      lowIdx.forEach(x => { issues.push({ l:'red', t:'⚠️ ' + ['NN1 Bản Thân','NN2 Cha Mẹ','NN3 Vợ Chồng','NN4 Hồn Thiêng','NN5 Mẹ Thiên Nhiên'][x.i] + ' = ' + x.v + '/10 — rất thấp' }); });
+    } else if (a.lowEnergy && a.nnToday) {
+      issues.push({ l:'amber', t:'NL trung bình hôm nay: ' + a.avgNN + '/10 — cần quan tâm' });
+    }
+    if (a.expiredCount)     issues.push({ l:'amber',  t: a.expiredCount + ' thành viên đã hết hạn' });
+    if (a.groupCount === 0) issues.push({ l:'blue',   t:'Nhóm chưa có thành viên' });
+    if (a.recentJoin >= 3)  issues.push({ l:'blue',   t: a.recentJoin + ' TV mới gia nhập 14 ngày — nhóm đang lớn nhanh' });
 
-    const issueHTML = issues.map(r =>
-      '<div style="display:flex;align-items:flex-start;gap:6px;padding:3px 0;font-size:11.5px;color:var(--ink-soft)">' +
-      '<span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;display:inline-block;background:' +
-      (r.l==='red'?'var(--rose)':r.l==='amber'?'var(--gold-dark)':'var(--sky)') + '"></span>' +
-      escHtml(r.t) + '</div>'
-    ).join('');
+    const issueHTML = issues.length
+      ? issues.map(r =>
+          '<div style="display:flex;align-items:flex-start;gap:6px;padding:3px 0;font-size:11.5px;color:var(--ink-soft)">' +
+          '<span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;display:inline-block;background:' +
+          (r.l==='red'?'var(--rose)':r.l==='amber'?'var(--gold-dark)':'var(--sky)') + '"></span>' +
+          escHtml(r.t) + '</div>'
+        ).join('')
+      : '<div style="font-size:11.5px;color:var(--jade)">Không có vấn đề đáng lo ngại</div>';
+
+    // ── Block rèn luyện hôm nay ──
+    let trainingBlock = '';
+    if (a.trainedToday && a.tStats) {
+      const ritBar = Math.round((a.ritualsToday / 9) * 100);
+      const ritColor = a.ritualsToday >= 7 ? 'var(--jade)' : a.ritualsToday >= 4 ? 'var(--gold)' : 'var(--rose)';
+      const nnDots = (a.nnToday || []).map((v, i) => {
+        const icons = [NN_LIST[0]?NN_LIST[0].icon:'🌱', NN_LIST[1]?NN_LIST[1].icon:'👪', NN_LIST[2]?NN_LIST[2].icon:'💑', NN_LIST[3]?NN_LIST[3].icon:'🏔', NN_LIST[4]?NN_LIST[4].icon:'🌍'];
+        const c = v >= 8 ? 'var(--jade)' : v >= 5 ? 'var(--gold)' : 'var(--rose)';
+        return '<div style="text-align:center;min-width:30px">' +
+          '<div style="font-size:12px">' + (icons[i]||'') + '</div>' +
+          '<div style="font-size:11px;font-weight:800;color:'+c+'">' + v + '</div>' +
+          '</div>';
+      }).join('');
+      trainingBlock =
+        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--jade);margin-bottom:6px">⚡ RÈN LUYỆN HÔM NAY</div>' +
+          '<div style="margin-bottom:6px">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--ink-muted);margin-bottom:3px">' +
+              '<span>Nghi thức</span><span style="font-weight:700;color:'+ritColor+'">' + a.ritualsToday + '/9</span>' +
+            '</div>' +
+            '<div style="height:5px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden">' +
+              '<div style="height:100%;width:'+ritBar+'%;background:'+ritColor+';border-radius:3px;transition:width 0.4s"></div>' +
+            '</div>' +
+          '</div>' +
+          (a.nnToday && a.nnToday.length ?
+            '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">Năng lượng 5 ngôi nhà</div>' +
+            '<div style="display:flex;gap:6px;justify-content:space-around">' + nnDots + '</div>'
+            : '') +
+        '</div>';
+    } else {
+      trainingBlock =
+        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
+          '<div style="font-size:11px;color:var(--ink-muted);font-style:italic">📭 Chưa đồng bộ dữ liệu rèn luyện hôm nay' +
+          (a.tStats && a.tStats.date ? ' (cập nhật lần cuối: ' + a.tStats.date + ')' : '') + '</div>' +
+        '</div>';
+    }
 
     const midSafe = escHtml(a.mid);
-    return '<div style="border-radius:10px;margin-bottom:10px;overflow:hidden;border:1px solid '+borderCol+'">' +
-      '<div style="padding:10px 12px 8px;background:'+headBg+'">' +
-        '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;'+badgeSt+'">'+escHtml(label)+'</span>' +
-        '<div style="font-size:13px;font-weight:800;color:'+nameColor+'">'+escHtml(a.name)+'</div>' +
-        '<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">Nhóm: '+escHtml(a.groupCode)+' · '+a.groupCount+' thành viên</div>' +
+    return '<div style="border-radius:10px;margin-bottom:12px;overflow:hidden;border:1px solid '+col.border+'">' +
+      '<div style="padding:10px 12px 8px;background:'+col.bg+'">' +
+        '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;'+col.badge+'">'+escHtml(a.label)+'</span>' +
+        '<div style="font-size:13px;font-weight:800;color:'+col.name+'">'+escHtml(a.name)+'</div>' +
+        '<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">Nhóm: <strong>'+escHtml(a.groupCode)+'</strong> · '+a.groupCount+' thành viên</div>' +
       '</div>' +
       '<div style="padding:8px 12px;border-bottom:0.5px solid var(--border)">' + issueHTML + '</div>' +
+      trainingBlock +
       '<div style="padding:8px 12px">' +
-        '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:5px">Ghi chú đồng hành <span style="font-weight:400">(đồng bộ đa thiết bị)</span></div>' +
+        '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:5px">📝 Ghi chú đồng hành</div>' +
         '<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" ' +
-          'placeholder="Ghi lại bối cảnh, lịch sử, quan sát..." ' +
+          'placeholder="Ghi lại bối cảnh, lịch sử, quan sát, kế hoạch hỗ trợ..." ' +
           'style="width:100%;min-height:52px;font-size:12px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink)">'+escHtml(a.savedNote)+'</textarea>' +
       '</div>' +
     '</div>';
@@ -11721,6 +11834,14 @@ function _applyMonthData(targetY, targetM, existing){
     if(!monthData.weekOKR) monthData.weekOKR={};
     if(!monthData.houses||!monthData.houses.length) monthData.houses=DEFAULT_HOUSES();
     if(!monthData.houseCounter) monthData.houseCounter=6;
+    // MIGRATE: Đổi tên danh mục cũ "Thân · Tâm · Trí" → "5 Ngôi Nhà"
+    if(monthData.houses) monthData.houses.forEach(h=>{
+      if(h.name==='Thân · Tâm · Trí'||h.name==='Thân Tâm Trí'||h.name==='Than Tam Tri'){
+        h.name='5 Ngôi Nhà';
+        h.icon='🏠';
+        h.ph=h.ph||'Mục tiêu rèn luyện thân-tâm-trí, nội lực, kết nối năng lượng...';
+      }
+    });
     if(!monthData.skippedWeeks) monthData.skippedWeeks=[];
     Object.values(monthData.weekOKR||{}).forEach(w=>{
       if(!w||typeof w!=='object') return;
