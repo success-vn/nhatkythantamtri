@@ -1000,7 +1000,7 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
     </button>
 
     <div style="text-align:center;margin-top:12px">
-      <button onclick="doForgotPassword()" style="border:none;background:none;color:var(--ink-muted);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+      <button onclick="openForgotPwModal()" style="border:none;background:none;color:var(--ink-muted);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         Quên mật khẩu?
       </button>
     </div>
@@ -1014,6 +1014,89 @@ body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:va
 
     <div style="text-align:center;margin-top:10px">
       <button onclick="showRegisterStep()" style="border:none;background:none;color:#5b8a6e;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">← Quay lại đăng ký</button>
+    </div>
+
+  <!-- MODAL: QUÊN MẬT KHẨU -->
+  <div id="forgot-pw-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--card);border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:36px;margin-bottom:8px">🔑</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);font-family:'Nunito',-apple-system,sans-serif">Đặt lại mật khẩu</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:5px;font-family:'Nunito',-apple-system,sans-serif">Nhập email đăng ký, chúng tôi sẽ gửi link đặt lại mật khẩu</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:5px;font-family:'Nunito',-apple-system,sans-serif">Email đã đăng ký *</label>
+        <input type="email" id="forgot-pw-email" placeholder="Nhập email của bạn..."
+          inputmode="email" autocomplete="email"
+          onkeydown="if(event.key==='Enter')submitForgotPassword()"
+          style="width:100%;padding:11px 13px;border:1.5px solid rgba(201,168,76,0.25);border-radius:11px;font-size:14px;font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:var(--ink);outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
+      </div>
+      <div id="forgot-pw-error" style="display:none;color:#c0606a;font-size:12px;font-weight:700;margin-bottom:10px;font-family:'Nunito',-apple-system,sans-serif"></div>
+      <div id="forgot-pw-success" style="display:none;color:#5b8a6e;font-size:12px;font-weight:700;margin-bottom:10px;text-align:center;font-family:'Nunito',-apple-system,sans-serif"></div>
+      <button id="forgot-pw-submit-btn" onclick="submitForgotPassword()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2818,#2d4a2a);color:white;border:none;border-radius:12px;font-family:'Nunito',-apple-system,sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px">
+        📧 Gửi email đặt lại mật khẩu
+      </button>
+      <button onclick="closeForgotPwModal()" style="width:100%;padding:11px;background:none;border:1.5px solid var(--border);border-radius:12px;font-family:'Nunito',-apple-system,sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink-muted)">
+        Huỷ
+      </button>
+    </div>
+  </div>
+
+
+  <!-- MODAL: ĐỔI MẬT KHẨU -->
+  <div id="change-pw-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--card);border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:36px;margin-bottom:8px">🔐</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);font-family:Nunito,-apple-system,sans-serif">Đổi mật khẩu</div>
+        <div id="change-pw-email-label" style="font-size:12px;color:var(--ink-muted);margin-top:4px;font-family:Nunito,-apple-system,sans-serif"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:14px">
+        <div>
+          <label style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:5px;font-family:Nunito,-apple-system,sans-serif">Mật khẩu hiện tại *</label>
+          <div style="position:relative">
+            <input type="password" id="change-pw-current" placeholder="Nhập mật khẩu đang dùng"
+              autocomplete="current-password"
+              onkeydown="if(event.key==='Enter')document.getElementById('change-pw-new').focus()"
+              style="width:100%;padding:11px 38px 11px 13px;border:1.5px solid rgba(201,168,76,0.25);border-radius:11px;font-size:14px;font-family:Nunito,-apple-system,sans-serif;background:var(--bg);color:var(--ink);outline:none;box-sizing:border-box"
+              onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
+            <button type="button" onclick="togglePwVis('change-pw-current',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:var(--ink-muted)">👁</button>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:5px;font-family:Nunito,-apple-system,sans-serif">Mật khẩu mới *</label>
+          <div style="position:relative">
+            <input type="password" id="change-pw-new" placeholder="Tối thiểu 6 ký tự"
+              autocomplete="new-password"
+              onkeydown="if(event.key==='Enter')document.getElementById('change-pw-confirm').focus()"
+              oninput="checkChangePwStrength(this.value)"
+              style="width:100%;padding:11px 38px 11px 13px;border:1.5px solid rgba(201,168,76,0.25);border-radius:11px;font-size:14px;font-family:Nunito,-apple-system,sans-serif;background:var(--bg);color:var(--ink);outline:none;box-sizing:border-box"
+              onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
+            <button type="button" onclick="togglePwVis('change-pw-new',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:var(--ink-muted)">👁</button>
+          </div>
+          <div id="change-pw-strength" style="font-size:11px;margin-top:4px;height:14px;font-family:Nunito,-apple-system,sans-serif"></div>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:5px;font-family:Nunito,-apple-system,sans-serif">Xác nhận mật khẩu mới *</label>
+          <div style="position:relative">
+            <input type="password" id="change-pw-confirm" placeholder="Nhập lại mật khẩu mới"
+              autocomplete="new-password"
+              onkeydown="if(event.key==='Enter')submitChangePw()"
+              style="width:100%;padding:11px 38px 11px 13px;border:1.5px solid rgba(201,168,76,0.25);border-radius:11px;font-size:14px;font-family:Nunito,-apple-system,sans-serif;background:var(--bg);color:var(--ink);outline:none;box-sizing:border-box"
+              onfocus="this.style.borderColor='#5b8a6e'" onblur="this.style.borderColor='rgba(201,168,76,0.25)'">
+            <button type="button" onclick="togglePwVis('change-pw-confirm',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:var(--ink-muted)">👁</button>
+          </div>
+        </div>
+      </div>
+      <div id="change-pw-error" style="display:none;color:#c0606a;font-size:12px;font-weight:700;margin-bottom:10px;font-family:Nunito,-apple-system,sans-serif"></div>
+      <div id="change-pw-success" style="display:none;color:#5b8a6e;font-size:12px;font-weight:700;margin-bottom:10px;text-align:center;font-family:Nunito,-apple-system,sans-serif"></div>
+      <button id="change-pw-submit-btn" onclick="submitChangePw()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2818,#2d4a2a);color:white;border:none;border-radius:12px;font-family:Nunito,-apple-system,sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px">
+        🔐 Đổi mật khẩu
+      </button>
+      <button onclick="closeChangePwModal()" style="width:100%;padding:11px;background:none;border:1.5px solid var(--border);border-radius:12px;font-family:Nunito,-apple-system,sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink-muted)">
+        Huỷ
+      </button>
     </div>
   </div>
 
@@ -2990,9 +3073,18 @@ const MEMBER_COLORS = ['#5b8a6e','#c9a84c','#c0606a','#4a7fa8','#7c5cbf','#d4872
 function save(key, obj) {
   try {
     // Cập nhật _updatedAt cho daily entry khi lưu
+    // FIX: cập nhật _updatedAt cho MỌI ngày bị lưu, không chỉ hôm nay
+    // để merge timestamp đúng khi sync đa thiết bị
     if (key === STORAGE_KEY && obj && typeof obj === 'object') {
       const k = todayKey();
       if (obj[k]) obj[k]._updatedAt = Date.now();
+      // Cũng cập nhật các ngày khác nếu vừa được chỉnh (có _pendingUpdate flag)
+      Object.keys(obj).forEach(dateK => {
+        if (dateK !== k && obj[dateK] && obj[dateK]._pendingUpdate) {
+          obj[dateK]._updatedAt = Date.now();
+          delete obj[dateK]._pendingUpdate;
+        }
+      });
     }
     // Cập nhật _updatedAt cho SP khi lưu
     if (key === SP_KEY && obj && typeof obj === 'object') {
@@ -3113,6 +3205,118 @@ function showRenewalGuide() {
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
+function openChangePwModal() {
+  const modal = document.getElementById('change-pw-modal');
+  if (!modal) return;
+  // Reset fields
+  ['change-pw-current','change-pw-new','change-pw-confirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const errEl = document.getElementById('change-pw-error');
+  const sucEl = document.getElementById('change-pw-success');
+  const btn   = document.getElementById('change-pw-submit-btn');
+  const lbl   = document.getElementById('change-pw-email-label');
+  const str   = document.getElementById('change-pw-strength');
+  if (errEl) errEl.style.display = 'none';
+  if (sucEl) sucEl.style.display = 'none';
+  if (btn)   { btn.disabled = false; btn.textContent = '🔐 Đổi mật khẩu'; }
+  if (str)   str.textContent = '';
+  // Hiện email đang đăng nhập
+  try {
+    if (lbl && auth && auth.currentUser && auth.currentUser.email) {
+      lbl.textContent = auth.currentUser.email;
+    }
+  } catch(e) {}
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const el = document.getElementById('change-pw-current');
+    if (el) el.focus();
+  }, 100);
+}
+
+function closeChangePwModal() {
+  const modal = document.getElementById('change-pw-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function checkChangePwStrength(val) {
+  const el = document.getElementById('change-pw-strength');
+  if (!el) return;
+  if (!val) { el.textContent = ''; return; }
+  let score = 0;
+  if (val.length >= 6)  score++;
+  if (val.length >= 10) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[0-9]/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+  if (score <= 1)      { el.textContent = '🔴 Yếu — nên dùng ít nhất 8 ký tự'; el.style.color = 'var(--rose)'; }
+  else if (score <= 3) { el.textContent = '🟡 Trung bình'; el.style.color = 'var(--gold-dark)'; }
+  else                 { el.textContent = '🟢 Mạnh'; el.style.color = 'var(--jade)'; }
+}
+
+async function submitChangePw() {
+  const currentPw = document.getElementById('change-pw-current')?.value;
+  const newPw     = document.getElementById('change-pw-new')?.value;
+  const confirmPw = document.getElementById('change-pw-confirm')?.value;
+  const errEl     = document.getElementById('change-pw-error');
+  const sucEl     = document.getElementById('change-pw-success');
+  const btn       = document.getElementById('change-pw-submit-btn');
+
+  if (errEl) errEl.style.display = 'none';
+  if (sucEl) sucEl.style.display = 'none';
+
+  // Validate
+  if (!currentPw) {
+    if (errEl) { errEl.textContent = '⚠️ Vui lòng nhập mật khẩu hiện tại.'; errEl.style.display = 'block'; }
+    document.getElementById('change-pw-current')?.focus(); return;
+  }
+  if (!newPw || newPw.length < 6) {
+    if (errEl) { errEl.textContent = '⚠️ Mật khẩu mới phải có ít nhất 6 ký tự.'; errEl.style.display = 'block'; }
+    document.getElementById('change-pw-new')?.focus(); return;
+  }
+  if (newPw === currentPw) {
+    if (errEl) { errEl.textContent = '⚠️ Mật khẩu mới phải khác mật khẩu cũ.'; errEl.style.display = 'block'; }
+    document.getElementById('change-pw-new')?.focus(); return;
+  }
+  if (newPw !== confirmPw) {
+    if (errEl) { errEl.textContent = '⚠️ Mật khẩu xác nhận không khớp.'; errEl.style.display = 'block'; }
+    document.getElementById('change-pw-confirm')?.focus(); return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
+
+  try {
+    // Cần reauthenticate trước khi đổi mật khẩu (Firebase yêu cầu)
+    const user  = auth.currentUser;
+    const email = user.email;
+    const cred  = firebase.auth.EmailAuthProvider.credential(email, currentPw);
+    await user.reauthenticateWithCredential(cred);
+    // Đổi mật khẩu
+    await user.updatePassword(newPw);
+    // Thành công
+    if (sucEl) { sucEl.textContent = '✅ Đổi mật khẩu thành công! Dùng mật khẩu mới từ lần sau.'; sucEl.style.display = 'block'; }
+    if (btn)   { btn.disabled = true; btn.textContent = '✅ Đã đổi'; }
+    ['change-pw-current','change-pw-new','change-pw-confirm'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    setTimeout(() => closeChangePwModal(), 3000);
+  } catch(e) {
+    let msg = '⚠️ Không đổi được mật khẩu. Vui lòng thử lại.';
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
+      msg = '⚠️ Mật khẩu hiện tại không đúng.';
+    if (e.code === 'auth/weak-password')
+      msg = '⚠️ Mật khẩu mới quá yếu. Dùng ít nhất 6 ký tự.';
+    if (e.code === 'auth/requires-recent-login')
+      msg = '⚠️ Phiên đăng nhập quá cũ. Vui lòng đăng xuất và đăng nhập lại rồi thử.';
+    if (e.code === 'auth/network-request-failed')
+      msg = '⚠️ Mất kết nối mạng. Kiểm tra internet và thử lại.';
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    if (btn)   { btn.disabled = false; btn.textContent = '🔐 Đổi mật khẩu'; }
+    console.warn('submitChangePw error:', e.code, e.message);
+  }
+}
+
 function showAccountInfo() {
   if (!userInfo) return;
   var existing = document.getElementById('account-info-popup');
@@ -3169,6 +3373,16 @@ function showAccountInfo() {
       statusExtra +
     '</div>' +
     renewBtn;
+
+  // Chỉ hiện nút đổi mật khẩu nếu user đăng nhập bằng email/password (không phải anonymous)
+  var hasEmailAuth = false;
+  try { hasEmailAuth = auth && auth.currentUser && auth.currentUser.email; } catch(e) {}
+  if (hasEmailAuth) {
+    popup.innerHTML +=
+      '<button onclick="openChangePwModal();var p=document.getElementById(\'account-info-popup\');if(p)p.remove();" ' +
+      'style="width:100%;margin-top:8px;padding:9px;background:none;color:var(--ink-muted);border:1px solid var(--border);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Nunito,-apple-system,sans-serif">' +
+      '🔐 Đổi mật khẩu</button>';
+  }
 
   document.body.appendChild(popup);
   document.getElementById('close-account-popup').onclick = function() { popup.remove(); };
@@ -3727,18 +3941,55 @@ async function doLogin() {
   }
 }
 
-async function doForgotPassword() {
-  const email = document.getElementById('login-email')?.value?.trim();
+function openForgotPwModal() {
+  const modal = document.getElementById('forgot-pw-modal');
+  const emailInput = document.getElementById('forgot-pw-email');
+  const errEl = document.getElementById('forgot-pw-error');
+  const sucEl = document.getElementById('forgot-pw-success');
+  const btn   = document.getElementById('forgot-pw-submit-btn');
+  if (!modal) return;
+  // Pre-fill với email đang gõ trong ô login (nếu có)
+  const loginEmail = document.getElementById('login-email')?.value?.trim();
+  if (emailInput) emailInput.value = loginEmail || '';
+  if (errEl) errEl.style.display = 'none';
+  if (sucEl) sucEl.style.display = 'none';
+  if (btn) { btn.disabled = false; btn.textContent = '📧 Gửi email đặt lại mật khẩu'; }
+  modal.style.display = 'flex';
+  setTimeout(() => { if (emailInput) emailInput.focus(); }, 100);
+}
+
+function closeForgotPwModal() {
+  const modal = document.getElementById('forgot-pw-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitForgotPassword() {
+  const emailInput = document.getElementById('forgot-pw-email');
+  const errEl = document.getElementById('forgot-pw-error');
+  const sucEl = document.getElementById('forgot-pw-success');
+  const btn   = document.getElementById('forgot-pw-submit-btn');
+  const email = emailInput?.value?.trim();
+
+  if (errEl) errEl.style.display = 'none';
+  if (sucEl) sucEl.style.display = 'none';
+
   if (!email) {
-    showToast('⚠️ Nhập email trước rồi bấm Quên mật khẩu');
+    if (errEl) { errEl.textContent = '⚠️ Vui lòng nhập email của bạn.'; errEl.style.display = 'block'; }
+    if (emailInput) emailInput.focus();
     return;
   }
-  // Đổi button tạm thời để tránh bấm nhiều lần
-  const btn = document.querySelector('button[onclick="doForgotPassword()"]');
+  // Validate định dạng email cơ bản
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (errEl) { errEl.textContent = '⚠️ Email không đúng định dạng.'; errEl.style.display = 'block'; }
+    if (emailInput) emailInput.focus();
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang gửi...'; }
+
   try {
     await loadFirebase();
-    // Đảm bảo auth đã được khởi tạo sau khi loadFirebase
+    // Đảm bảo auth đã được khởi tạo
     if (!auth) {
       if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
         auth = firebase.auth();
@@ -3746,25 +3997,33 @@ async function doForgotPassword() {
         throw new Error('no-auth');
       }
     }
-    // Kiểm tra action code settings để email reset về đúng domain
     const actionCodeSettings = {
       url: window.location.origin + window.location.pathname,
       handleCodeInApp: false,
     };
     await auth.sendPasswordResetEmail(email, actionCodeSettings);
-    showToast('📧 Đã gửi email đặt lại mật khẩu! Kiểm tra hộp thư (kể cả thư rác) nhé.');
+    // Thành công: hiện thông báo xanh, tắt nút gửi
+    if (sucEl) {
+      sucEl.textContent = '✅ Đã gửi! Kiểm tra hộp thư ' + email + ' (kể cả thư mục Spam/Rác nhé).';
+      sucEl.style.display = 'block';
+    }
+    if (btn) { btn.disabled = true; btn.textContent = '✅ Đã gửi'; }
+    // Tự đóng modal sau 4 giây
+    setTimeout(() => closeForgotPwModal(), 4000);
   } catch(e) {
     let msg = '⚠️ Không thể gửi email. Vui lòng thử lại.';
-    if (e.code === 'auth/user-not-found')    msg = '⚠️ Email này chưa có tài khoản Firebase.';
+    if (e.code === 'auth/user-not-found')    msg = '⚠️ Email này chưa có tài khoản. Kiểm tra lại hoặc đăng ký mới.';
     if (e.code === 'auth/invalid-email')     msg = '⚠️ Email không đúng định dạng.';
     if (e.code === 'auth/too-many-requests') msg = '⚠️ Gửi quá nhiều lần. Vui lòng thử lại sau vài phút.';
     if (e.message === 'no-auth')             msg = '⚠️ Không kết nối được Firebase. Kiểm tra mạng và thử lại.';
-    showToast(msg);
-    console.warn('doForgotPassword error:', e.code, e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Quên mật khẩu?'; }
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    if (btn) { btn.disabled = false; btn.textContent = '📧 Gửi email đặt lại mật khẩu'; }
+    console.warn('submitForgotPassword error:', e.code, e.message);
   }
 }
+
+// Giữ lại hàm cũ để không break nếu còn nơi nào gọi
+function doForgotPassword() { openForgotPwModal(); }
 
 function showActivateStep() {
   document.getElementById('step-register').style.display = 'none';
@@ -4928,7 +5187,10 @@ function _applyRemoteData(remote) {
             localEntry.lesson      || localEntry.seedGreen || localEntry.seedRed ||
             localEntry.dailyGood   || localEntry.dailyImprove  ||
             localEntry.selfLetter  || localEntry.selfProud;
-          const _lEmpty  = _lcKeys.length === 0 && !_lHasRit && !_lHasTasks && !_lHasSavedData;
+          // FIX BUG 3: nnEnergy bị loại khỏi _lcKeys nên cần check riêng
+          const _lHasNN = localEntry.nnEnergy &&
+            Object.values(localEntry.nnEnergy).some(v => v && v !== 5);
+          const _lEmpty  = _lcKeys.length === 0 && !_lHasRit && !_lHasTasks && !_lHasSavedData && !_lHasNN;
           const _rHas    = Object.keys(remoteEntry).filter(k => k !== '_updatedAt').length > 1;
           if (_lEmpty && _rHas) { data[date] = remoteEntry; return; }
           // Merge: field nào mới hơn thắng
@@ -9289,7 +9551,7 @@ function syncJournalHistoryToFirebase(onDone) {
   } catch(e) {}
   const basePath = 'journals/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId;
   const batch = {};
-  const allKeys = Object.keys(data).sort().reverse().slice(0, 60); // tối đa 60 ngày
+  const allKeys = Object.keys(data).sort().reverse().slice(0, 365); // tối đa 365 ngày (1 năm)
   let nnCount = 0;
   allKeys.forEach(dateKey => {
     const entry = data[dateKey];
@@ -9572,7 +9834,35 @@ async function loadAdminData() {
         if (lStats) leaderTrainingStats[mid] = lStats;
       });
     } catch(e) { console.warn('Load leader training stats:', e); }
-    renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats);
+
+    // ── Load lịch sử 7 ngày /journals/ của từng trưởng nhóm để vẽ xu hướng ──
+    const leaderJournalHistory = {};
+    try {
+      const leaderGroupCodes = Object.keys(leaderByGroup);
+      const journalSnapshots = await Promise.all(
+        leaderGroupCodes.map(gc => {
+          const lr = leaderByGroup[gc];
+          const mid = lr.memberId || lr.id;
+          if (!mid) return Promise.resolve(null);
+          return database.ref('journals/' + fbKey(gc) + '/' + mid).once('value').catch(()=>null);
+        })
+      );
+      leaderGroupCodes.forEach((gc, i) => {
+        const snap = journalSnapshots[i];
+        if (!snap) return;
+        const lr = leaderByGroup[gc];
+        const mid = lr.memberId || lr.id;
+        if (!mid) return;
+        const allEntries = snap.val() || {};
+        // Lấy 7 ngày gần nhất (date key dạng YYYY-MM-DD)
+        const sortedKeys = Object.keys(allEntries).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0, 7);
+        const hist = {};
+        sortedKeys.forEach(k => { hist[k] = allEntries[k]; });
+        leaderJournalHistory[mid] = hist;
+      });
+    } catch(e) { console.warn('Load leader journal history:', e); }
+
+    renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats, leaderJournalHistory);
     renderAdminGroups(groupsAll, membersAll, leaderByGroup, allGroupCodes);
 
   } catch(e) {
@@ -9627,8 +9917,9 @@ async function adminRenewMember(memberId, memberName) {
 // các trường cơ bản: registeredAt, isLeader, groupCode, name, phone
 // Chỉ số rèn luyện chi tiết của TN không available ở admin → hiển thị
 // trạng thái nhóm + liên kết sang tab chi tiết
-function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats) {
-  leaderTrainingStats = leaderTrainingStats || {};
+function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats, leaderJournalHistory) {
+  leaderTrainingStats  = leaderTrainingStats  || {};
+  leaderJournalHistory = leaderJournalHistory || {};
   const sectionEl = document.getElementById('admin-leader-monitor-section');
   const listEl    = document.getElementById('admin-leader-alerts-list');
   const badgeEl   = document.getElementById('admin-leader-alert-badge');
@@ -9677,14 +9968,50 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
     const nnToday      = trainedToday ? (tStats.nn || []) : null;
     const avgNN        = nnToday && nnToday.length ? Math.round(nnToday.reduce((a,b)=>a+b,0) / nnToday.length * 10) / 10 : null;
     const minNN        = nnToday && nnToday.length ? Math.min(...nnToday) : null;
-    // Cảnh báo NL thấp: NL TB < 5 hoặc có ngôi nhà <= 3
     const lowEnergy    = avgNN !== null && avgNN < 5;
     const criticalNN   = minNN !== null && minNN <= 3;
-    // Chưa rèn luyện hôm nay (stats không có hoặc ngày cũ)
     const notTrainedToday = !trainedToday;
 
     const hasAlert = lrExpiringSoon || lrExpired || expiredCount > 0 || (groupCount === 0) || lowEnergy || criticalNN;
     const hasWatch = recentJoin >= 3 || groupCount >= 8 || notTrainedToday;
+
+    // ── Xu hướng 7 ngày từ /journals/ ──
+    const jHist  = leaderJournalHistory[mid] || {};
+    const jKeys7 = Object.keys(jHist).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0, 7);
+    const trend7 = jKeys7.map(dk => {
+      const je = jHist[dk] || {};
+      let ritDone = 0;
+      if (je.rituals && typeof je.rituals === 'object') {
+        ritDone = Object.values(je.rituals).filter(Boolean).length;
+      } else if (typeof je.rituals === 'number') {
+        ritDone = je.rituals;
+      }
+      const ritPct = Math.round((ritDone / 9) * 100);
+      let nnVals = [];
+      if (je.nnEnergy && typeof je.nnEnergy === 'object' && !Array.isArray(je.nnEnergy)) {
+        nnVals = Object.values(je.nnEnergy).map(Number).filter(v => !isNaN(v) && v > 0);
+      } else if (Array.isArray(je.nnEnergy)) {
+        nnVals = je.nnEnergy.map(Number).filter(v => !isNaN(v) && v > 0);
+      }
+      const avgNNDay = nnVals.length ? Math.round(nnVals.reduce((a,b)=>a+b,0)/nnVals.length*10)/10 : null;
+      const trained  = ritDone > 0 || nnVals.length > 0;
+      return { dk, ritPct, avgNN: avgNNDay, trained };
+    }).reverse(); // chronological: cũ → mới
+
+    // ── Hạt giống: số lượng + xu hướng ──
+    const latestSeedsActive = (() => {
+      for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsActive != null) return je.seedsActive; }
+      return null;
+    })();
+    const oldSeedsActive = (() => {
+      if (jKeys7.length < 2) return null;
+      for (let i = jKeys7.length - 1; i >= 1; i--) { const je = jHist[jKeys7[i]]; if (je && je.seedsActive != null) return je.seedsActive; }
+      return null;
+    })();
+    const latestSeedsDone = (() => {
+      for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsDone != null) return je.seedsDone; }
+      return null;
+    })();
 
     // Luôn hiển thị tất cả trưởng nhóm để admin theo dõi
     const savedNote = window._adminLeaderNotes ? (window._adminLeaderNotes[mid] || '') : '';
@@ -9699,7 +10026,8 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
       name: lr.name || mData.name || '–', groupCode, mid,
       groupCount, recentJoin, expiredCount, lrExp, lrExpiringSoon, lrExpired,
       noteKey, savedNote,
-      tStats, trainedToday, ritualsToday, nnToday, avgNN, minNN, lowEnergy, criticalNN, notTrainedToday
+      tStats, trainedToday, ritualsToday, nnToday, avgNN, minNN, lowEnergy, criticalNN, notTrainedToday,
+      trend7, latestSeedsActive, oldSeedsActive, latestSeedsDone
     });
   });
 
@@ -9780,6 +10108,106 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
         '</div>';
     }
 
+    // ── Block xu hướng 7 ngày ──
+    let trendBlock = '';
+    if (a.trend7 && a.trend7.length > 0) {
+      const allNN7     = a.trend7.map(d => d.avgNN).filter(v => v !== null);
+      const trainedDays = a.trend7.filter(d => d.trained).length;
+      const ritAvg7    = trainedDays ? Math.round(a.trend7.filter(d=>d.trained).reduce((s,d)=>s+d.ritPct,0)/trainedDays) : 0;
+      const nnAvg7     = allNN7.length ? Math.round(allNN7.reduce((s,v)=>s+v,0)/allNN7.length*10)/10 : null;
+
+      const streakDots = a.trend7.map(d => {
+        const filled = d.trained;
+        const label  = d.dk ? d.dk.slice(5) : '';
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">' +
+          '<div style="width:10px;height:10px;border-radius:50%;background:'+(filled?'var(--jade)':'rgba(0,0,0,0.12)')+'"></div>' +
+          '<div style="font-size:9px;color:var(--ink-muted)">'+label+'</div>' +
+        '</div>';
+      }).join('');
+
+      const ritBars = a.trend7.map(d => {
+        const h = d.trained ? Math.max(4, Math.round((d.ritPct/100)*36)) : 4;
+        const c = d.ritPct >= 78 ? 'var(--jade)' : d.ritPct >= 44 ? 'var(--gold)' : (d.trained ? 'var(--rose)' : 'rgba(0,0,0,0.1)');
+        return '<div style="flex:1;display:flex;align-items:flex-end;justify-content:center">' +
+          '<div style="width:10px;height:'+h+'px;border-radius:3px 3px 0 0;background:'+c+'"></div>' +
+        '</div>';
+      }).join('');
+
+      const nnLine = a.trend7.map(d => {
+        if (d.avgNN === null) return '<div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:6px;height:6px;border-radius:50%;background:rgba(0,0,0,0.1)"></div></div>';
+        const c = d.avgNN >= 8 ? 'var(--jade)' : d.avgNN >= 5 ? 'var(--gold)' : 'var(--rose)';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">' +
+          '<div style="font-size:9px;font-weight:700;color:'+c+'">'+d.avgNN+'</div>' +
+          '<div style="width:8px;height:8px;border-radius:50%;background:'+c+'"></div>' +
+        '</div>';
+      }).join('');
+
+      trendBlock =
+        '<div style="padding:10px 12px;border-top:0.5px solid var(--border)">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--sky);margin-bottom:8px">📈 XU HƯỚNG 7 NGÀY GẦN NHẤT</div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+            '<div style="flex:1;background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 8px;text-align:center">' +
+              '<div style="font-size:14px;font-weight:800;color:var(--sky)">'+trainedDays+'/7</div>' +
+              '<div style="font-size:9.5px;color:var(--ink-muted)">ngày rèn</div>' +
+            '</div>' +
+            '<div style="flex:1;background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 8px;text-align:center">' +
+              '<div style="font-size:14px;font-weight:800;color:'+(ritAvg7>=78?'var(--jade)':ritAvg7>=44?'var(--gold)':'var(--rose)')+'">'+ritAvg7+'%</div>' +
+              '<div style="font-size:9.5px;color:var(--ink-muted)">TB nghi thức</div>' +
+            '</div>' +
+            (nnAvg7 !== null ?
+              '<div style="flex:1;background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 8px;text-align:center">' +
+                '<div style="font-size:14px;font-weight:800;color:'+(nnAvg7>=8?'var(--jade)':nnAvg7>=5?'var(--gold)':'var(--rose)')+'">'+nnAvg7+'</div>' +
+                '<div style="font-size:9.5px;color:var(--ink-muted)">TB NL</div>' +
+              '</div>' : '') +
+          '</div>' +
+          '<div style="margin-bottom:6px">' +
+            '<div style="font-size:9px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">Ngày rèn luyện</div>' +
+            '<div style="display:flex;gap:2px">' + streakDots + '</div>' +
+          '</div>' +
+          '<div style="margin-bottom:6px">' +
+            '<div style="font-size:9px;font-weight:700;color:var(--ink-muted);margin-bottom:2px">% Nghi thức</div>' +
+            '<div style="display:flex;gap:2px;align-items:flex-end;height:44px;border-bottom:0.5px solid var(--border)">' + ritBars + '</div>' +
+          '</div>' +
+          (allNN7.length > 0 ?
+            '<div>' +
+              '<div style="font-size:9px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">NL TB mỗi ngày (/10)</div>' +
+              '<div style="display:flex;gap:2px">' + nnLine + '</div>' +
+            '</div>'
+            : '') +
+        '</div>';
+    }
+
+    // ── Block hạt giống ──
+    let seedsBlock = '';
+    if (a.latestSeedsActive !== null) {
+      const seedDiff    = (a.oldSeedsActive !== null) ? (a.latestSeedsActive - a.oldSeedsActive) : null;
+      const seedOverload = a.latestSeedsActive >= 10;
+      const seedTrend   = seedDiff === null ? '' :
+        seedDiff > 0  ? '<span style="color:var(--rose);font-size:10px;font-weight:700">▲ +'+seedDiff+' so 7 ngày trước</span>' :
+        seedDiff < 0  ? '<span style="color:var(--jade);font-size:10px;font-weight:700">▼ '+seedDiff+' so 7 ngày trước</span>' :
+                        '<span style="color:var(--ink-muted);font-size:10px">— không đổi so 7 ngày trước</span>';
+      seedsBlock =
+        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">😔 HẠT GIỐNG</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<div style="flex:1;background:rgba(201,168,76,0.08);border-radius:7px;padding:5px 10px">' +
+              '<div style="display:flex;align-items:baseline;gap:4px">' +
+                '<span style="font-size:18px;font-weight:800;color:'+(seedOverload?'var(--rose)':'var(--gold-dark)')+'">'+a.latestSeedsActive+'</span>' +
+                '<span style="font-size:10px;color:var(--ink-muted)">đang theo dõi</span>' +
+                (seedOverload ? '<span style="font-size:9.5px;color:var(--rose);font-weight:700">⚠️ quá 10</span>' : '') +
+              '</div>' +
+              (seedTrend ? '<div style="margin-top:2px">'+seedTrend+'</div>' : '') +
+            '</div>' +
+            (a.latestSeedsDone !== null ?
+              '<div style="background:rgba(74,140,111,0.08);border-radius:7px;padding:5px 10px;text-align:center">' +
+                '<div style="font-size:18px;font-weight:800;color:var(--jade)">'+a.latestSeedsDone+'</div>' +
+                '<div style="font-size:9.5px;color:var(--ink-muted)">đã hoàn thành</div>' +
+              '</div>'
+              : '') +
+          '</div>' +
+        '</div>';
+    }
+
     const midSafe = escHtml(a.mid);
     return '<div style="border-radius:10px;margin-bottom:12px;overflow:hidden;border:1px solid '+col.border+'">' +
       '<div style="padding:10px 12px 8px;background:'+col.bg+'">' +
@@ -9789,6 +10217,8 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
       '</div>' +
       '<div style="padding:8px 12px;border-bottom:0.5px solid var(--border)">' + issueHTML + '</div>' +
       trainingBlock +
+      trendBlock +
+      seedsBlock +
       '<div style="padding:8px 12px">' +
         '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:5px">📝 Ghi chú đồng hành</div>' +
         '<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" ' +
