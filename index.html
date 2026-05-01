@@ -3016,7 +3016,9 @@ const STORAGE_KEY = 'nk5nn-main';
 // Helper: encode groupCode để dùng làm Firebase path key
 // Firebase không chấp nhận: . # $ [ ] /
 function fbKey(groupCode) {
-  return (groupCode || '').replace(/[.#$\[\]/]/g, '_');
+  // Firebase paths cannot contain: . # $ [ ] / and spaces
+  // Also encode special chars that cause permission issues
+  return (groupCode || '').replace(/[.#$\[\]/ ]/g, '_');
 }
 const SP_KEY      = 'nk5nn-sp';
 const KZ_KEY      = 'nk5nn-kaizen';
@@ -9269,9 +9271,57 @@ function loadLeaderData() {
 
           // Load journal: CHỈ đọc từ /journals/ (chỉ số, không có nội dung riêng tư)
           // KHÔNG đọc /users/{uid}/daily vì path đó chứa toàn bộ nhật ký chi tiết
-          const promises = [
-            db.ref('journals/' + fbKey(userInfo.groupCode) + '/' + mid).once('value'),
-          ];
+          // Thử cả encoded path (mới) lẫn raw path (cũ — groupCode có dấu cách)
+          const encodedGC = fbKey(userInfo.groupCode);
+          const rawGC = userInfo.groupCode || '';
+          const memberUID = leaderAllData[mid]?.firebaseUid || memberToUid[mid] || null;
+          const jPromise = db.ref('journals/' + encodedGC + '/' + mid).once('value').catch(()=>null)
+            .then(async snap => {
+              if (snap && snap.val() && Object.keys(snap.val()).length > 0) return snap;
+              // Fallback 1: thử raw groupCode (data cũ ghi bằng path chưa encode)
+              if (rawGC !== encodedGC) {
+                const snap2 = await db.ref('journals/' + rawGC + '/' + mid).once('value').catch(() => null);
+                if (snap2 && snap2.val() && Object.keys(snap2.val()).length > 0) {
+                  // Migrate sang encoded path để lần sau nhanh hơn
+                  db.ref('journals/' + encodedGC + '/' + mid).update(snap2.val()).catch(()=>{});
+                  return snap2;
+                }
+              }
+              // Fallback 2: đọc từ /users/{uid}/daily nếu có uid
+              if (memberUID) {
+                try {
+                  const dailySnap = await db.ref('users/' + memberUID + '/daily').once('value').catch(()=>null);
+                  const dailyVal = dailySnap && dailySnap.val();
+                  if (dailyVal && typeof dailyVal === 'object') {
+                    const converted = {};
+                    Object.entries(dailyVal).forEach(([dk, e]) => {
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+                        converted[dk] = {
+                          rituals:    e.rituals   || {},
+                          energy:     e.energy    || 5,
+                          nnEnergy:   e.nnEnergy  || {},
+                          recvGreen:  e.recvGreen || 0,
+                          recvRed:    e.recvRed   || 0,
+                          spendGreen: e.spendGreen|| 0,
+                          spendRed:   e.spendRed  || 0,
+                          seedsActive:e.seedsActive|| 0,
+                          seedsDone:  e.seedsDone || 0,
+                        };
+                      }
+                    });
+                    if (Object.keys(converted).length > 0) {
+                      // Migrate lên /journals/ để lần sau không cần fallback
+                      db.ref('journals/' + encodedGC + '/' + mid).update(converted).catch(()=>{});
+                      // Trả về snap giả với data đã convert
+                      return { val: () => converted };
+                    }
+                  }
+                } catch(eDl) {}
+              }
+              return snap;
+            })
+            .catch(() => null);
+          const promises = [jPromise];
 
           Promise.all(promises).then((results) => {
             const jSnap = results[0];
@@ -9546,10 +9596,16 @@ function syncJournalToFirebase() {
   const todayK = todayKey();
   const entry = data[todayK];
   if (!entry) return;
-  const basePath = 'journals/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId;
+  const encodedGC = fbKey(userInfo.groupCode);
+  const basePath = 'journals/' + encodedGC + '/' + userInfo.memberId;
   db.ref(basePath + '/' + todayK)
     .set(_makeJournalEntry(entry))
     .catch(e => console.warn('Journal sync today failed:', e));
+  // Nếu groupCode cũ có ký tự đặc biệt (dấu cách...), tự migrate sang encoded path
+  const rawGC = userInfo.groupCode || '';
+  if (rawGC !== encodedGC) {
+    _migrateJournalPath(rawGC, encodedGC, userInfo.memberId);
+  }
 }
 
 // Sync TOÀN BỘ lịch sử (tất cả ngày trong localStorage) lên /journals/
@@ -9561,7 +9617,9 @@ function syncJournalHistoryToFirebase(onDone) {
     const freshData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     Object.assign(data, freshData);
   } catch(e) {}
-  const basePath = 'journals/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId;
+  const encodedGC = fbKey(userInfo.groupCode);
+  const rawGC = userInfo.groupCode || '';
+  const basePath = 'journals/' + encodedGC + '/' + userInfo.memberId;
   const batch = {};
   const allKeys = Object.keys(data).sort().reverse().slice(0, 365); // tối đa 365 ngày (1 năm)
   let nnCount = 0;
@@ -9583,6 +9641,10 @@ function syncJournalHistoryToFirebase(onDone) {
   if (Object.keys(batch).length === 0) { if (onDone) onDone(); return; }
   db.ref(basePath).update(batch)
     .then(() => {
+      // Migrate data cũ từ raw path (có dấu cách) sang encoded path
+      if (rawGC !== encodedGC) {
+        _migrateJournalPath(rawGC, encodedGC, userInfo.memberId);
+      }
       if (onDone) onDone();
     })
     .catch(e => {
@@ -9592,7 +9654,27 @@ function syncJournalHistoryToFirebase(onDone) {
 }
 
 
-// ADMIN SYSTEM
+// Migration: copy dữ liệu từ path cũ (chưa encode) sang path mới (encoded)
+// Chỉ chạy 1 lần — sau khi copy xong thì xóa path cũ
+let _journalMigratedPaths = {};
+function _migrateJournalPath(rawGC, encodedGC, memberId) {
+  const cacheKey = rawGC + '|' + memberId;
+  if (_journalMigratedPaths[cacheKey] || !db) return;
+  _journalMigratedPaths[cacheKey] = true;
+  const oldPath = 'journals/' + rawGC + '/' + memberId;
+  const newPath = 'journals/' + encodedGC + '/' + memberId;
+  db.ref(oldPath).once('value').then(snap => {
+    const oldData = snap && snap.val();
+    if (!oldData || Object.keys(oldData).length === 0) return;
+    // Copy sang path mới rồi xóa path cũ
+    return db.ref(newPath).update(oldData).then(() => {
+      db.ref(oldPath).remove().catch(() => {});
+      console.log('Journal migrated:', rawGC, '→', encodedGC);
+    });
+  }).catch(() => {});
+}
+
+
 const ADMIN_KEY = 'nk5nn-admin-auth';
 const ADMIN_PW_KEY = 'nk5nn-admin-pw';
 
@@ -9892,26 +9974,57 @@ async function loadAdminData() {
     // ── Load lịch sử 7 ngày /journals/ của từng trưởng nhóm để vẽ xu hướng ──
     const leaderJournalHistory = {};
     try {
+      // Build uid map trước để dùng cho fallback
+      const uidMapSnapLJ = await database.ref('uid_to_member').once('value').catch(()=>null);
+      const uidMapLJ = (uidMapSnapLJ && uidMapSnapLJ.val()) || {};
+      const midToUidLJ = {};
+      Object.entries(uidMapLJ).forEach(([uid, v]) => { if (v && v.memberId) midToUidLJ[v.memberId] = uid; });
+
       const leaderGroupCodes = Object.keys(leaderByGroup);
       const journalSnapshots = await Promise.all(
-        leaderGroupCodes.map(gc => {
+        leaderGroupCodes.map(async gc => {
           const lr = leaderByGroup[gc];
           const mid = lr.memberId || lr.id;
-          if (!mid) return Promise.resolve(null);
+          if (!mid) return null;
           // Thử đọc bằng mid trực tiếp
-          return database.ref('journals/' + fbKey(gc) + '/' + mid).once('value')
-            .then(snap => {
-              if (snap && snap.val() && Object.keys(snap.val()).length > 0) return snap;
-              // Fallback: thử fbKey(mid)
-              return database.ref('journals/' + fbKey(gc) + '/' + fbKey(mid)).once('value')
-                .then(snap2 => {
-                  if (snap2 && snap2.val() && Object.keys(snap2.val()).length > 0) return snap2;
-                  // Fallback: scan toàn bộ journals của nhóm để tìm theo tên/phone
-                  return database.ref('journals/' + fbKey(gc)).once('value').catch(()=>null);
-                })
-                .catch(()=>null);
-            })
-            .catch(()=>null);
+          let snap = await database.ref('journals/' + fbKey(gc) + '/' + mid).once('value').catch(()=>null);
+          if (snap && snap.val() && Object.keys(snap.val()).length > 0) return snap;
+          // Fallback: thử fbKey(mid)
+          snap = await database.ref('journals/' + fbKey(gc) + '/' + fbKey(mid)).once('value').catch(()=>null);
+          if (snap && snap.val() && Object.keys(snap.val()).length > 0) return snap;
+          // Fallback: scan toàn bộ journals của nhóm
+          snap = await database.ref('journals/' + fbKey(gc)).once('value').catch(()=>null);
+          if (snap && snap.val()) {
+            const snapVal = snap.val();
+            const hasDateKeys = Object.keys(snapVal).some(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+            if (!hasDateKeys && (snapVal[mid] || snapVal[fbKey(mid)])) return snap;
+          }
+          // Fallback cuối: đọc từ /users/{uid}/daily
+          const uid = midToUidLJ[mid];
+          if (uid) {
+            const dailySnap = await database.ref('users/' + uid + '/daily').once('value').catch(()=>null);
+            const dailyVal = dailySnap && dailySnap.val();
+            if (dailyVal && typeof dailyVal === 'object') {
+              const converted = {};
+              Object.entries(dailyVal).forEach(([dk, e]) => {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+                  converted[dk] = {
+                    rituals:    e.rituals   || {},
+                    energy:     e.energy    || 5,
+                    nnEnergy:   e.nnEnergy  || {},
+                    recvGreen:  e.recvGreen || 0, recvRed:    e.recvRed   || 0,
+                    spendGreen: e.spendGreen|| 0, spendRed:   e.spendRed  || 0,
+                    seedsActive:e.seedsActive|| 0, seedsDone: e.seedsDone || 0,
+                  };
+                }
+              });
+              if (Object.keys(converted).length > 0) {
+                database.ref('journals/' + fbKey(gc) + '/' + mid).update(converted).catch(()=>{});
+                return { val: () => converted };
+              }
+            }
+          }
+          return null;
         })
       );
       leaderGroupCodes.forEach((gc, i) => {
@@ -9971,7 +10084,38 @@ async function loadAdminData() {
             if (!snap || !snap.val()) {
               snap = await database.ref('journals/' + fbKey(gc) + '/' + fbKey(mid)).once('value').catch(()=>null);
             }
-            if (snap && snap.val()) memberJournals[mid] = snap.val();
+            if (snap && snap.val()) {
+              memberJournals[mid] = snap.val();
+            } else {
+              // Fallback: đọc từ /users/{uid}/daily
+              const uidMapSnap2 = await database.ref('uid_to_member').once('value').catch(()=>null);
+              const uidMap2 = (uidMapSnap2 && uidMapSnap2.val()) || {};
+              const uid2 = Object.keys(uidMap2).find(u => uidMap2[u] && uidMap2[u].memberId === mid);
+              if (uid2) {
+                const dailySnap2 = await database.ref('users/' + uid2 + '/daily').once('value').catch(()=>null);
+                const dailyVal2 = dailySnap2 && dailySnap2.val();
+                if (dailyVal2 && typeof dailyVal2 === 'object') {
+                  const converted2 = {};
+                  Object.entries(dailyVal2).forEach(([dk, e]) => {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+                      converted2[dk] = {
+                        rituals:    e.rituals   || {},
+                        energy:     e.energy    || 5,
+                        nnEnergy:   e.nnEnergy  || {},
+                        recvGreen:  e.recvGreen || 0,
+                        recvRed:    e.recvRed   || 0,
+                        spendGreen: e.spendGreen|| 0,
+                        spendRed:   e.spendRed  || 0,
+                      };
+                    }
+                  });
+                  if (Object.keys(converted2).length > 0) {
+                    memberJournals[mid] = converted2;
+                    database.ref('journals/' + fbKey(gc) + '/' + mid).update(converted2).catch(()=>{});
+                  }
+                }
+              }
+            }
           } catch(e) {}
         }));
         window._adminGroupJournals[gc] = memberJournals;
@@ -10807,9 +10951,16 @@ async function adminLazyLoadLeaderStreak(mid, type) {
 
     // Load journal history
     let jHist = {};
+    let foundUid = null;
+    // Load uid_to_member trước để có thể fallback
+    const uidMapSnap = await database.ref('uid_to_member').once('value').catch(()=>null);
+    const uidMap = (uidMapSnap && uidMapSnap.val()) || {};
+    const uid = Object.keys(uidMap).find(u => uidMap[u] && uidMap[u].memberId === mid);
+    foundUid = uid;
+
     if (gc) {
-      const jSnap = await database.ref('journals/' + gc + '/' + mid).once('value');
-      const jRaw = jSnap.val() || {};
+      const jSnap = await database.ref('journals/' + gc + '/' + mid).once('value').catch(()=>null);
+      const jRaw = (jSnap && jSnap.val()) || {};
       Object.keys(jRaw).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k => { jHist[k] = jRaw[k]; });
       // Fallback: thử fbKey(mid)
       if (!Object.keys(jHist).length) {
@@ -10820,14 +10971,36 @@ async function adminLazyLoadLeaderStreak(mid, type) {
         }
       }
     }
+    // Fallback cuối: đọc từ /users/{uid}/daily nếu journal vẫn trống
+    if (!Object.keys(jHist).length && foundUid) {
+      try {
+        const dailySnap = await database.ref('users/' + foundUid + '/daily').once('value').catch(()=>null);
+        const dailyVal = dailySnap && dailySnap.val();
+        if (dailyVal && typeof dailyVal === 'object') {
+          Object.entries(dailyVal).forEach(([dk, e]) => {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+              jHist[dk] = {
+                rituals:    e.rituals   || {},
+                energy:     e.energy    || 5,
+                nnEnergy:   e.nnEnergy  || {},
+                recvGreen:  e.recvGreen || 0, recvRed:    e.recvRed   || 0,
+                spendGreen: e.spendGreen|| 0, spendRed:   e.spendRed  || 0,
+                seedsActive:e.seedsActive|| 0, seedsDone: e.seedsDone || 0,
+              };
+            }
+          });
+          // Migrate lên /journals/ nếu có gc
+          if (gc && Object.keys(jHist).length > 0) {
+            database.ref('journals/' + gc + '/' + mid).update(jHist).catch(()=>{});
+          }
+        }
+      } catch(eDl) {}
+    }
 
     // Load monthly data via uid_to_member
     let monthlyData = {};
     try {
-      const uidMapSnap = await database.ref('uid_to_member').once('value');
-      const uidMap = uidMapSnap.val() || {};
-      const uid = Object.keys(uidMap).find(u => uidMap[u] && uidMap[u].memberId === mid);
-      if (uid) {
+      if (foundUid) {
         const now = new Date(Date.now() + 7*60*60*1000);
         const cy = now.getUTCFullYear(), cm = now.getUTCMonth() + 1;
         const monthKeys = [];
@@ -10837,7 +11010,7 @@ async function adminLazyLoadLeaderStreak(mid, type) {
           monthKeys.push(y + '_' + m);
         }
         const snaps = await Promise.all(monthKeys.map(mk =>
-          database.ref('users/' + uid + '/monthly/' + mk).once('value').catch(() => null)
+          database.ref('users/' + foundUid + '/monthly/' + mk).once('value').catch(() => null)
         ));
         monthKeys.forEach((mk, i) => {
           const v = snaps[i] && snaps[i].val();
@@ -11246,10 +11419,17 @@ async function adminMemberToggle(type, memberId, groupCode) {
     const database = await loadFirebase();
     if (!database) throw new Error('No DB');
     const gcKey = typeof fbKey === 'function' ? fbKey(groupCode) : groupCode;
+    const rawGC = groupCode || '';
 
-    // Load journal history
-    const jSnap = await database.ref('journals/' + gcKey + '/' + memberId).once('value');
-    const jRaw  = jSnap.val() || {};
+    // Load journal history — thử encoded path trước, fallback raw path (data cũ)
+    let jSnap = await database.ref('journals/' + gcKey + '/' + memberId).once('value');
+    if ((!jSnap || !jSnap.val() || Object.keys(jSnap.val()).length === 0) && rawGC !== gcKey) {
+      try {
+        const jSnap2 = await database.ref('journals/' + rawGC + '/' + memberId).once('value');
+        if (jSnap2 && jSnap2.val() && Object.keys(jSnap2.val()).length > 0) jSnap = jSnap2;
+      } catch(e2) {}
+    }
+    const jRaw  = (jSnap && jSnap.val()) || {};
     const jHist = {};
     Object.keys(jRaw).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k => { jHist[k] = jRaw[k]; });
 
@@ -11324,24 +11504,64 @@ async function leaderMemberToggle(type, memberId, groupCode, pfx) {
     if (!database) throw new Error('No DB');
     // groupCode có thể được encode — thử cả 2 cách
     const gcKey = typeof fbKey === 'function' ? fbKey(groupCode) : groupCode;
+    const rawGC = groupCode || '';
 
-    const jSnap = await database.ref('journals/' + gcKey + '/' + memberId).once('value');
-    let jRaw = jSnap.val() || {};
-    // Fallback: thử với fbKey(memberId) nếu không có data
-    if (!Object.keys(jRaw).length) {
+    let jSnap = await database.ref('journals/' + gcKey + '/' + memberId).once('value').catch(()=>null);
+    let jRaw = (jSnap && jSnap.val()) || {};
+    // Fallback 1: raw groupCode (data cũ có dấu cách)
+    if (!Object.keys(jRaw).length && rawGC !== gcKey) {
       try {
-        const jSnap2 = await database.ref('journals/' + gcKey + '/' + (typeof fbKey === 'function' ? fbKey(memberId) : memberId)).once('value');
+        const jSnap2 = await database.ref('journals/' + rawGC + '/' + memberId).once('value');
         if (jSnap2 && jSnap2.val()) jRaw = jSnap2.val();
       } catch(e2) {}
     }
+    // Fallback 2: fbKey(memberId)
+    if (!Object.keys(jRaw).length) {
+      try {
+        const jSnap3 = await database.ref('journals/' + gcKey + '/' + (typeof fbKey === 'function' ? fbKey(memberId) : memberId)).once('value');
+        if (jSnap3 && jSnap3.val()) jRaw = jSnap3.val();
+      } catch(e3) {}
+    }
+
+    // Fallback 3: đọc từ /users/{uid}/daily nếu journal vẫn trống
+    const uidMapSnap0 = await database.ref('uid_to_member').once('value').catch(()=>null);
+    const uidMap0 = (uidMapSnap0 && uidMapSnap0.val()) || {};
+    const uid0 = Object.keys(uidMap0).find(u => uidMap0[u] && uidMap0[u].memberId === memberId);
+    if (!Object.keys(jRaw).length && uid0) {
+      try {
+        const dailySnap = await database.ref('users/' + uid0 + '/daily').once('value');
+        const dailyVal = dailySnap && dailySnap.val();
+        if (dailyVal && typeof dailyVal === 'object') {
+          // daily có format { dateKey: {...entry} } — convert sang journal format
+          Object.entries(dailyVal).forEach(([dk, e]) => {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+              jRaw[dk] = {
+                rituals:    e.rituals   || {},
+                energy:     e.energy    || 5,
+                nnEnergy:   e.nnEnergy  || {},
+                recvGreen:  e.recvGreen || 0,
+                recvRed:    e.recvRed   || 0,
+                spendGreen: e.spendGreen|| 0,
+                spendRed:   e.spendRed  || 0,
+              };
+            }
+          });
+          // Nếu có data từ /users/, cũng migrate lên /journals/ để lần sau nhanh hơn
+          if (Object.keys(jRaw).length > 0) {
+            try {
+              database.ref('journals/' + gcKey + '/' + memberId).update(jRaw).catch(()=>{});
+            } catch(em) {}
+          }
+        }
+      } catch(eDaily) {}
+    }
+
     const jHist = {};
     Object.keys(jRaw).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k => { jHist[k] = jRaw[k]; });
 
     let monthlyData = {};
     try {
-      const uidMapSnap = await database.ref('uid_to_member').once('value');
-      const uidMap = uidMapSnap.val() || {};
-      const uid = Object.keys(uidMap).find(u => uidMap[u] && uidMap[u].memberId === memberId);
+      const uid = uid0 || (Object.keys(uidMap0).find(u => uidMap0[u] && uidMap0[u].memberId === memberId));
       if (uid) {
         const now = new Date(Date.now() + 7*60*60*1000);
         const cy = now.getUTCFullYear(), cm = now.getUTCMonth() + 1;
