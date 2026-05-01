@@ -42,10 +42,10 @@
   --radius: 16px;
   --radius-sm: 10px;
   --nn1:#5b8a6e; --nn1-l:#d6ede3;
-  --nn2:#c9a84c; --nn2-l:#f5ecd1;
-  --nn3:#c0606a; --nn3-l:#f7e0e2;
-  --nn4:#4a7fa8; --nn4-l:#d4e8f5;
-  --nn5:#7c5cbf; --nn5-l:#e8e0f5;
+  --nn2:#c9a84c;
+  --nn3:#c0606a;
+  --nn4:#4a7fa8;
+  --nn5:#7c5cbf;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -3427,7 +3427,6 @@ function pruneOldData() {
     const toDelete = keys.slice(0, keys.length - MAX_DAYS);
     toDelete.forEach(k => { delete data[k]; });
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
-    console.log('🧹 Pruned', toDelete.length, 'old days (>365), kept', MAX_DAYS);
   } catch(e) { console.warn('Prune failed:', e.message); }
 }
 
@@ -3596,7 +3595,8 @@ async function checkCrisisAndShowBanner(trigger) {
 
   if (!shouldShow) return;
 
-  var referrerName = await getReferrerName();
+  var referrerName = '';
+  try { referrerName = await getReferrerName(); } catch(e) { referrerName = ''; }
   var referrerPart = referrerName
     ? '<strong>' + referrerName + '</strong> (người gieo duyên của bạn) và '
     : '';
@@ -3913,7 +3913,6 @@ async function doLogin() {
       try {
         db = database; // Gán db TRƯỚC khi pull — pullLocalFromFirebase cần db != null
         await pullLocalFromFirebase();
-        console.log('✅ Pre-login pull complete');
       } catch(pullErr) {
         console.warn('Pre-login pull failed:', pullErr.message);
         // Thiết bị mới: localStorage trống, pull thất bại → cảnh báo người dùng
@@ -4176,7 +4175,6 @@ async function doActivateAccount() {
         const oldData = oldSnap.val();
         if (oldData && memberId !== firebaseUid) {
           await database.ref('users/' + firebaseUid).set(oldData);
-          console.log('✅ Migrated user data from memberId path to firebaseUid path');
         }
       } catch(migrateErr) {
         console.warn('Data migration skipped:', migrateErr.message);
@@ -4197,7 +4195,6 @@ async function doActivateAccount() {
     try {
       db = database;
       await pullLocalFromFirebase();
-      console.log('✅ Pulled migrated data before bootApp');
     } catch(pullErr) {
       console.warn('Pre-boot pull failed:', pullErr.message);
     }
@@ -4798,7 +4795,6 @@ function loadFirebase() {
           auth = firebase.auth();
           // Tắt persistence mặc định để dùng localStorage của mình
           auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-          console.log('Firebase Auth + DB connected ✅');
         } catch(e) { console.warn('Firebase init error:', e); }
         resolve(db);
       };
@@ -4850,16 +4846,24 @@ let _syncRetryCount = 0; // FIX RETRY: đếm số lần retry, reset khi push t
 function showSyncDetail() {
   const uid = getUidKey() || '?';
   const authUser = (typeof auth !== 'undefined' && auth?.currentUser) ? auth.currentUser.email || auth.currentUser.uid : 'Chưa đăng nhập Firebase';
-  const msg = [
-    '📡 Trạng thái đồng bộ',
-    '─────────────────────',
-    `👤 User: ${userInfo?.name || '?'}`,
+  const lines = [
+    '<strong>📡 Trạng thái đồng bộ</strong>',
+    `👤 User: <b>${userInfo?.name || '?'}</b>`,
     `🔑 memberId: ${userInfo?.memberId || '?'}`,
-    `🔥 Firebase Auth: ${authUser}`,
-    `🗝 uidKey sync: ${uid}`,
+    `🔥 Firebase: ${authUser}`,
+    `🗝 uidKey: ${uid}`,
     _lastSyncError ? `⚠️ Lỗi cuối: ${_lastSyncError}` : '✅ Không có lỗi gần đây',
-  ].join('\n');
-  alert(msg);
+  ];
+  let el = document.getElementById('_sync-detail-popup');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_sync-detail-popup';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;box-shadow:var(--shadow-lg);z-index:9999;font-size:12.5px;line-height:1.8;min-width:260px;max-width:90vw;color:var(--ink)';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = lines.join('<br>') + '<br><button onclick="document.getElementById(&quot;_sync-detail-popup&quot;).remove()" style="margin-top:8px;padding:4px 12px;border-radius:6px;border:none;background:var(--gold);color:white;font-size:11px;cursor:pointer;font-weight:700">Đóng</button>';
+  el.style.display = 'block';
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 8000);
 }
 
 // Load Firebase trong nền và sync 2 chiều
@@ -4888,7 +4892,6 @@ async function initFirebaseBackground() {
         // Nếu vẫn không có user → đăng nhập ẩn danh
         if (!auth.currentUser) {
           await auth.signInAnonymously();
-          console.log('Đăng nhập ẩn danh để bypass rules ✅');
         }
       }
     } catch(e) {
@@ -4909,7 +4912,6 @@ async function initFirebaseBackground() {
     if (!userInfo.firebaseUid || userInfo.firebaseUid !== authUid) {
       userInfo.firebaseUid = authUid;
       save(USER_KEY, userInfo);
-      console.log('🔑 firebaseUid resolved from auth session:', authUid);
       // Cũng cập nhật uid_to_member nếu chưa có
       try {
         await db.ref('uid_to_member/' + authUid).once('value').then(snap => {
@@ -4937,7 +4939,6 @@ async function initFirebaseBackground() {
         const oldData = fullOldSnap.val();
         if (oldData) {
           await db.ref('users/' + uidKey).update(oldData);
-          console.log('✅ Migrated daily data from memberId path to firebaseUid path');
           await pullLocalFromFirebase();
         }
       }
@@ -4960,7 +4961,6 @@ async function initFirebaseBackground() {
   if (hasRealLocalData && localSyncTs >= cloudSyncTs) {
     await pushLocalToFirebase();
   } else {
-    console.log('⏭ Boot push skipped: cloud mới hơn hoặc local trống, giữ data từ pull');
   }
 
   // ── Push seeds riêng nếu có data local mà cloud chưa có ──────────
@@ -4973,7 +4973,6 @@ async function initFirebaseBackground() {
       // Nếu local có nhiều hơn cloud → push lên ngay
       if (seedsData.length > remoteArr.length) {
         await db.ref('users/' + uidKey + '/seeds').set(seedsData);
-        console.log('✅ Seeds pushed to Firebase:', seedsData.length, 'items');
       }
     } catch(e) { console.warn('Seeds push on boot failed:', e.message); }
   }
@@ -5007,7 +5006,6 @@ async function pushLocalToFirebase() {
       msData.length > 0 ||
       seedsData.length > 0;
     if (!hasLocalData) {
-      console.log('⏭ Push skipped: local data trống, pull trước');
       _isSyncingToFirebase = false;
       return;
     }
@@ -5039,7 +5037,6 @@ async function pushLocalToFirebase() {
     _syncRetryCount = 0; // Reset retry counter sau khi push thành công
     const timeStr = new Date(nowTs).toLocaleTimeString('vi', {hour:'2-digit', minute:'2-digit'});
     setSyncStatus('✅', timeStr, 'rgba(74,140,111,0.85)');
-    console.log('✅ Push OK');
   } catch(e) {
     console.error('🔴 Push failed — code:', e.code, '| msg:', e.message);
 
@@ -5118,7 +5115,6 @@ function startUserDataRealtimeListener() {
     const remoteSyncedAt = remote.meta?.syncedAt || 0;
     const localSyncedAt  = parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
     if (remoteSyncedAt > 0 && remoteSyncedAt <= localSyncedAt) return;
-    console.log('🔄 Realtime: data mới từ thiết bị khác, merge...');
     _applyRemoteData(remote);
     setSyncStatus('🔄', 'Vừa đồng bộ', 'rgba(74,140,111,0.85)');
     setTimeout(() => {
@@ -5135,7 +5131,7 @@ async function pullLocalFromFirebase() {
     const uidKey = getUidKey();
     const snap = await db.ref('users/' + uidKey).once('value');
     const remote = snap.val();
-    if (!remote) { console.log('No remote data yet'); return; }
+    if (!remote) { return; }
     _applyRemoteData(remote);
     // Reload biến global từ localStorage sau khi merge — đảm bảo pushLocalToFirebase dùng data đúng
     try {
@@ -5390,7 +5386,6 @@ function _applyRemoteData(remote) {
       if (pid==='finance')    { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
       if (pid==='seeds')      { if (typeof renderSeedsPage === 'function') renderSeedsPage(); }
     }
-    console.log('✅ Merge OK — ' + Object.keys(remote.daily||{}).length + ' ngày từ cloud');
     const t = new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus('✅', t, 'rgba(74,140,111,0.85)');
   } catch(e) {
@@ -5460,7 +5455,6 @@ async function autoSyncMyTeamStats() {
   }
   try {
     await fbMemberRef().set(myStats);
-      console.log('Auto-synced team stats ✅');
   } catch(e) {
     console.warn('Auto-sync team failed:', e);
   }
@@ -7879,6 +7873,7 @@ function initLeaderUI() {
 
 // FIX L3 REALTIME: Tự cập nhật tab trưởng nhóm khi admin duyệt từ xa
 let _leaderStatusListener = null;
+let _leaderRoleListener = null; // Listener thứ 2 cho /leaders/{groupCode}/{memberId}
 function startLeaderStatusListener() {
   if (!db || !userInfo || _leaderStatusListener) return;
   // Listener cho /members/{memberId}/isLeader
@@ -7897,9 +7892,11 @@ function startLeaderStatusListener() {
     }
   });
   _leaderStatusListener = memberRef;
-  // Listener cho /leaders/{groupCode}/{memberId}
+  // Listener cho /leaders/{groupCode}/{memberId} — lưu vào biến để cleanup
   if (userInfo.groupCode) {
-    db.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId).on('value', snap => {
+    if (_leaderRoleListener) { try { _leaderRoleListener.off(); } catch(e){} }
+    const roleRef = db.ref('leaders/' + fbKey(userInfo.groupCode) + '/' + userInfo.memberId);
+    roleRef.on('value', snap => {
       if (snap.val() && !userInfo.isLeader) {
         userInfo.isLeader = true;
         save(USER_KEY, userInfo);
@@ -7911,6 +7908,7 @@ function startLeaderStatusListener() {
         }
       }
     });
+    _leaderRoleListener = roleRef;
   }
 }
 
@@ -8443,6 +8441,149 @@ function leaderAlertToggle(idx) {
   ar.textContent  = open ? '▾' : '▴';
 }
 
+// ── Tính tóm tắt cần chú ý cho 1 thành viên — dùng chung cho alerts + inline ──
+function _calcMemberSummary(mid, m, todayK) {
+  const entries = m.entries || {};
+  const keys    = Object.keys(entries).sort().reverse();
+
+  const last7Keys = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(Date.now() + 7*60*60*1000);
+    d.setUTCDate(d.getUTCDate() - i);
+    last7Keys.push(d.toISOString().split('T')[0]);
+  }
+  const writtenDays = last7Keys.filter(k => entries[k] && (
+    Object.values(entries[k].rituals||{}).some(Boolean) || entries[k].energy
+  )).length;
+
+  let skipDays = 0;
+  for (let i = 0; i < Math.min(keys.length, 7); i++) {
+    if (!Object.values(entries[keys[i]]?.rituals||{}).some(Boolean)) skipDays++;
+    else break;
+  }
+
+  let skipBietOn = 0, skipKhiemHa = 0;
+  for (let i = 0; i < Math.min(keys.length, 7); i++) {
+    if (!entries[keys[i]]?.rituals?.['r6']) skipBietOn++; else break;
+  }
+  for (let i = 0; i < Math.min(keys.length, 7); i++) {
+    if (!entries[keys[i]]?.rituals?.['r7']) skipKhiemHa++; else break;
+  }
+  const missBietOn  = skipBietOn  >= 2;
+  const missKhiemHa = skipKhiemHa >= 2;
+
+  const refKey   = (m.stats?.date === todayK ? todayK : keys[0]);
+  const refEntry = refKey ? entries[refKey] : null;
+  const nnEnergy = refEntry?.nnEnergy || (m.stats ? {
+    nn1:m.stats.nn?.[0], nn2:m.stats.nn?.[1], nn3:m.stats.nn?.[2],
+    nn4:m.stats.nn?.[3], nn5:m.stats.nn?.[4]
+  } : {});
+  const nnDetails = NN_LIST.map(nn => {
+    const val = nnEnergy[nn.key];
+    return { key:nn.key, label:nn.label, icon:nn.icon, val: val != null ? val : null };
+  }).filter(n => n.val !== null);
+
+  const prevKey   = keys.find(k => k !== refKey);
+  const prevEntry = prevKey ? entries[prevKey] : null;
+  const nnDrops   = [];
+  if (prevEntry) {
+    NN_LIST.forEach((nn, j) => {
+      const curVal  = nnEnergy[nn.key];
+      const prevVal = prevEntry?.nnEnergy?.[nn.key] ?? (m.stats?.nn?.[j] ?? null);
+      if (curVal != null && prevVal != null && (curVal - prevVal) <= -2)
+        nnDrops.push({ label:nn.label.replace(/NN\d · /,''), icon:nn.icon, from:prevVal, to:curVal, diff:curVal-prevVal });
+    });
+  }
+  const nnLow = nnDetails.filter(n => n.val < 5);
+
+  let mGreen = 0, mRed = 0;
+  const nowMonth = todayK.substring(0, 7);
+  Object.entries(entries).forEach(([dk, e]) => {
+    if (dk.startsWith(nowMonth)) {
+      mGreen += (e.recvGreen||0) + (e.spendGreen||0);
+      mRed   += (e.recvRed||0)   + (e.spendRed||0);
+    }
+  });
+  const moneyRedNet = mRed - mGreen;
+  const hasMoneyRed = moneyRedNet > 0;
+
+  const seedsActiveCount = m.seedsActive || 0;
+  const seedOverload     = seedsActiveCount >= 10;
+  const wk7Str = (() => { const d = new Date(Date.now() + 7*60*60*1000); d.setUTCDate(d.getUTCDate() - 7); return d.toISOString().split('T')[0]; })();
+  const oldSeedKey   = keys.find(k => k < wk7Str);
+  const oldSeedsActive = (oldSeedKey ? entries[oldSeedKey] : null)?.seedsActive ?? seedsActiveCount;
+  const newSeeds7d   = Math.max(0, seedsActiveCount - oldSeedsActive);
+  const noToday = m.stats?.date !== todayK;
+
+  let score = 0;
+  if (skipDays >= 3) score += 2;
+  if (skipDays >= 5) score += 1;
+  if (writtenDays <= 2) score += 2;
+  else if (writtenDays <= 4) score += 1;
+  if (nnDrops.some(d => d.diff <= -3)) score += 2;
+  else if (nnDrops.length > 0) score += 1;
+  if (nnLow.length >= 3) score += 2;
+  else if (nnLow.length >= 1) score += 1;
+  if (hasMoneyRed) score += 1;
+  if (missBietOn || missKhiemHa) score += 1;
+
+  const isSeedOnly = score === 0 && seedOverload;
+  const needsCare  = score > 0 || isSeedOnly || noToday;
+
+  const behaviorIssues = [];
+  const innerIssues    = [];
+  if (skipDays >= 3)
+    behaviorIssues.push({ level:'red',   text:'Bỏ nghi thức ' + skipDays + ' ngày liên tiếp' + (noToday?' (chưa ghi hôm nay)':'') });
+  else if (writtenDays <= 3)
+    behaviorIssues.push({ level:'amber', text:'Chỉ ghi ' + writtenDays + '/7 ngày gần nhất' });
+  else if (noToday && keys.length > 0)
+    behaviorIssues.push({ level:'amber', text:'Chưa ghi hôm nay · Lần cuối: ' + (m.stats?.date||keys[0]) });
+  if (missBietOn || missKhiemHa) {
+    const parts = [];
+    if (missBietOn)  parts.push('Biết Ơn (' + skipBietOn + ' ngày)');
+    if (missKhiemHa) parts.push('Khiêm Hạ (' + skipKhiemHa + ' ngày)');
+    behaviorIssues.push({ level:'red', text:'Chưa thực hành: ' + parts.join(' · ') });
+  }
+  nnDrops.forEach(d => {
+    innerIssues.push({ level: d.diff <= -3 ? 'red':'amber', text: d.icon + ' ' + d.label + ': ' + d.from + ' → ' + d.to + ' (' + d.diff + ' điểm)' });
+  });
+  if (nnLow.length && !nnDrops.length) {
+    nnLow.slice(0,3).forEach(n => {
+      innerIssues.push({ level:'amber', text: n.icon + ' ' + n.label.replace(/NN\d · /,'') + ': mức ' + n.val + '/10' });
+    });
+  }
+  if (hasMoneyRed)
+    innerIssues.push({ level:'amber', text:'Tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này' });
+  if (seedOverload)
+    innerIssues.push({ level:'blue', text: seedsActiveCount + ' hạt giống đang theo dõi — vượt ngưỡng 10' });
+  if (newSeeds7d > 0)
+    innerIssues.push({ level:'amber', text:'Tăng thêm ' + newSeeds7d + ' hạt giống trong 7 ngày qua' });
+
+  const shortName = (m.name||'').split(' ').pop();
+  let suggestion = '';
+  if (behaviorIssues.length && !innerIssues.length) {
+    if (skipDays >= 3) suggestion = 'Đang ngắt quãng thực hành — có thể nhắn tin động viên, hỏi xem có điều gì đang xảy ra.';
+    else suggestion = 'Tần suất thực hành đang giảm — một tin nhắn nhỏ hỏi thăm sẽ giúp bạn ấy quay lại.';
+  } else if (innerIssues.length && !behaviorIssues.length) {
+    if (nnDrops.length) suggestion = 'Năng lượng ' + nnDrops[0].label + ' giảm mạnh — nên lắng nghe nhiều hơn là thúc đẩy.';
+    else if (newSeeds7d > 0) suggestion = 'Đang thêm nhiều hạt giống mới — có thể đang nhận ra nhiều vấn đề cùng lúc.';
+    else suggestion = 'Đang gặp vấn đề nội tâm — cần hội thoại sâu, không nên chỉ nhắc nghi thức.';
+  } else if (behaviorIssues.length && innerIssues.length) {
+    if (nnDrops.length && skipDays >= 2) suggestion = 'Năng lượng giảm đồng thời bỏ thực hành — cần đồng hành ở tầng nội tâm trước.';
+    else suggestion = 'Cả hành vi và nội tâm đều có dấu hiệu — nên gọi điện thay vì nhắn tin.';
+  } else if (needsCare) {
+    suggestion = 'Hãy hỏi thăm ' + shortName + ' trong thời gian gần nhất.';
+  }
+
+  let level, priority, priorityLabel;
+  if (score >= 3)    { level='red';   priority=1; priorityLabel='Ưu tiên 1 — Liên hệ hôm nay'; }
+  else if (isSeedOnly){ level='blue';  priority=3; priorityLabel='Ưu tiên 3 — Để ý thêm'; }
+  else if (needsCare) { level='amber'; priority=2; priorityLabel='Ưu tiên 2 — Hỏi thăm 1–2 ngày'; }
+  else               { level='green'; priority=4; priorityLabel='Đang tốt'; }
+
+  return { level, priority, priorityLabel, name:m.name, mid, suggestion, behaviorIssues, innerIssues, needsCare, score };
+}
+
 function renderLeaderAlerts(members, todayK) {
   const alertsEl = document.getElementById('leader-alerts-list');
   const badgeEl  = document.getElementById('leader-alerts-badge');
@@ -8453,194 +8594,13 @@ function renderLeaderAlerts(members, todayK) {
     return;
   }
 
-  const RITUAL_BIET_ON  = 'r6';
-  const RITUAL_KHIEM_HA = 'r7';
-  const alerts = [];
-
-  members.forEach(([mid, m]) => {
-    const entries = m.entries || {};
-    const keys    = Object.keys(entries).sort().reverse();
-
-    // 1. Tỉ lệ ghi 7 ngày gần nhất
-    const last7Keys = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(Date.now() + 7*60*60*1000);
-      d.setUTCDate(d.getUTCDate() - i);
-      last7Keys.push(d.toISOString().split('T')[0]);
-    }
-    const writtenDays = last7Keys.filter(k => entries[k] && (
-      Object.values(entries[k].rituals||{}).some(Boolean) || entries[k].energy
-    )).length;
-
-    // 2. Bỏ nghi thức liên tiếp
-    let skipDays = 0;
-    for (let i = 0; i < Math.min(keys.length, 7); i++) {
-      const e = entries[keys[i]];
-      const ritualDone = Object.values(e?.rituals||{}).some(Boolean);
-      if (!ritualDone) skipDays++;
-      else break;
-    }
-
-    // 3. Nghi thức Biết Ơn & Khiêm Hạ
-    let skipBietOn = 0, skipKhiemHa = 0;
-    for (let i = 0; i < Math.min(keys.length, 7); i++) {
-      if (!entries[keys[i]]?.rituals?.[RITUAL_BIET_ON]) skipBietOn++; else break;
-    }
-    for (let i = 0; i < Math.min(keys.length, 7); i++) {
-      if (!entries[keys[i]]?.rituals?.[RITUAL_KHIEM_HA]) skipKhiemHa++; else break;
-    }
-    const missBietOn  = skipBietOn  >= 2;
-    const missKhiemHa = skipKhiemHa >= 2;
-
-    // 4. NL 5 Ngôi Nhà
-    const refKey   = (m.stats?.date === todayK ? todayK : keys[0]);
-    const refEntry = refKey ? entries[refKey] : null;
-    const nnEnergy = refEntry?.nnEnergy || (m.stats ? {
-      nn1:m.stats.nn?.[0], nn2:m.stats.nn?.[1], nn3:m.stats.nn?.[2],
-      nn4:m.stats.nn?.[3], nn5:m.stats.nn?.[4]
-    } : {});
-    const nnDetails = NN_LIST.map(nn => {
-      const val = nnEnergy[nn.key];
-      return { key:nn.key, label:nn.label, icon:nn.icon, val: val != null ? val : null };
-    }).filter(n => n.val !== null);
-
-    const prevKey   = keys.find(k => k !== refKey);
-    const prevEntry = prevKey ? entries[prevKey] : null;
-    const nnDrops   = [];
-    if (prevEntry) {
-      NN_LIST.forEach((nn, j) => {
-        const curVal  = nnEnergy[nn.key];
-        const prevVal = prevEntry?.nnEnergy?.[nn.key] ?? (m.stats?.nn?.[j] ?? null);
-        if (curVal != null && prevVal != null && (curVal - prevVal) <= -2)
-          nnDrops.push({ label:nn.label.replace(/NN\d · /,''), icon:nn.icon, from:prevVal, to:curVal, diff:curVal-prevVal });
-      });
-    }
-    const nnLow = nnDetails.filter(n => n.val < 5);
-
-    // 5. Tiền đỏ tháng này
-    let mGreen = 0, mRed = 0;
-    const nowMonth = todayK.substring(0, 7);
-    Object.entries(entries).forEach(([dk, e]) => {
-      if (dk.startsWith(nowMonth)) {
-        mGreen += (e.recvGreen||0) + (e.spendGreen||0);
-        mRed   += (e.recvRed||0)   + (e.spendRed||0);
-      }
-    });
-    const moneyRedNet = mRed - mGreen;
-    const hasMoneyRed = moneyRedNet > 0;
-
-    // 6. Hạt giống — dùng seedsActive/seedsDone (journals chỉ sync số lượng, không sync tên)
-    const now21 = new Date(Date.now() + 7*60*60*1000);
-    now21.setUTCDate(now21.getUTCDate() - 21);
-    const ago21Str = now21.toISOString().split('T')[0];
-    const wk7 = new Date(Date.now() + 7*60*60*1000);
-    wk7.setUTCDate(wk7.getUTCDate() - 7);
-    const wk7Str = wk7.toISOString().split('T')[0];
-
-    // Đọc seedsActive từ journal entry gần nhất
-    const seedsActiveCount = m.seedsActive || 0;
-    const seedOverload = seedsActiveCount >= 10;
-
-    // Tìm xu hướng hạt giống: so sánh seedsActive 7 ngày trước vs hiện tại
-    const oldSeedKey = keys.find(k => k < wk7Str);
-    const oldSeedEntry = oldSeedKey ? entries[oldSeedKey] : null;
-    const oldSeedsActive = oldSeedEntry?.seedsActive ?? seedsActiveCount;
-    const newSeeds7d = Math.max(0, seedsActiveCount - oldSeedsActive);
-
-    // Không có tên hạt giống cụ thể (bảo vệ riêng tư) — dùng số lượng + xu hướng
-    const reappearSeedsDetail = []; // journals không chứa tên/checkins hạt giống
-
-    const noToday = m.stats?.date !== todayK;
-
-    // TÍNH ĐIỂM ƯU TIÊN
-    let score = 0;
-    if (skipDays >= 3) score += 2;
-    if (skipDays >= 5) score += 1;
-    if (writtenDays <= 2) score += 2;
-    else if (writtenDays <= 4) score += 1;
-    if (nnDrops.some(d => d.diff <= -3)) score += 2;
-    else if (nnDrops.length > 0) score += 1;
-    if (nnLow.length >= 3) score += 2;
-    else if (nnLow.length >= 1) score += 1;
-    if (hasMoneyRed) score += 1;
-    if (missBietOn || missKhiemHa) score += 1;
-
-    const isSeedOnly = score === 0 && seedOverload;
-    if (score === 0 && !isSeedOnly && !noToday) return;
-
-    // PHÂN NHÓM VẤN ĐỀ: hành vi vs nội tâm
-    const behaviorIssues = [];
-    const innerIssues    = [];
-
-    // --- Hành vi ---
-    if (skipDays >= 3)
-      behaviorIssues.push({ level:'red', text:'Bỏ nghi thức ' + skipDays + ' ngày liên tiếp' + (noToday?' (chưa ghi hôm nay)':'') });
-    else if (writtenDays <= 3)
-      behaviorIssues.push({ level:'amber', text:'Chỉ ghi ' + writtenDays + '/7 ngày gần nhất' });
-    else if (noToday && keys.length > 0)
-      behaviorIssues.push({ level:'amber', text:'Chưa ghi hôm nay · Lần cuối: ' + (m.stats?.date||keys[0]) });
-
-    if (missBietOn || missKhiemHa) {
-      const parts = [];
-      if (missBietOn)  parts.push('Biết Ơn (' + skipBietOn + ' ngày)');
-      if (missKhiemHa) parts.push('Khiêm Hạ (' + skipKhiemHa + ' ngày)');
-      behaviorIssues.push({ level:'red', text:'Chưa thực hành: ' + parts.join(' · ') });
-    }
-
-    // --- Nội tâm ---
-    nnDrops.forEach(d => {
-      innerIssues.push({ level: d.diff <= -3 ? 'red':'amber', text: d.icon + ' ' + d.label + ': ' + d.from + ' → ' + d.to + ' (' + d.diff + ' điểm)' });
-    });
-    if (nnLow.length && !nnDrops.length) {
-      nnLow.slice(0,3).forEach(n => {
-        innerIssues.push({ level:'amber', text: n.icon + ' ' + n.label.replace(/NN\d · /,'') + ': mức ' + n.val + '/10' });
-      });
-    }
-    if (hasMoneyRed)
-      innerIssues.push({ level:'amber', text:'Tiền đỏ ' + _fmtMoney(moneyRedNet) + ' tháng này (xanh ' + _fmtMoney(mGreen) + ', đỏ ' + _fmtMoney(mRed) + ')' });
-
-    // Hạt giống — dùng số lượng (tên không có trong journals để bảo vệ riêng tư)
-    if (seedOverload)
-      innerIssues.push({ level:'blue', text: seedsActiveCount + ' hạt giống đang theo dõi — vượt ngưỡng 10' });
-    if (newSeeds7d > 0)
-      innerIssues.push({ level:'amber', text:'Tăng thêm ' + newSeeds7d + ' hạt giống trong 7 ngày qua' });
-
-    // GỢI Ý HỘI THOẠI — dựa trên vấn đề nội tâm nổi bật nhất
-    const shortName = m.name.split(' ').pop();
-    let suggestion = '';
-    if (behaviorIssues.length && !innerIssues.length) {
-      // Thuần hành vi
-      if (skipDays >= 3) suggestion = 'Bạn ấy đang ngắt quãng thực hành — có thể nhắn tin động viên, hỏi xem có điều gì đang xảy ra không.';
-      else suggestion = 'Tần suất thực hành đang giảm — một tin nhắn nhỏ hỏi thăm sẽ giúp bạn ấy quay lại.';
-    } else if (innerIssues.length && !behaviorIssues.length) {
-      // Thuần nội tâm
-      if (nnDrops.length) suggestion = 'Năng lượng ' + nnDrops[0].label + ' giảm mạnh — nên lắng nghe nhiều hơn là thúc đẩy.';
-      else if (newSeeds7d > 0) suggestion = 'Đang thêm nhiều hạt giống mới — có thể đang nhận ra nhiều vấn đề cùng lúc, cần được đồng hành.';
-      else suggestion = 'Đang gặp vấn đề nội tâm — cần hội thoại sâu, không nên chỉ nhắc nghi thức.';
-    } else if (behaviorIssues.length && innerIssues.length) {
-      // Cả hai — khả năng cao có liên quan
-      if (nnDrops.length && skipDays >= 2) suggestion = 'Năng lượng ' + nnDrops[0].label + ' giảm đồng thời bỏ thực hành — cần đồng hành ở tầng nội tâm trước, không chỉ nhắc nghi thức.';
-      else suggestion = 'Cả hành vi và nội tâm đều có dấu hiệu — nên gặp trực tiếp hoặc gọi điện thay vì nhắn tin.';
-    } else {
-      suggestion = 'Hãy hỏi thăm ' + shortName + ' trong thời gian gần nhất.';
-    }
-
-    let level, priority, priorityLabel;
-    if (score >= 3) {
-      level='red'; priority=1; priorityLabel='Ưu tiên 1 — Liên hệ hôm nay';
-    } else if (isSeedOnly) {
-      level='blue'; priority=3; priorityLabel='Ưu tiên 3 — Để ý thêm';
-    } else {
-      level='amber'; priority=2; priorityLabel='Ưu tiên 2 — Hỏi thăm 1–2 ngày';
-    }
-
-    alerts.push({ level, priority, priorityLabel, name:m.name, mid, suggestion, behaviorIssues, innerIssues });
-  });
-
-  alerts.sort((a, b) => a.priority - b.priority);
+  const alerts = members
+    .map(([mid, m]) => _calcMemberSummary(mid, m, todayK))
+    .filter(a => a.needsCare)
+    .sort((a, b) => a.priority - b.priority);
 
   if (!alerts.length) {
-    alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--jade);font-weight:700;padding:6px 0;text-align:center">✅ Cả nhóm đang ổn — không có cảnh báo!</div>';
+    alertsEl.innerHTML = '<div style="font-size:12.5px;color:var(--jade);font-weight:700;padding:6px 0;text-align:center">✅ Cả nhóm đang tốt — không có cảnh báo!</div>';
     if (badgeEl) badgeEl.style.display = 'none';
     return;
   }
@@ -8664,31 +8624,18 @@ function renderLeaderAlerts(members, todayK) {
 
   window._alertMids = alerts.map(a => a.mid);
   alertsEl.innerHTML = alerts.map((a, idx) => {
-    const c = colorMap[a.level];
+    const c = colorMap[a.level] || colorMap.amber;
     const hasBehavior = a.behaviorIssues.length > 0;
     const hasInner    = a.innerIssues.length > 0;
-
     const groupedHTML =
-      (hasBehavior ? (
-        '<div style="margin-bottom:' + (hasInner?'10px':'0') + '">' +
-        '<div style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(136,135,128,0.12);color:var(--ink-muted);margin-bottom:5px">Hành vi</div>' +
-        _issueRows(a.behaviorIssues) +
-        '</div>'
-      ) : '') +
-      (hasInner ? (
-        '<div>' +
-        '<div style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(83,74,183,0.1);color:#534AB7;margin-bottom:5px">Nội tâm</div>' +
-        _issueRows(a.innerIssues) +
-        '</div>'
-      ) : '');
+      (hasBehavior ? '<div style="margin-bottom:' + (hasInner?'10px':'0') + '"><div style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(136,135,128,0.12);color:var(--ink-muted);margin-bottom:5px">Hành vi</div>' + _issueRows(a.behaviorIssues) + '</div>' : '') +
+      (hasInner    ? '<div><div style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(83,74,183,0.1);color:#534AB7;margin-bottom:5px">Nội tâm</div>' + _issueRows(a.innerIssues) + '</div>' : '');
 
     return '<div style="border-radius:10px;margin-bottom:8px;overflow:hidden;border:1px solid ' + c.border + '">' +
       '<div style="padding:10px 12px;background:' + c.headBg + '">' +
         '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;' + c.badge + '">' + escHtml(a.priorityLabel) + '</span>' +
         '<div style="font-size:13px;font-weight:800;margin-bottom:4px;color:' + c.nameColor + '">' + escHtml(a.name) + '</div>' +
-        '<div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;background:rgba(245,237,224,0.5);border-radius:7px;padding:7px 9px">' +
-          '💬 ' + escHtml(a.suggestion) +
-        '</div>' +
+        '<div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;background:rgba(245,237,224,0.5);border-radius:7px;padding:7px 9px">💬 ' + escHtml(a.suggestion) + '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;cursor:pointer;background:' + c.toggleBg + ';border-top:0.5px solid var(--border)" onclick="leaderAlertToggle(' + idx + ')">' +
         '<span style="font-size:11px;color:var(--ink-muted)">Xem chi tiết vấn đề</span>' +
@@ -8697,9 +8644,7 @@ function renderLeaderAlerts(members, todayK) {
       '<div id="al-body-' + idx + '" style="display:none;padding:10px 12px 12px;background:' + c.bodyBg + ';border-top:0.5px solid var(--border)">' +
         groupedHTML +
         '<div style="height:0.5px;background:var(--border);margin:10px 0 8px"></div>' +
-        '<button onclick="leaderOpenDetail(' + idx + ')" style="width:100%;padding:7px;border-radius:8px;border:0.5px solid var(--border);background:rgba(245,237,224,0.5);font-size:11.5px;color:var(--ink-muted);cursor:pointer;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif">' +
-          'Xem chuỗi chỉ số rèn luyện →' +
-        '</button>' +
+        '<button onclick="leaderOpenDetail(' + idx + ')" style="width:100%;padding:7px;border-radius:8px;border:0.5px solid var(--border);background:rgba(245,237,224,0.5);font-size:11.5px;color:var(--ink-muted);cursor:pointer;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif">Xem chuỗi chỉ số rèn luyện →</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -8724,31 +8669,31 @@ function renderLeaderDashboardList(members, todayK) {
     return;
   }
 
-  // Sắp xếp: đang gặp vấn đề lên trước, hôm nay ghi lên trước so với không ghi, theo NL tổng
-  const sorted = members.slice().sort(([,a],[,b]) => {
-    const aActive = a.stats?.date === todayK ? 1 : 0;
-    const bActive = b.stats?.date === todayK ? 1 : 0;
-    if (bActive !== aActive) return bActive - aActive;
+  // Sắp xếp: needsCare lên trước, trong nhóm sort theo score cao → thấp, sau đó ổn sort theo NL
+  const sorted = members.slice().sort(([midA, a], [midB, b]) => {
+    const sA = _calcMemberSummary(midA, a, todayK);
+    const sB = _calcMemberSummary(midB, b, todayK);
+    if (sA.needsCare !== sB.needsCare) return sA.needsCare ? -1 : 1;
+    if (sA.priority !== sB.priority) return sA.priority - sB.priority;
     const aAvg = (a.stats?.nn||[5,5,5,5,5]).reduce((s,v)=>s+v,0)/5;
     const bAvg = (b.stats?.nn||[5,5,5,5,5]).reduce((s,v)=>s+v,0)/5;
     return bAvg - aAvg;
   });
 
   listEl.innerHTML = sorted.map(([mid, m], i) => {
-    const isActive = m.stats?.date === todayK;
-    const isMe     = mid === userInfo.memberId;
-    const nn       = m.stats?.nn || [5,5,5,5,5];
-    const avgNN    = nn.reduce((a,b)=>a+b,0)/5;
-    const color    = MEMBER_COLORS[i % MEMBER_COLORS.length];
-    const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
-    const rituals  = m.stats?.rituals || 0;
+    const isActive  = m.stats?.date === todayK;
+    const isMe      = mid === userInfo.memberId;
+    const nn        = m.stats?.nn || [5,5,5,5,5];
+    const avgNN     = nn.reduce((a,b)=>a+b,0)/5;
+    const color     = MEMBER_COLORS[i % MEMBER_COLORS.length];
+    const initials  = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
+    const rituals   = m.stats?.rituals || 0;
+    const summary   = _calcMemberSummary(mid, m, todayK);
 
-    // Màu tổng: xanh >= 7, vàng >= 5, đỏ < 5
     const statusColor = avgNN >= 7 ? 'var(--jade)' : avgNN >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
     const statusBg    = avgNN >= 7 ? 'rgba(74,140,111,0.12)' : avgNN >= 5 ? 'rgba(201,168,76,0.1)' : 'rgba(192,96,106,0.1)';
     const statusLabel = avgNN >= 7 ? 'Xanh' : avgNN >= 5 ? 'Vàng' : 'Đỏ';
 
-    // Tính streak từ entries
     const entryKeys = Object.keys(m.entries||{}).sort().reverse();
     let streak = 0;
     for (let k of entryKeys) {
@@ -8757,12 +8702,16 @@ function renderLeaderDashboardList(members, todayK) {
       else break;
     }
 
-    // 5 ô màu NL ngôi nhà
     const nnDots = NN_LIST.map((nnItem,j) => {
       const val = nn[j]||5;
       const opacity = (val/10*0.7+0.3).toFixed(2);
       return `<div title="${nnItem.label}: ${val}/10" style="width:18px;height:18px;border-radius:4px;background:${nnItem.color};opacity:${opacity};display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:800">${val}</div>`;
     }).join('');
+
+    // Badge cần đồng hành
+    const careBadge = summary.needsCare
+      ? `<span style="font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:4px;margin-left:5px;background:${summary.level==='red'?'rgba(192,96,106,0.18)':'rgba(201,168,76,0.18)'};color:${summary.level==='red'?'var(--rose)':'var(--gold-dark)'}">${summary.priorityLabel}</span>`
+      : '';
 
     const isExpanded = _leaderExpandedMid === mid;
 
@@ -8771,7 +8720,7 @@ function renderLeaderDashboardList(members, todayK) {
         onclick="toggleLeaderMemberDetail('${mid}')">
         <div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white;flex-shrink:0">${isMe?'👤':initials}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13.5px;font-weight:800;color:var(--ink)">${escHtml(m.name)}${isMe?' <span style="font-size:10px;color:var(--jade)">(Tôi)</span>':''}</div>
+          <div style="font-size:13.5px;font-weight:800;color:var(--ink);display:flex;align-items:center;flex-wrap:wrap;gap:3px">${escHtml(m.name)}${isMe?' <span style="font-size:10px;color:var(--jade)">(Tôi)</span>':''}${careBadge}</div>
           <div style="font-size:11px;color:${isActive?'var(--jade)':'var(--ink-muted)'}">
             ${isActive ? '✅ Ghi hôm nay · '+rituals+'/9 nghi thức' : '⚪ Chưa ghi hôm nay'}
           </div>
@@ -8780,8 +8729,9 @@ function renderLeaderDashboardList(members, todayK) {
         <div style="width:44px;text-align:center;font-size:12px;font-weight:700;color:var(--ink-muted)">
           ${streak > 0 ? '🔥'+streak : '–'}
         </div>
-        <div style="width:48px;text-align:right">
+        <div style="width:48px;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:5px">
           <span style="background:${statusBg};color:${statusColor};font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:8px">${statusLabel}</span>
+          <span style="font-size:13px;color:var(--ink-muted)">${isExpanded?'▲':'▼'}</span>
         </div>
       </div>
       ${isExpanded ? renderLeaderMemberInline(mid, m, todayK) : ''}
@@ -8830,31 +8780,62 @@ function renderLeaderMemberInline(mid, m, todayK) {
     return `<div title="${d.getDate()}/${d.getMonth()+1}: ${title}" style="width:20px;height:20px;border-radius:4px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:var(--ink-muted)">${label}</div>`;
   }).join('');
 
-  // Xu hướng NL từng ngôi nhà
-  const nnBars = NN_LIST.map((nnItem, j) => {
-    const val = nn[j] || 5;
-    const pct = val * 10;
-    const color = val >= 7 ? 'var(--jade)' : val >= 5 ? 'var(--gold)' : 'var(--rose)';
-    const textColor = val >= 7 ? 'var(--jade)' : val >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
-
-    // So sánh với entry trước
-    let arrow = '';
-    const prevKey = keys.find(k => k !== todayK);
-    if (prevKey) {
-      const prevEntry = entries[prevKey];
-      const prevVal   = prevEntry?.nnEnergy?.[nnItem.key] || 5;
-      const diff = val - prevVal;
-      if (diff >= 1)       arrow = `<span style="color:var(--jade);font-size:10px">↗+${diff}</span>`;
-      else if (diff <= -1) arrow = `<span style="color:var(--rose);font-size:10px">↘${diff}</span>`;
-      else                 arrow = `<span style="color:var(--ink-muted);font-size:10px">→</span>`;
+  // TB NL 7 ngày từng ngôi nhà
+  const nn7avg = NN_LIST.map((nnItem, j) => {
+    const vals = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() + 7*60*60*1000);
+      d.setUTCDate(d.getUTCDate() - i);
+      const dk = d.toISOString().split('T')[0];
+      const e  = entries[dk];
+      if (!e || !e.nnEnergy) continue;
+      let v = null;
+      if (typeof e.nnEnergy === 'object' && !Array.isArray(e.nnEnergy)) v = Number(e.nnEnergy[nnItem.key]);
+      else if (Array.isArray(e.nnEnergy)) v = Number(e.nnEnergy[j]);
+      if (!isNaN(v) && v > 0) vals.push(v);
     }
+    // fallback về stats hôm nay nếu chưa có entries
+    if (!vals.length && nn[j]) vals.push(nn[j]);
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
+  });
 
+  // So sánh TB7 hiện tại với TB7 của 7 ngày trước đó (ngày 8-14)
+  const nn7prev = NN_LIST.map((nnItem, j) => {
+    const vals = [];
+    for (let i = 7; i < 14; i++) {
+      const d = new Date(Date.now() + 7*60*60*1000);
+      d.setUTCDate(d.getUTCDate() - i);
+      const dk = d.toISOString().split('T')[0];
+      const e  = entries[dk];
+      if (!e || !e.nnEnergy) continue;
+      let v = null;
+      if (typeof e.nnEnergy === 'object' && !Array.isArray(e.nnEnergy)) v = Number(e.nnEnergy[nnItem.key]);
+      else if (Array.isArray(e.nnEnergy)) v = Number(e.nnEnergy[j]);
+      if (!isNaN(v) && v > 0) vals.push(v);
+    }
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
+  });
+
+  const nnBars = NN_LIST.map((nnItem, j) => {
+    const val  = nn7avg[j];
+    const prev = nn7prev[j];
+    if (val === null) return '';
+    const pct       = val * 10;
+    const color     = val >= 7 ? 'var(--jade)' : val >= 5 ? 'var(--gold)' : 'var(--rose)';
+    const textColor = val >= 7 ? 'var(--jade)' : val >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+    let arrow = '';
+    if (prev !== null) {
+      const diff = Math.round((val - prev) * 10) / 10;
+      if (diff >= 0.5)       arrow = `<span style="color:var(--jade);font-size:10px">↗+${diff}</span>`;
+      else if (diff <= -0.5) arrow = `<span style="color:var(--rose);font-size:10px">↘${diff}</span>`;
+      else                   arrow = `<span style="color:var(--ink-muted);font-size:10px">→</span>`;
+    }
     return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
       <span style="font-size:11px;color:var(--ink-muted);width:110px;white-space:nowrap">${nnItem.icon} ${nnItem.label.split('·')[1]?.trim()||nnItem.label}</span>
       <div style="flex:1;height:5px;background:rgba(201,168,76,0.12);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.4s"></div>
       </div>
-      <span style="font-size:11.5px;font-weight:800;color:${textColor};width:22px;text-align:right">${val}</span>
+      <span style="font-size:11.5px;font-weight:800;color:${textColor};width:28px;text-align:right">${val}</span>
       ${arrow}
     </div>`;
   }).join('');
@@ -8895,7 +8876,7 @@ function renderLeaderMemberInline(mid, m, todayK) {
       Xanh = 7+/9 · Vàng = 4-6/9 · Đỏ = dưới 4 · Xám = chưa có data
     </div>
 
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">🏠 Năng lượng 5 ngôi nhà hôm nay</div>
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">🏠 Năng lượng 5 ngôi nhà — TB 7 ngày</div>
     ${nnBars}
 
     <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--ink-muted);margin:10px 0 7px">🙏 Nghi Thức Đặc Biệt Để Chuyển Hoá Hạt Giống</div>
@@ -8933,13 +8914,35 @@ function renderLeaderMemberInline(mid, m, todayK) {
       </div>
     </div>
 
-    <button onclick="openLeaderMemberDetail('${mid}')"
-      style="width:100%;margin-top:10px;padding:8px;border-radius:8px;
-      background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);
-      color:var(--gold-dark);font-size:12px;font-weight:800;cursor:pointer;
-      font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-      📖 Xem đầy đủ nhật ký →
-    </button>
+    ${(() => {
+      const s = _calcMemberSummary(mid, m, todayK);
+      const dotC = { red:'var(--rose)', amber:'var(--gold-dark)', blue:'var(--sky)' };
+      if (!s.needsCare) return `<div style="background:rgba(74,140,111,0.07);border-radius:8px;padding:8px 10px;margin-top:10px;margin-bottom:2px;border-left:3px solid var(--jade)"><div style="font-size:10px;font-weight:700;color:var(--jade);margin-bottom:2px">Tóm tắt cần chú ý</div><div style="font-size:11.5px;color:var(--jade)">✅ Không có vấn đề đáng lo — đang tốt</div></div>`;
+      const levelBorder = s.level==='red'?'var(--rose)':s.level==='blue'?'var(--sky)':'var(--gold-dark)';
+      const levelBg     = s.level==='red'?'rgba(192,96,106,0.06)':s.level==='blue'?'rgba(74,127,168,0.06)':'rgba(201,168,76,0.06)';
+      const allIssues   = [...s.behaviorIssues, ...s.innerIssues];
+      const rows = allIssues.map(iss => `<div style="display:flex;align-items:flex-start;gap:6px;padding:2px 0;font-size:11px;color:var(--ink-soft);line-height:1.4"><span style="width:5px;height:5px;border-radius:50%;background:${dotC[iss.level]||'var(--ink-muted)'};flex-shrink:0;margin-top:4px;display:inline-block"></span>${escHtml(iss.text)}</div>`).join('');
+      return `<div style="background:${levelBg};border-radius:8px;padding:8px 10px;margin-top:10px;margin-bottom:2px;border-left:3px solid ${levelBorder}"><div style="font-size:10px;font-weight:700;color:${levelBorder};margin-bottom:5px">Tóm tắt cần chú ý</div>${rows}${s.suggestion?`<div style="font-size:11px;color:var(--ink-soft);margin-top:5px;padding-top:5px;border-top:0.5px solid var(--border);line-height:1.5">💬 ${escHtml(s.suggestion)}</div>`:''}</div>`;
+    })()}
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="adminMemberToggle('streak','${mid}','${escHtml(userInfo.groupCode||'')}')"
+        style="flex:1;padding:7px;font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:8px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        📅 Chuỗi rèn luyện
+      </button>
+      <button onclick="adminMemberToggle('report','${mid}','${escHtml(userInfo.groupCode||'')}')"
+        style="flex:1;padding:7px;font-size:11px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:1px solid rgba(133,79,11,0.2);border-radius:8px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        📊 Xem báo cáo
+      </button>
+    </div>
+
+    <div id="ms-streak-${mid}" style="display:none;margin-top:8px;border-top:0.5px solid var(--border);padding-top:8px">
+      <div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:6px">Đang tải...</div>
+    </div>
+    <div id="ms-report-${mid}" style="display:none;margin-top:8px;border-top:0.5px solid var(--border);padding-top:8px">
+      <div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:6px">Đang tải...</div>
+    </div>
+
   </div>`;
 }
 
@@ -9572,11 +9575,9 @@ function syncJournalHistoryToFirebase(onDone) {
       batch[dateKey] = _makeJournalEntry(entry);
     }
   });
-  console.log('📤 Syncing journal history:', Object.keys(batch).length, 'days,', nnCount, 'with nnEnergy');
   if (Object.keys(batch).length === 0) { if (onDone) onDone(); return; }
   db.ref(basePath).update(batch)
     .then(() => {
-      console.log('✅ Journal history synced:', Object.keys(batch).length, 'days');
       if (onDone) onDone();
     })
     .catch(e => {
@@ -9813,7 +9814,6 @@ async function loadAdminData() {
       ...Object.keys(leaderByGroup),
     ].filter(g => !deletedCodes.has(g)));
 
-    renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCodes);
     // Load ghi chú admin từ Firebase trước khi render monitor — bao gồm updatedAt
     try {
       const notesSnap = await database.ref('admin_notes').once('value');
@@ -9891,8 +9891,8 @@ async function loadAdminData() {
         const mid = lr.memberId || lr.id;
         if (!mid) return;
         const allEntries = snap.val() || {};
-        // Lấy 7 ngày gần nhất (date key dạng YYYY-MM-DD)
-        const sortedKeys = Object.keys(allEntries).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0, 7);
+        // Lưu toàn bộ lịch sử journal (không giới hạn 7 ngày)
+        const sortedKeys = Object.keys(allEntries).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse();
         const hist = {};
         sortedKeys.forEach(k => { hist[k] = allEntries[k]; });
         leaderJournalHistory[mid] = hist;
@@ -9966,7 +9966,93 @@ async function loadAdminData() {
       }));
     } catch(e) { console.warn('Load group journals for admin:', e); }
 
-        renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats, leaderJournalHistory);
+    // ── Load OKR tháng hiện tại của từng trưởng nhóm ──
+    const leaderOkrStats = {};
+    try {
+      // Bước 1: lấy uid_to_member để reverse-lookup memberId → firebaseUid
+      const uidMapSnap = await database.ref('uid_to_member').once('value');
+      const uidMap = uidMapSnap.val() || {}; // { firebaseUid: { memberId, groupCode } }
+      // Build reverse map: memberId → firebaseUid
+      const midToUid = {};
+      Object.entries(uidMap).forEach(([uid, v]) => { if (v && v.memberId) midToUid[v.memberId] = uid; });
+
+      const now = new Date(Date.now() + 7*60*60*1000); // VN timezone
+      const cy = now.getUTCFullYear(), cm = now.getUTCMonth() + 1;
+
+      await Promise.all(Object.entries(leaderByGroup).map(async ([gc, lr]) => {
+        const mid = lr.memberId || lr.id;
+        if (!mid) return;
+        const uid = midToUid[mid];
+        if (!uid) return;
+        try {
+          const monthSnap = await database.ref('users/' + uid + '/monthly/' + cy + '_' + cm).once('value');
+          const md = monthSnap.val();
+          if (!md || !md.weekOKR) return;
+
+          let totalO = 0, doneO = 0, totalKR = 0, doneKR = 0, sumScore = 0, scoreCount = 0;
+          Object.values(md.weekOKR).forEach(w => {
+            (w.objectives || []).forEach(o => {
+              if (!o || !o.text) return;
+              totalO++;
+              const score = o.score || 0;
+              sumScore += score; scoreCount++;
+              if (score >= 7) doneO++;
+              (o.krs || []).forEach(kr => {
+                if (!kr || !kr.text) return;
+                totalKR++;
+                if (kr.done || (kr.score || 0) >= 10) doneKR++;
+              });
+            });
+          });
+          leaderOkrStats[mid] = {
+            totalO, doneO,
+            totalKR, doneKR,
+            avgScore: scoreCount ? Math.round(sumScore / scoreCount * 10) / 10 : null,
+            rate: totalO ? Math.round(doneO / totalO * 100) : null,
+          };
+        } catch(e) { /* ignore per-leader errors */ }
+      }));
+    } catch(e) { console.warn('Load leader OKR:', e); }
+
+    // ── Load monthly data nhiều tháng cho báo cáo mốc (3, 6, 9, 12 tháng) ──
+    const leaderMonthlyData = {};
+    try {
+      const uidMapSnap2 = await database.ref('uid_to_member').once('value');
+      const uidMap2 = uidMapSnap2.val() || {};
+      const midToUid2 = {};
+      Object.entries(uidMap2).forEach(([uid, v]) => { if (v && v.memberId) midToUid2[v.memberId] = uid; });
+
+      const now2 = new Date(Date.now() + 7*60*60*1000);
+      const cy2 = now2.getUTCFullYear(), cm2 = now2.getUTCMonth() + 1;
+      // Lấy 13 tháng gần nhất để cover đủ mốc 1 năm
+      const monthKeys = [];
+      for (let i = 0; i < 13; i++) {
+        let y = cy2, m = cm2 - i;
+        while (m <= 0) { m += 12; y--; }
+        monthKeys.push({ y, m, key: y + '_' + m });
+      }
+
+      await Promise.all(Object.entries(leaderByGroup).map(async ([gc, lr]) => {
+        const mid = lr.memberId || lr.id;
+        if (!mid) return;
+        const uid = midToUid2[mid];
+        if (!uid) return;
+        try {
+          const snaps = await Promise.all(
+            monthKeys.map(mk => database.ref('users/' + uid + '/monthly/' + mk.key).once('value').catch(() => null))
+          );
+          const monthHistory = {};
+          monthKeys.forEach((mk, i) => {
+            const v = snaps[i] && snaps[i].val();
+            if (v) monthHistory[mk.key] = v;
+          });
+          leaderMonthlyData[mid] = monthHistory;
+        } catch(e) { /* ignore */ }
+      }));
+    } catch(e) { console.warn('Load leader monthly data:', e); }
+
+        renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats, leaderJournalHistory, leaderOkrStats, true, null, leaderMonthlyData);
+    renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCodes, membersAll, leaderTrainingStats, leaderJournalHistory, leaderOkrStats, leaderMonthlyData);
     renderAdminGroups(groupsAll, membersAll, leaderByGroup, allGroupCodes);
 
   } catch(e) {
@@ -10017,23 +10103,26 @@ async function adminRenewMember(memberId, memberName) {
 }
 
 // ── Admin: Theo dõi & đồng hành trưởng nhóm ─────────────────────────
-// Lưu ý: admin chỉ có /members/ data (không có /journals/) nên chỉ dùng
-// các trường cơ bản: registeredAt, isLeader, groupCode, name, phone
-// Chỉ số rèn luyện chi tiết của TN không available ở admin → hiển thị
-// trạng thái nhóm + liên kết sang tab chi tiết
-function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats, leaderJournalHistory) {
+// renderAdminLeaderMonitor: Hiển thị 2 cột cho từng TN cần đồng hành
+// filterNeedCare=true → chỉ hiện TN có alert/watch (dùng cho section "cần đồng hành")
+// filterNeedCare=false → hiện tất cả TN (dùng cho danh sách tổng)
+// targetEl: override element để inject HTML vào (nếu null dùng admin-leader-alerts-list)
+function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, leaderTrainingStats, leaderJournalHistory, leaderOkrStats, filterNeedCare, targetEl, leaderMonthlyData) {
   leaderTrainingStats  = leaderTrainingStats  || {};
   leaderJournalHistory = leaderJournalHistory || {};
-  const sectionEl = document.getElementById('admin-leader-monitor-section');
-  const listEl    = document.getElementById('admin-leader-alerts-list');
-  const badgeEl   = document.getElementById('admin-leader-alert-badge');
+  leaderOkrStats       = leaderOkrStats       || {};
+  leaderMonthlyData    = leaderMonthlyData    || {};
+  if (filterNeedCare === undefined) filterNeedCare = true;
+  const sectionEl = targetEl ? null : document.getElementById('admin-leader-monitor-section');
+  const listEl    = targetEl || document.getElementById('admin-leader-alerts-list');
+  const badgeEl   = targetEl ? null : document.getElementById('admin-leader-alert-badge');
   if (!listEl) return;
 
+  // ── Thu thập dữ liệu từng TN ──
   const leaderEntries = [];
   Object.entries(leaderByGroup).forEach(([groupCode, lr]) => {
     const mid = lr.memberId || lr.id;
     if (!mid) return;
-    // Tìm mData: thử exact key trước, rồi tìm theo memberId field / name / phone
     let mData = membersAll[mid];
     if (!mData) {
       const lrName  = (lr.name  || '').toLowerCase().trim();
@@ -10043,14 +10132,11 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
         const mName  = (m.name  || '').toLowerCase().trim();
         const mPhone = (m.phone || '').replace(/\D/g,'');
         const mMid   = m.memberId || '';
-        if (
-          (mMid  && mMid === mid) ||
-          (lrName  && mName  && mName  === lrName)  ||
-          (lrPhone && mPhone && mPhone === lrPhone)
-        ) { mData = m; break; }
+        if ((mMid && mMid === mid) || (lrName && mName && mName === lrName) || (lrPhone && mPhone && mPhone === lrPhone)) {
+          mData = m; break;
+        }
       }
     }
-    // Nếu vẫn không có, tạo mData tối thiểu từ lr để không bỏ qua
     if (!mData) mData = { name: lr.name || '–', phone: lr.phone || '', email: lr.email || '', groupCode, memberId: mid };
     leaderEntries.push({ groupCode, lr, mid, mData });
   });
@@ -10065,221 +10151,190 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
   const alerts = [];
 
   leaderEntries.forEach(({ groupCode, lr, mid, mData }) => {
-    const groupMembers = (membersByGroup[groupCode] || []).filter(m => !m.isLeader);
-    const groupCount   = groupMembers.length;
+    const groupMembers  = (membersByGroup[groupCode] || []).filter(m => !m.isLeader);
+    const groupCount    = groupMembers.length;
+    const recentJoin    = groupMembers.filter(m => m.registeredAt && (Date.now() - new Date(m.registeredAt).getTime()) / 86400000 <= 14).length;
+    const expiredCount  = groupMembers.filter(m => getExpiryInfo(m.expiryDate || m.approvedAt).expired).length;
 
-    const recentJoin = groupMembers.filter(m => {
-      if (!m.registeredAt) return false;
-      return (Date.now() - new Date(m.registeredAt).getTime()) / 86400000 <= 14;
-    }).length;
-    const expiredCount = groupMembers.filter(m => {
-      const exp = getExpiryInfo(m.expiryDate || m.approvedAt);
-      return exp.expired;
-    }).length;
+    const lrExp          = getExpiryInfo(lr.approvedAt);
+    const lrExpiringSoon = lrExp.daysLeft !== null && lrExp.daysLeft <= 30 && !lrExp.expired;
+    const lrExpired      = lrExp.expired;
 
-    const lrExp = getExpiryInfo(lr.approvedAt);
-    const lrDaysLeft = lrExp.daysLeft;
-    const lrExpiringSoon = lrDaysLeft !== null && lrDaysLeft <= 30 && !lrExp.expired;
-    const lrExpired = lrExp.expired;
-
-    // ── Data rèn luyện thực tế của trưởng nhóm ──
-    const tStats = leaderTrainingStats[mid] || null;
+    // ── Rèn luyện cá nhân TN hôm nay ──
+    const tStats       = leaderTrainingStats[mid] || null;
     const trainedToday = tStats && tStats.date === todayK;
     const ritualsToday = trainedToday ? (tStats.rituals || 0) : null;
     const nnToday      = trainedToday ? (tStats.nn || []) : null;
     const avgNN        = nnToday && nnToday.length ? Math.round(nnToday.reduce((a,b)=>a+b,0) / nnToday.length * 10) / 10 : null;
-    const minNN        = nnToday && nnToday.length ? Math.min(...nnToday) : null;
     const lowEnergy    = avgNN !== null && avgNN < 5;
-    const criticalNN   = minNN !== null && minNN <= 3;
+    const criticalNN   = avgNN !== null && avgNN <= 3;
     const notTrainedToday = !trainedToday;
 
-    const hasAlert = lrExpiringSoon || lrExpired || expiredCount > 0 || (groupCount === 0) || lowEnergy || criticalNN;
-    const hasWatch = recentJoin >= 3 || groupCount >= 8 || notTrainedToday;
-
-    // ── Xu hướng 7 ngày từ /journals/ ──
+    // ── Xu hướng 7 ngày ──
     const jHist  = leaderJournalHistory[mid] || {};
     const jKeys7 = Object.keys(jHist).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0, 7);
     const trend7 = jKeys7.map(dk => {
       const je = jHist[dk] || {};
       let ritDone = 0;
-      if (je.rituals && typeof je.rituals === 'object') {
-        ritDone = Object.values(je.rituals).filter(Boolean).length;
-      } else if (typeof je.rituals === 'number') {
-        ritDone = je.rituals;
-      }
-      const ritPct = Math.round((ritDone / 9) * 100);
+      if (je.rituals && typeof je.rituals === 'object') ritDone = Object.values(je.rituals).filter(Boolean).length;
+      else if (typeof je.rituals === 'number') ritDone = je.rituals;
       let nnVals = [];
-      if (je.nnEnergy && typeof je.nnEnergy === 'object' && !Array.isArray(je.nnEnergy)) {
-        nnVals = Object.values(je.nnEnergy).map(Number).filter(v => !isNaN(v) && v > 0);
-      } else if (Array.isArray(je.nnEnergy)) {
-        nnVals = je.nnEnergy.map(Number).filter(v => !isNaN(v) && v > 0);
-      }
+      if (je.nnEnergy && typeof je.nnEnergy === 'object' && !Array.isArray(je.nnEnergy)) nnVals = Object.values(je.nnEnergy).map(Number).filter(v => !isNaN(v) && v > 0);
+      else if (Array.isArray(je.nnEnergy)) nnVals = je.nnEnergy.map(Number).filter(v => !isNaN(v) && v > 0);
       const avgNNDay = nnVals.length ? Math.round(nnVals.reduce((a,b)=>a+b,0)/nnVals.length*10)/10 : null;
-      const trained  = ritDone > 0 || nnVals.length > 0;
-      return { dk, ritPct, avgNN: avgNNDay, trained };
-    }).reverse(); // chronological: cũ → mới
+      return { dk, ritPct: Math.round((ritDone/9)*100), avgNN: avgNNDay, trained: ritDone > 0 || nnVals.length > 0 };
+    }).reverse();
 
-    // ── Hạt giống: số lượng + xu hướng ──
-    const latestSeedsActive = (() => {
-      for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsActive != null) return je.seedsActive; }
-      return null;
+    // Số ngày không rèn gần đây (đếm lùi từ hôm nay)
+    const recentInactiveDays = (() => {
+      let cnt = 0;
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(Date.now() + 7*60*60*1000);
+        d.setUTCDate(d.getUTCDate() - i);
+        const dk = d.toISOString().split('T')[0];
+        const je = jHist[dk];
+        const trained = je && (
+          (je.rituals && (typeof je.rituals === 'object' ? Object.values(je.rituals).some(Boolean) : je.rituals > 0)) ||
+          (je.nnEnergy && (Array.isArray(je.nnEnergy) ? je.nnEnergy.some(v=>v>0) : Object.values(je.nnEnergy||{}).some(v=>v>0)))
+        );
+        if (!trained) cnt++;
+        else break;
+      }
+      return cnt;
     })();
-    const oldSeedsActive = (() => {
-      if (jKeys7.length < 2) return null;
-      for (let i = jKeys7.length - 1; i >= 1; i--) { const je = jHist[jKeys7[i]]; if (je && je.seedsActive != null) return je.seedsActive; }
-      return null;
+
+    // Điểm ngôi nhà TB 7 ngày (từ trend7 — trung bình tổng)
+    const nnAvg7 = (() => {
+      const vals = trend7.map(d => d.avgNN).filter(v => v !== null);
+      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : null;
     })();
-    const latestSeedsDone = (() => {
-      for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsDone != null) return je.seedsDone; }
-      return null;
+    const lowHouseAvg7 = nnAvg7 !== null && nnAvg7 < 5;
+
+    // TB từng ngôi nhà riêng lẻ trong 7 ngày — để hiển thị NN nào đang thấp
+    const nnAvg7PerHouse = (() => {
+      if (typeof NN_LIST === 'undefined') return [];
+      const sums = NN_LIST.map(() => ({ sum: 0, count: 0 }));
+      jKeys7.forEach(dk => {
+        const je = jHist[dk];
+        if (!je || !je.nnEnergy) return;
+        NN_LIST.forEach((nn, i) => {
+          let val = null;
+          if (typeof je.nnEnergy === 'object' && !Array.isArray(je.nnEnergy)) val = Number(je.nnEnergy[nn.key]);
+          else if (Array.isArray(je.nnEnergy)) val = Number(je.nnEnergy[i]);
+          if (!isNaN(val) && val > 0) { sums[i].sum += val; sums[i].count++; }
+        });
+      });
+      return NN_LIST.map((nn, i) => ({
+        key: nn.key,
+        label: nn.label.split('·')[0].trim(), // "NN1", "NN2", ...
+        shortName: nn.label.split('·')[1] ? nn.label.split('·')[1].trim().split(' ')[0] : nn.key, // "Bản", "Cha", ...
+        avg: sums[i].count ? Math.round(sums[i].sum / sums[i].count * 10) / 10 : null,
+      }));
     })();
 
-    // Luôn hiển thị tất cả trưởng nhóm để admin theo dõi
-    const savedNote = window._adminLeaderNotes ? (window._adminLeaderNotes[mid] || '') : '';
-    const noteKey   = 'admin_leader_note_' + mid;
+    // Hạt giống
+    const latestSeedsActive = (() => { for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsActive != null) return je.seedsActive; } return null; })();
+    const oldSeedsActive    = (() => { if (jKeys7.length < 2) return null; for (let i = jKeys7.length-1; i>=1; i--) { const je = jHist[jKeys7[i]]; if (je && je.seedsActive != null) return je.seedsActive; } return null; })();
+    const latestSeedsDone   = (() => { for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsDone != null) return je.seedsDone; } return null; })();
 
-    const level    = hasAlert ? (lrExpired || criticalNN ? 'red' : 'amber') : hasWatch ? 'blue' : 'green';
-    const priority = lrExpired ? 1 : criticalNN ? 2 : lowEnergy ? 3 : lrExpiringSoon ? 4 : notTrainedToday ? 5 : expiredCount > 0 ? 6 : 7;
-    const label    = lrExpired ? 'Hết hạn' : criticalNN ? 'NL rất thấp — cần hỗ trợ' : lowEnergy ? 'NL thấp' : lrExpiringSoon ? 'Sắp hết hạn' : notTrainedToday ? 'Chưa rèn hôm nay' : expiredCount > 0 ? 'Thành viên hết hạn' : '✅ Đang ổn';
-
-    // ── Tính dữ liệu sức khỏe NHÓM ──
-    // Chỉ dùng thành viên không phải leader
-    const allGroupM = membersByGroup[groupCode] || [];
-    const nonLeaderM = allGroupM.filter(m => !m.isLeader);
-
-    // Thành viên active hôm nay (có trong /groups/ với date === todayK)
-    // Dùng groupsAll nếu có, hoặc ước tính từ dữ liệu đã load
-    // groupActiveToday = số người trong groups/{gc} có .date === todayK
-    // (đây là best-effort từ data đã có, không load thêm)
-    let _groupActiveToday = 0;
-    let _groupAvgNL = null;
-    let _groupCountRed = 0, _groupCountYellow = 0, _groupCountGreen = 0, _groupCountNoLog = 0;
-    let _groupNLMin = null, _groupNLMax = null;
-    let _groupMemberList = [];
-
-    // Lấy từ leaderAllData nếu có (admin có thể không có data này)
-    // Tuy nhiên ta đã load /journals/ cho TN — với thành viên nhóm ta dùng membersAll để lấy metadata
-    // và groupsAll (đã load trong loadAdminData) cho stats hôm nay
-    // groupsAll được truyền vào renderAdminGroups nhưng không vào đây — ta dùng window cache nếu có
+    // ── Sức khỏe nhóm ──
     const cachedGroupData = window._adminGroupsAll ? (window._adminGroupsAll[fbKey ? fbKey(groupCode) : groupCode] || {}) : {};
+    let _groupActiveToday = 0, _groupAvgNL = null;
+    let _groupCountRed = 0, _groupCountYellow = 0, _groupCountGreen = 0, _groupCountNoLog = 0;
+    let _groupMemberNeedCare = [];
 
     if (Object.keys(cachedGroupData).length > 0) {
-      const memberStats = Object.entries(cachedGroupData).filter(([k]) => k !== '__meta__');
-      const activeStats = memberStats.filter(([, s]) => s && s.date === todayK);
-      _groupActiveToday = activeStats.length;
-
-      const nlVals = activeStats.map(([, s]) => {
-        const nn = s.nn || [];
-        return nn.length ? Math.round(nn.reduce((a,b)=>a+b,0)/nn.length * 10) / 10 : null;
-      }).filter(v => v !== null);
-
+      const memberStats  = Object.entries(cachedGroupData).filter(([k]) => k !== '__meta__');
+      const activeStats  = memberStats.filter(([, s]) => s && s.date === todayK);
+      _groupActiveToday  = activeStats.length;
+      const nlVals       = activeStats.map(([, s]) => { const nn = s.nn||[]; return nn.length ? Math.round(nn.reduce((a,b)=>a+b,0)/nn.length*10)/10 : null; }).filter(v=>v!==null);
       if (nlVals.length) {
-        _groupAvgNL = Math.round(nlVals.reduce((a,b)=>a+b,0)/nlVals.length * 10) / 10;
-        _groupNLMin = Math.min(...nlVals);
-        _groupNLMax = Math.max(...nlVals);
-        _groupCountRed    = nlVals.filter(v => v < 5).length;
-        _groupCountYellow = nlVals.filter(v => v >= 5 && v <= 7).length;
-        _groupCountGreen  = nlVals.filter(v => v > 7).length;
+        _groupAvgNL      = Math.round(nlVals.reduce((a,b)=>a+b,0)/nlVals.length*10)/10;
+        _groupCountRed   = nlVals.filter(v=>v<5).length;
+        _groupCountYellow= nlVals.filter(v=>v>=5&&v<=7).length;
+        _groupCountGreen = nlVals.filter(v=>v>7).length;
       }
-      _groupCountNoLog = nonLeaderM.length - _groupActiveToday;
-      if (_groupCountNoLog < 0) _groupCountNoLog = 0;
+      _groupCountNoLog   = Math.max(0, groupMembers.length - _groupActiveToday);
 
-      // Danh sách thành viên mini — sắp theo NL tăng dần (chật vật lên trước)
-      _groupMemberList = nonLeaderM.map(m => {
-        const mStat = cachedGroupData[m.memberId] || cachedGroupData[m.memberId?.replace(/[.#$[\]]/g,'_')] || null;
+      // Thành viên cần quan tâm: chưa ghi hoặc NL đỏ, sắp xếp NL thấp lên trước
+      _groupMemberNeedCare = groupMembers.map(m => {
+        const mStat    = cachedGroupData[m.memberId] || null;
         const isActive = mStat && mStat.date === todayK;
-        const nn = isActive ? (mStat.nn || []) : [];
-        const nlToday = nn.length ? Math.round(nn.reduce((a,b)=>a+b,0)/nn.length * 10) / 10 : null;
-        const nlColor = !isActive ? 'var(--ink-muted)' : nlToday >= 7 ? '#3B6D11' : nlToday >= 5 ? '#854F0B' : '#A32D2D';
-        return { name: m.name || '–', nlToday, nlColor, last7: [] };
-      }).sort((a, b) => {
-        if (a.nlToday === null && b.nlToday === null) return 0;
-        if (a.nlToday === null) return 1;
-        if (b.nlToday === null) return -1;
-        return a.nlToday - b.nlToday;
-      });
+        const nn       = isActive ? (mStat.nn || []) : [];
+        const nlToday  = nn.length ? Math.round(nn.reduce((a,b)=>a+b,0)/nn.length*10)/10 : null;
+        return { name: m.name || '–', nlToday, isActive, memberId: m.memberId || '', groupCode };
+      }).filter(m => !m.isActive || (m.nlToday !== null && m.nlToday < 5))
+        .sort((a, b) => {
+          if (!a.isActive && b.isActive) return -1;
+          if (a.isActive && !b.isActive) return 1;
+          if (a.nlToday === null) return 1;
+          if (b.nlToday === null) return -1;
+          return a.nlToday - b.nlToday;
+        }).slice(0, 5);
     } else {
-      _groupCountNoLog = nonLeaderM.length;
+      _groupCountNoLog = groupMembers.length;
     }
 
-    // Tỉ lệ ghi 7 ngày nhóm — tính từ /journals/ cache nếu có
-    let _groupRate7 = [], _groupRate7Labels = [], _groupRatePrev = null, _groupRateCur = null;
+    // Tỉ lệ ghi 7 ngày nhóm
+    let _groupRate7 = [], _groupRateTrend = '';
     const groupJournalCache = window._adminGroupJournals ? (window._adminGroupJournals[groupCode] || null) : null;
-    if (groupJournalCache && nonLeaderM.length > 0) {
+    if (groupJournalCache && groupMembers.length > 0) {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() + 7*60*60*1000);
         d.setUTCDate(d.getUTCDate() - i);
         const dk = d.toISOString().split('T')[0];
-        const countWrote = nonLeaderM.filter(m => {
+        const countWrote = groupMembers.filter(m => {
           const mj = groupJournalCache[m.memberId] || {};
           const je = mj[dk];
           return je && (Object.values(je.rituals||{}).some(Boolean) || je.energy);
         }).length;
-        const pct = Math.round((countWrote / nonLeaderM.length) * 100);
-        _groupRate7.push(pct);
-        const dd = new Date(dk); _groupRate7Labels.push((dd.getDate())+'/'+(dd.getMonth()+1));
+        _groupRate7.push(Math.round((countWrote / groupMembers.length) * 100));
       }
-      const first3avg = Math.round(_groupRate7.slice(0,3).reduce((a,b)=>a+b,0)/3);
-      const last3avg  = Math.round(_groupRate7.slice(-3).reduce((a,b)=>a+b,0)/3);
-      _groupRatePrev = first3avg; _groupRateCur = last3avg;
-    }
-
-    // Ngôi nhà yếu nhất nhóm — từ cached group data + weekCount thật từ _adminGroupWeeklyNN
-    let _groupWeakestNN = null;
-    if (Object.keys(cachedGroupData).length > 0 && typeof NN_LIST !== 'undefined') {
-      const activeStats2 = Object.values(cachedGroupData).filter(s => s && s.date === todayK && Array.isArray(s.nn) && s.nn.length);
-      if (activeStats2.length >= 2) {
-        const nnAvgs = NN_LIST.map((nn, j) => {
-          const vals = activeStats2.map(s => s.nn[j] || 5);
-          return { nn, avg: Math.round(vals.reduce((a,b)=>a+b,0)/vals.length * 10)/10,
-            countBelow5: vals.filter(v=>v<5).length };
-        });
-        nnAvgs.sort((a,b) => a.avg - b.avg);
-        const weakest = nnAvgs[0];
-        if (weakest.avg < 7) {
-          // Tính weekCount thật: so sánh key ngôi nhà yếu tuần này vs tuần trước
-          let weekCount = 1;
-          const weeklyNN = window._adminGroupWeeklyNN ? (window._adminGroupWeeklyNN[groupCode] || {}) : {};
-          if (weeklyNN.week1 && weeklyNN.week2 && weeklyNN.week1 === weakest.nn.key && weeklyNN.week1 === weeklyNN.week2) {
-            weekCount = 2; // cùng nhà yếu 2 tuần liên tiếp
-          }
-          _groupWeakestNN = {
-            icon: weakest.nn.icon || '🏠',
-            label: weakest.nn.label || weakest.nn.key,
-            avg: weakest.avg,
-            countBelow5: weakest.countBelow5,
-            weekCount: weekCount
-          };
-        }
+      if (_groupRate7.length === 7) {
+        const prev3 = Math.round(_groupRate7.slice(0,3).reduce((a,b)=>a+b,0)/3);
+        const cur3  = Math.round(_groupRate7.slice(-3).reduce((a,b)=>a+b,0)/3);
+        const diff  = cur3 - prev3;
+        if (diff < -5)     _groupRateTrend = '<span style="color:var(--rose);font-size:10px;font-weight:700">▼'+cur3+'%</span>';
+        else if (diff > 5) _groupRateTrend = '<span style="color:var(--jade);font-size:10px;font-weight:700">▲'+cur3+'%</span>';
+        else               _groupRateTrend = '<span style="color:var(--ink-muted);font-size:10px">≈'+cur3+'%</span>';
       }
     }
 
-    // Đồng hành TN: đếm ghi chú + tính ngày từ lần note cuối (dùng updatedAt)
-    const _leaderNoteCount    = (savedNote && savedNote.trim()) ? 1 : 0;
-    const _noNoteStruggling   = _groupCountRed; // thành viên NL đỏ
-    const _noteUpdatedAt      = window._adminLeaderNotesUpdatedAt ? (window._adminLeaderNotesUpdatedAt[mid] || null) : null;
-    const _daysSinceNote      = _noteUpdatedAt
-      ? Math.floor((Date.now() - _noteUpdatedAt) / 86400000)
-      : null;
+    const savedNote = window._adminLeaderNotes ? (window._adminLeaderNotes[mid] || '') : '';
+    const noteKey   = 'admin_leader_note_' + mid;
+
+    // ── OKR tháng hiện tại ──
+    const okr = leaderOkrStats[mid] || null;
+
+    // ── Phân loại mức độ ──
+    const hasAlert  = lrExpired || criticalNN || lowEnergy || lrExpiringSoon || expiredCount > 0 || groupCount === 0;
+    const hasWatch  = recentJoin >= 3 || groupCount >= 8 || notTrainedToday || recentInactiveDays >= 3 || lowHouseAvg7;
+    const level     = hasAlert ? (lrExpired || criticalNN ? 'red' : 'amber') : hasWatch ? 'blue' : 'green';
+    const priority  = lrExpired ? 1 : criticalNN ? 2 : lowEnergy ? 3 : lrExpiringSoon ? 4 : recentInactiveDays >= 3 ? 5 : expiredCount > 0 ? 6 : 7;
+    const label     = lrExpired ? 'Hết hạn' : criticalNN ? 'NL rất thấp' : lowEnergy ? 'NL thấp' : lrExpiringSoon ? 'Sắp hết hạn' : recentInactiveDays >= 5 ? recentInactiveDays + ' ngày không rèn' : expiredCount > 0 ? 'TV hết hạn' : level === 'green' ? '✅ Ổn' : '👀 Theo dõi';
 
     alerts.push({
       level, priority, label,
       name: lr.name || mData.name || '–', groupCode, mid,
       groupCount, recentJoin, expiredCount, lrExp, lrExpiringSoon, lrExpired,
       noteKey, savedNote,
-      tStats, trainedToday, ritualsToday, nnToday, avgNN, minNN, lowEnergy, criticalNN, notTrainedToday,
-      trend7, latestSeedsActive, oldSeedsActive, latestSeedsDone,
-      // Group health fields
+      tStats, trainedToday, ritualsToday, nnToday, avgNN, lowEnergy, criticalNN, notTrainedToday,
+      trend7, jHist, jKeys7, nnAvg7, nnAvg7PerHouse, lowHouseAvg7, recentInactiveDays,
+      latestSeedsActive, oldSeedsActive, latestSeedsDone,
+      okr,
       _groupActiveToday, _groupAvgNL,
       _groupCountRed, _groupCountYellow, _groupCountGreen, _groupCountNoLog,
-      _groupNLMin, _groupNLMax, _groupMemberList,
-      _groupRate7, _groupRate7Labels, _groupRatePrev, _groupRateCur,
-      _groupWeakestNN,
-      _leaderNoteCount, _noNoteStruggling, _daysSinceNote,
+      _groupMemberNeedCare, _groupRate7, _groupRateTrend,
+      monthlyData: leaderMonthlyData[mid] || {},
     });
   });
 
   alerts.sort((a,b) => a.priority - b.priority);
+
+  // Lọc TN cần đồng hành (badge section) hoặc hiện tất cả (danh sách)
+  const displayAlerts = filterNeedCare
+    ? alerts.filter(a => a.level !== 'green')
+    : alerts;
 
   if (badgeEl) {
     const urgentCount = alerts.filter(a => a.level === 'red' || a.level === 'amber').length;
@@ -10287,469 +10342,802 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
     badgeEl.textContent = urgentCount;
   }
 
-  // ── Helper: toggle collapse/expand cho từng card ──
+  // Nếu filter mà không có ai cần đồng hành
+  if (filterNeedCare && displayAlerts.length === 0) {
+    if (sectionEl) sectionEl.style.display = 'none';
+    return;
+  }
+  if (sectionEl) sectionEl.style.display = 'block';
+
+  window._adminCardExpanded = window._adminCardExpanded || {};
+
+  const colMap = {
+    red:   { border:'rgba(192,96,106,0.35)',  bg:'rgba(192,96,106,0.08)',  badge:'background:rgba(192,96,106,0.18);color:var(--rose)',     name:'var(--rose)' },
+    amber: { border:'rgba(201,168,76,0.4)',   bg:'rgba(201,168,76,0.08)', badge:'background:rgba(201,168,76,0.18);color:var(--gold-dark)', name:'var(--gold-dark)' },
+    blue:  { border:'rgba(74,127,168,0.3)',   bg:'rgba(74,127,168,0.07)', badge:'background:rgba(74,127,168,0.15);color:var(--sky)',       name:'var(--sky)' },
+    green: { border:'rgba(74,140,111,0.25)',  bg:'rgba(74,140,111,0.06)', badge:'background:rgba(74,140,111,0.18);color:var(--jade)',      name:'var(--jade)' },
+  };
+
+  listEl.innerHTML = displayAlerts.map(a => {
+    const col     = colMap[a.level] || colMap.blue;
+    const midSafe = escHtml(a.mid);
+    const displayLabel = a.label === '✅ Đang tốt' ? '✅ Tốt' : a.label;
+    if (window._adminCardExpanded[a.mid] === undefined) window._adminCardExpanded[a.mid] = false;
+    const isExpanded = window._adminCardExpanded[a.mid];
+
+    // Hạn tài khoản TN
+    const lrDaysLeft = a.lrExp ? a.lrExp.daysLeft : null;
+    const expiryTxt  = a.lrExpired
+      ? '<span style="color:var(--rose);font-weight:700">Hết hạn</span>'
+      : lrDaysLeft !== null
+        ? '<span style="color:'+(lrDaysLeft<=30?'var(--gold-dark)':'var(--jade)')+';font-weight:700">'+lrDaysLeft+' ngày</span>'
+        : '–';
+
+    // ══ CỘT TRÁI: CÁ NHÂN TRƯỞNG NHÓM ══
+
+    // Thống kê hoạt động cá nhân
+    const trainedDays7 = a.trend7.filter(d => d.trained).length;
+    const ritAvg7      = trainedDays7 ? Math.round(a.trend7.filter(d=>d.trained).reduce((s,d)=>s+d.ritPct,0)/trainedDays7) : 0;
+    const nnAvg7Color  = a.nnAvg7 === null ? 'var(--ink-muted)' : a.nnAvg7 >= 7 ? 'var(--jade)' : a.nnAvg7 >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+
+    // 7 dot ngày rèn
+    const streakDots7 = a.trend7.map(d =>
+      '<div style="width:9px;height:9px;border-radius:50%;background:'+(d.trained?'var(--jade)':'rgba(0,0,0,0.12)')+'"></div>'
+    ).join('');
+
+    // Hạt giống
+    let seedTxt = '';
+    if (a.latestSeedsActive !== null) {
+      const seedDiff = a.oldSeedsActive !== null ? a.latestSeedsActive - a.oldSeedsActive : null;
+      const seedTrend = seedDiff === null ? '' : seedDiff > 0 ? ' <span style="color:var(--rose);font-size:9px">▲+'+seedDiff+'</span>' : seedDiff < 0 ? ' <span style="color:var(--jade);font-size:9px">▼'+Math.abs(seedDiff)+'</span>' : '';
+      seedTxt = a.latestSeedsActive + seedTrend + (a.latestSeedsActive >= 10 ? ' <span style="color:var(--rose);font-size:9px">⚠️</span>' : '');
+    }
+
+    // Cảnh báo ngôi nhà — liệt kê từng NN dưới 5
+    const lowHousesList = (a.nnAvg7PerHouse || []).filter(h => h.avg !== null && h.avg < 5);
+    const houseWarnTxt = lowHousesList.length
+      ? '<div style="margin-top:4px;margin-bottom:2px">' +
+          '<div style="font-size:9px;color:var(--rose);font-weight:700;margin-bottom:3px">⚠ Ngôi nhà &lt;5 (TB 7 ngày):</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:3px">' +
+          lowHousesList.map(h =>
+            '<span style="background:rgba(163,45,45,0.1);color:var(--rose);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap">'
+            + h.label + ' ' + h.avg + '/10</span>'
+          ).join('') +
+          '</div></div>'
+      : (a.lowHouseAvg7
+          ? '<div style="font-size:10px;color:var(--rose);font-weight:700;margin-top:3px">⚠ TB NL tuần: '+a.nnAvg7+'/10 — thấp</div>'
+          : '');
+
+    // Đánh giá tổng hợp
+    const summaryItems = [];
+    if (a.recentInactiveDays >= 2) summaryItems.push({ c:'var(--rose)', t: a.recentInactiveDays + ' ngày không rèn liên tiếp' });
+    if (lowHousesList.length) summaryItems.push({ c:'var(--rose)', t: lowHousesList.map(h => h.label+' '+h.avg+'/10').join(', ') + ' — thấp' });
+    else if (a.lowHouseAvg7 && a.nnAvg7 !== null) summaryItems.push({ c:'var(--rose)', t: 'NL ngôi nhà TB tuần: '+a.nnAvg7+'/10 thấp' });
+    if (a.criticalNN)     summaryItems.push({ c:'var(--rose)',       t: 'NL hôm nay rất thấp: '+a.avgNN+'/10' });
+    else if (a.lowEnergy) summaryItems.push({ c:'var(--gold-dark)',  t: 'NL hôm nay thấp: '+a.avgNN+'/10' });
+    if (a.lrExpired)      summaryItems.push({ c:'var(--rose)',       t: 'Tài khoản đã hết hạn' });
+    if (a.lrExpiringSoon) summaryItems.push({ c:'var(--gold-dark)',  t: 'Còn '+lrDaysLeft+' ngày đến hết hạn' });
+    const summaryHTML = summaryItems.length
+      ? summaryItems.map(s =>
+          '<div style="display:flex;align-items:center;gap:5px;font-size:10.5px;padding:2px 0">' +
+          '<span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:'+s.c+'"></span>' +
+          '<span style="color:var(--ink-soft)">'+s.t+'</span></div>'
+        ).join('')
+      : '<div style="font-size:10.5px;color:var(--jade)">Không có vấn đề đáng lo — đang tốt</div>';
+
+    const leftCol =
+      '<div style="flex:1;min-width:0">' +
+        // Tiêu đề cột
+        '<div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--sky);margin-bottom:7px">👤 Cá nhân TN</div>' +
+
+        // Stats 3 ô: ngày rèn / % nghi thức / NL TB
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px">' +
+          '<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">' +
+            '<div style="font-size:14px;font-weight:700;color:var(--sky)">'+trainedDays7+'/7</div>' +
+            '<div style="font-size:9px;color:var(--ink-muted)">ngày rèn</div>' +
+          '</div>' +
+          '<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">' +
+            '<div style="font-size:14px;font-weight:700;color:'+(ritAvg7>=78?'var(--jade)':ritAvg7>=44?'var(--gold-dark)':'var(--rose)')+'">'+ritAvg7+'%</div>' +
+            '<div style="font-size:9px;color:var(--ink-muted)">nghi thức</div>' +
+          '</div>' +
+          '<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">' +
+            (a.nnAvg7 !== null
+              ? '<div style="font-size:14px;font-weight:700;color:'+nnAvg7Color+'">'+a.nnAvg7+'</div><div style="font-size:9px;color:var(--ink-muted)">TB NL/10</div>'
+              : '<div style="font-size:13px;color:var(--ink-muted)">–</div><div style="font-size:9px;color:var(--ink-muted)">NL/10</div>') +
+          '</div>' +
+        '</div>' +
+
+        // 7 dot rèn luyện
+        '<div style="display:flex;gap:4px;align-items:center;margin-bottom:7px">' +
+          '<div style="font-size:9px;color:var(--ink-muted);flex-shrink:0">7 ngày:</div>' +
+          '<div style="display:flex;gap:3px">' + streakDots7 + '</div>' +
+        '</div>' +
+
+        // Hạt giống + không rèn
+        '<div style="display:flex;gap:6px;margin-bottom:7px">' +
+          (a.latestSeedsActive !== null
+            ? '<div style="flex:1;background:rgba(201,168,76,0.07);border-radius:6px;padding:4px 8px">' +
+                '<div style="font-size:9px;color:var(--gold-dark);font-weight:700;margin-bottom:1px">🌱 Hạt giống</div>' +
+                '<div style="font-size:12px;font-weight:700;color:var(--gold-dark)">'+seedTxt+'</div>' +
+                (a.latestSeedsDone !== null ? '<div style="font-size:9px;color:var(--jade)">✅ '+a.latestSeedsDone+' chuyển hóa</div>' : '') +
+              '</div>'
+            : '') +
+          (a.recentInactiveDays > 0
+            ? '<div style="flex:1;background:rgba(192,96,106,0.07);border-radius:6px;padding:4px 8px">' +
+                '<div style="font-size:9px;color:var(--rose);font-weight:700;margin-bottom:1px">📭 Không rèn</div>' +
+                '<div style="font-size:12px;font-weight:700;color:var(--rose)">'+a.recentInactiveDays+' ngày</div>' +
+              '</div>'
+            : '') +
+        '</div>' +
+
+        houseWarnTxt +
+
+        // OKR tháng này
+        (a.okr
+          ? '<div style="margin-bottom:7px">' +
+              '<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:var(--gold-dark);margin-bottom:5px">🎯 OKR tháng này</div>' +
+              '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">' +
+                '<div style="background:rgba(201,168,76,0.07);border-radius:6px;padding:4px 7px;text-align:center">' +
+                  '<div style="font-size:13px;font-weight:700;color:var(--gold-dark)">'+a.okr.totalO+'</div>' +
+                  '<div style="font-size:8.5px;color:var(--ink-muted)">Tổng O</div>' +
+                '</div>' +
+                '<div style="background:rgba(201,168,76,0.07);border-radius:6px;padding:4px 7px;text-align:center">' +
+                  '<div style="font-size:13px;font-weight:700;color:'+(a.okr.doneO===a.okr.totalO&&a.okr.totalO>0?'var(--jade)':a.okr.rate>=50?'var(--gold-dark)':'var(--rose)')+'">'+a.okr.doneO+'/'+a.okr.totalO+'</div>' +
+                  '<div style="font-size:8.5px;color:var(--ink-muted)">O ≥7 điểm</div>' +
+                '</div>' +
+                '<div style="background:rgba(201,168,76,0.07);border-radius:6px;padding:4px 7px;text-align:center">' +
+                  (a.okr.rate !== null
+                    ? '<div style="font-size:13px;font-weight:700;color:'+(a.okr.rate>=70?'var(--jade)':a.okr.rate>=40?'var(--gold-dark)':'var(--rose)')+'">'+a.okr.rate+'%</div><div style="font-size:8.5px;color:var(--ink-muted)">tỉ lệ đạt</div>'
+                    : '<div style="font-size:13px;color:var(--ink-muted)">–</div><div style="font-size:8.5px;color:var(--ink-muted)">tỉ lệ đạt</div>') +
+                '</div>' +
+              '</div>' +
+              (a.okr.totalKR > 0
+                ? '<div style="font-size:9.5px;color:var(--ink-muted);margin-top:4px">KR: <strong style="color:'+(a.okr.doneKR===a.okr.totalKR?'var(--jade)':'var(--gold-dark)')+'">'+a.okr.doneKR+'/'+a.okr.totalKR+'</strong> hoàn thành</div>'
+                : '') +
+            '</div>'
+          : '') +
+
+        // Đánh giá tổng hợp
+        '<div style="border-top:0.5px solid var(--border);padding-top:6px;margin-top:6px">' +
+          '<div style="font-size:9.5px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">Tóm tắt:</div>' +
+          summaryHTML +
+        '</div>' +
+      '</div>';
+
+    // ══ CỘT PHẢI: SỨC KHỎE NHÓM ══
+    const gTotal    = a.groupCount || 0;
+    const gActive   = a._groupActiveToday || 0;
+    const gInactive = gTotal - gActive;
+    const gAvgNLColor = a._groupAvgNL === null ? 'var(--ink-muted)' : a._groupAvgNL >= 7 ? 'var(--jade)' : a._groupAvgNL >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+
+    // Mini bar 7 ngày tỉ lệ ghi nhóm
+    const gRate7Bars = (a._groupRate7 || []).map(pct => {
+      const h = Math.max(3, Math.round((pct/100)*28));
+      const c = pct >= 70 ? 'var(--jade)' : pct >= 40 ? 'var(--gold)' : 'var(--rose)';
+      return '<div style="flex:1;display:flex;align-items:flex-end;justify-content:center;height:28px">' +
+        '<div style="width:80%;height:'+h+'px;border-radius:2px 2px 0 0;background:'+c+'"></div>' +
+      '</div>';
+    }).join('');
+
+    // Thành viên cần quan tâm
+    const careRows = (a._groupMemberNeedCare || []).map(m => {
+      const nlColor  = !m.isActive ? 'var(--ink-muted)' : m.nlToday >= 7 ? 'var(--jade)' : m.nlToday >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+      const nlTxt    = m.nlToday !== null && m.nlToday !== undefined ? m.nlToday.toFixed(1) : '–';
+      const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
+      const mSafe    = escHtml(m.memberId || '');
+      const gcSafe   = escHtml(m.groupCode || '');
+      const nameSafe = escHtml(m.name);
+      return '<div style="border-bottom:0.5px solid var(--border)">' +
+        // Row chính
+        '<div style="display:flex;align-items:center;gap:6px;padding:4px 0">' +
+          '<div style="width:20px;height:20px;border-radius:50%;background:'+(m.isActive?nlColor:'rgba(0,0,0,0.1)')+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">'+initials+'</div>' +
+          '<div style="flex:1;font-size:11px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nameSafe+'</div>' +
+          '<div style="font-size:11px;font-weight:700;color:'+nlColor+';flex-shrink:0;margin-right:4px">'+(m.isActive?'NL '+nlTxt:'Chưa ghi')+'</div>' +
+          '<button onclick="adminMemberToggle(\'streak\',\''+mSafe+'\',\''+gcSafe+'\')" ' +
+            'style="font-size:9px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:0.5px solid rgba(74,127,168,0.2);border-radius:4px;padding:2px 6px;cursor:pointer;font-family:inherit;flex-shrink:0">Chuỗi</button>' +
+          '<button onclick="adminMemberToggle(\'report\',\''+mSafe+'\',\''+gcSafe+'\')" ' +
+            'style="font-size:9px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:0.5px solid rgba(133,79,11,0.2);border-radius:4px;padding:2px 6px;cursor:pointer;font-family:inherit;flex-shrink:0">Báo cáo</button>' +
+        '</div>' +
+        // Expand streak
+        '<div id="ms-streak-'+mSafe+'" style="display:none;padding:6px 0 8px">' +
+          '<div style="font-size:9.5px;color:var(--ink-muted);text-align:center;padding:4px">Đang tải...</div>' +
+        '</div>' +
+        // Expand report
+        '<div id="ms-report-'+mSafe+'" style="display:none;padding:6px 0 8px">' +
+          '<div style="font-size:9.5px;color:var(--ink-muted);text-align:center;padding:4px">Đang tải...</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    const rightCol =
+      '<div style="flex:1;min-width:0;border-left:0.5px solid var(--border);padding-left:10px">' +
+        '<div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--jade);margin-bottom:7px">👥 Sức khỏe nhóm</div>' +
+
+        // 4 chỉ số nhóm hôm nay
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px">' +
+          '<div style="background:rgba(0,0,0,0.04);border-radius:7px;padding:4px 5px;text-align:center">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--ink)">'+gTotal+'</div>' +
+            '<div style="font-size:8.5px;color:var(--ink-muted)">TV</div>' +
+          '</div>' +
+          '<div style="background:rgba(74,140,111,0.08);border-radius:7px;padding:4px 5px;text-align:center">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--jade)">'+gActive+'</div>' +
+            '<div style="font-size:8.5px;color:var(--ink-muted)">ghi hôm nay</div>' +
+          '</div>' +
+          '<div style="background:rgba(192,96,106,0.07);border-radius:7px;padding:4px 5px;text-align:center">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--rose)">'+gInactive+'</div>' +
+            '<div style="font-size:8.5px;color:var(--ink-muted)">chưa ghi</div>' +
+          '</div>' +
+          '<div style="background:rgba(201,168,76,0.07);border-radius:7px;padding:4px 5px;text-align:center">' +
+            '<div style="font-size:13px;font-weight:700;color:'+gAvgNLColor+'">'+(a._groupAvgNL!==null?a._groupAvgNL.toFixed(1):'–')+'</div>' +
+            '<div style="font-size:8.5px;color:var(--ink-muted)">NL TB</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Phân bố vùng NL (4 ô gọn)
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:8px">' +
+          '<div style="background:rgba(192,96,106,0.08);border-radius:5px;padding:3px 4px;text-align:center">' +
+            '<div style="font-size:12px;font-weight:700;color:var(--rose)">'+a._groupCountRed+'</div>' +
+            '<div style="font-size:8px;color:var(--rose)">đỏ &lt;5</div>' +
+          '</div>' +
+          '<div style="background:rgba(201,168,76,0.08);border-radius:5px;padding:3px 4px;text-align:center">' +
+            '<div style="font-size:12px;font-weight:700;color:var(--gold-dark)">'+a._groupCountYellow+'</div>' +
+            '<div style="font-size:8px;color:var(--gold-dark)">vàng 5–7</div>' +
+          '</div>' +
+          '<div style="background:rgba(74,140,111,0.08);border-radius:5px;padding:3px 4px;text-align:center">' +
+            '<div style="font-size:12px;font-weight:700;color:var(--jade)">'+a._groupCountGreen+'</div>' +
+            '<div style="font-size:8px;color:var(--jade)">xanh &gt;7</div>' +
+          '</div>' +
+          '<div style="background:rgba(0,0,0,0.04);border-radius:5px;padding:3px 4px;text-align:center">' +
+            '<div style="font-size:12px;font-weight:700;color:var(--ink-muted)">'+a._groupCountNoLog+'</div>' +
+            '<div style="font-size:8px;color:var(--ink-muted)">chưa ghi</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Mini bar tỉ lệ ghi 7 ngày
+        (gRate7Bars
+          ? '<div style="margin-bottom:7px">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--ink-muted);margin-bottom:2px">' +
+                '<span>Ghi nhật ký 7 ngày</span>'+a._groupRateTrend+'</div>' +
+              '<div style="display:flex;gap:2px;border-bottom:0.5px solid var(--border)">' + gRate7Bars + '</div>' +
+            '</div>'
+          : '') +
+
+        // TV cần quan tâm
+        (careRows
+          ? '<div style="border-top:0.5px solid var(--border);padding-top:5px">' +
+              '<div style="font-size:9px;font-weight:700;color:var(--rose);margin-bottom:4px">🔔 Cần quan tâm</div>' +
+              careRows +
+            '</div>'
+          : '<div style="font-size:10px;color:var(--jade);text-align:center;padding:6px 0">✅ Mọi TV đang tốt</div>') +
+
+      '</div>';
+
+    return (
+      // ─ CARD ─
+      '<div style="border-radius:10px;margin-bottom:12px;overflow:hidden;border:1.5px solid '+col.border+'">' +
+
+        // Header (click toggle)
+        '<div style="padding:9px 12px 8px;background:'+col.bg+';cursor:pointer" onclick="adminToggleCard(\''+midSafe+'\')">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between">' +
+            '<div style="flex:1">' +
+              '<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:4px;'+col.badge+'">'+escHtml(displayLabel)+'</span>' +
+              '<div style="font-size:13px;font-weight:800;color:'+col.name+'">'+escHtml(a.name)+'</div>' +
+              '<div style="font-size:10.5px;color:var(--ink-muted);margin-top:1px">Nhóm <strong>'+escHtml(a.groupCode)+'</strong> · '+a.groupCount+' TV · Hạn: '+expiryTxt+'</div>' +
+            '</div>' +
+            '<div id="admin-card-arrow-'+midSafe+'" style="font-size:12px;color:var(--ink-muted);margin-left:8px;flex-shrink:0">'+(isExpanded?'▲':'▼')+'</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Body 2 cột
+        '<div id="admin-card-body-'+midSafe+'" style="display:'+(isExpanded?'flex':'none')+';gap:0;padding:10px 12px;border-top:0.5px solid var(--border)">' +
+          leftCol +
+          rightCol +
+        '</div>' +
+
+        // Chuỗi rèn luyện chi tiết (ẩn mặc định, toggle riêng)
+        '<div id="admin-card-streak-'+midSafe+'" style="display:none;padding:8px 12px 10px;border-top:0.5px solid var(--border)">' +
+          buildStreakDetail(a) +
+        '</div>' +
+
+        // Báo cáo mốc thời gian (ẩn mặc định, toggle riêng)
+        '<div id="admin-card-report-'+midSafe+'" style="display:none;padding:8px 12px 10px;border-top:0.5px solid var(--border)">' +
+          buildReportDetail(a) +
+        '</div>' +
+
+        // Ghi chú admin (luôn hiển thị khi expand)
+        '<div id="admin-card-note-'+midSafe+'" style="display:'+(isExpanded?'block':'none')+';padding:6px 12px 6px;border-top:0.5px solid var(--border)">' +
+          // Nút xem chuỗi + báo cáo
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+            '<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark)">📝 Ghi chú đồng hành</div>' +
+            '<div style="display:flex;gap:5px">' +
+              '<button onclick="adminToggleStreak(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📅 Chuỗi rèn luyện</button>' +
+              '<button onclick="adminToggleReport(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:1px solid rgba(133,79,11,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📊 Xem báo cáo</button>' +
+            '</div>' +
+          '</div>' +
+          '<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" ' +
+            'placeholder="Ghi bối cảnh, lịch sử, kế hoạch hỗ trợ..." ' +
+            'style="width:100%;min-height:44px;font-size:11.5px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box">'+escHtml(a.savedNote)+'</textarea>' +
+        '</div>' +
+
+      '</div>'
+    );
+  }).join('');
+
+  // Toggle card body + note + streak
   window._adminCardExpanded = window._adminCardExpanded || {};
   window.adminToggleCard = function(mid) {
     window._adminCardExpanded[mid] = !window._adminCardExpanded[mid];
-    const body = document.getElementById('admin-card-body-' + mid);
-    const arrow = document.getElementById('admin-card-arrow-' + mid);
-    if (body) body.style.display = window._adminCardExpanded[mid] ? 'block' : 'none';
-    if (arrow) arrow.textContent = window._adminCardExpanded[mid] ? '▲' : '▼';
+    const body   = document.getElementById('admin-card-body-'   + mid);
+    const note   = document.getElementById('admin-card-note-'   + mid);
+    const arrow  = document.getElementById('admin-card-arrow-'  + mid);
+    const streak = document.getElementById('admin-card-streak-' + mid);
+    const report = document.getElementById('admin-card-report-' + mid);
+    const open   = window._adminCardExpanded[mid];
+    if (body)   body.style.display   = open ? 'flex'  : 'none';
+    if (note)   note.style.display   = open ? 'block' : 'none';
+    if (arrow)  arrow.textContent    = open ? '▲' : '▼';
+    if (!open) {
+      if (streak) streak.style.display = 'none';
+      if (report) report.style.display = 'none';
+    }
   };
-
-  listEl.innerHTML = alerts.map((a) => {
-    const colMap = {
-      red:   { border:'rgba(192,96,106,0.3)',  bg:'rgba(192,96,106,0.07)',  badge:'background:rgba(192,96,106,0.18);color:var(--rose)',     name:'var(--rose)' },
-      amber: { border:'rgba(201,168,76,0.35)', bg:'rgba(201,168,76,0.07)', badge:'background:rgba(201,168,76,0.18);color:var(--gold-dark)', name:'var(--gold-dark)' },
-      blue:  { border:'rgba(74,127,168,0.3)',  bg:'rgba(74,127,168,0.07)', badge:'background:rgba(74,127,168,0.15);color:var(--sky)',       name:'var(--sky)' },
-      green: { border:'rgba(74,140,111,0.25)', bg:'rgba(74,140,111,0.06)', badge:'background:rgba(74,140,111,0.18);color:var(--jade)',      name:'var(--jade)' },
-    };
-    const col = colMap[a.level] || colMap.blue;
-    const midSafe = escHtml(a.mid);
-
-    // Label: thay "Đang ổn" → "Đang tốt"
-    const displayLabel = (a.label === '✅ Đang ổn') ? '✅ Đang tốt' : a.label;
-
-    // Card mặc định mở nếu có vấn đề, thu gọn nếu đang tốt
-    if (window._adminCardExpanded[a.mid] === undefined) {
-      window._adminCardExpanded[a.mid] = (a.level !== 'green');
-    }
-    const isExpanded = window._adminCardExpanded[a.mid];
-
-    // ── Hạn tài khoản TN ──
-    const lrDaysLeft = a.lrExp ? a.lrExp.daysLeft : null;
-    const expiryTxt = a.lrExpired
-      ? '<span style="color:var(--rose);font-weight:700">Đã hết hạn</span>'
-      : lrDaysLeft !== null
-        ? '<span style="color:' + (lrDaysLeft<=30?'var(--gold-dark)':'var(--jade)') + ';font-weight:700">còn ' + lrDaysLeft + ' ngày</span>'
-        : '–';
-
-    // ── Danh sách vấn đề (luôn hiển thị) ──
-    const issues = [];
-    if (a.lrExpired)        issues.push({ l:'red',   t:'Tài khoản trưởng nhóm đã hết hạn — cần gia hạn' });
-    if (a.lrExpiringSoon)   issues.push({ l:'amber', t:'Còn ' + a.lrExp.daysLeft + ' ngày đến hết hạn' });
-    if (a.criticalNN && a.nnToday) {
-      const lowIdx = a.nnToday.map((v,i)=>({v,i})).filter(x=>x.v<=3);
-      lowIdx.forEach(x => { issues.push({ l:'red', t:'⚠️ ' + ['NN1 Bản Thân','NN2 Cha Mẹ','NN3 Vợ Chồng','NN4 Hồn Thiêng','NN5 Mẹ Thiên Nhiên'][x.i] + ' = ' + x.v + '/10 — rất thấp' }); });
-    } else if (a.lowEnergy && a.nnToday) {
-      issues.push({ l:'amber', t:'NL trung bình hôm nay: ' + a.avgNN + '/10 — cần quan tâm' });
-    }
-    if (a.expiredCount)     issues.push({ l:'amber', t: a.expiredCount + ' thành viên đã hết hạn' });
-    if (a.groupCount === 0) issues.push({ l:'blue',  t:'Nhóm chưa có thành viên' });
-    if (a.recentJoin >= 3)  issues.push({ l:'blue',  t: a.recentJoin + ' TV mới gia nhập 14 ngày — nhóm đang lớn nhanh' });
-
-    const issueHTML = issues.length
-      ? issues.map(r =>
-          '<div style="display:flex;align-items:flex-start;gap:6px;padding:3px 0;font-size:11.5px;color:var(--ink-soft)">' +
-          '<span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;display:inline-block;background:' +
-          (r.l==='red'?'var(--rose)':r.l==='amber'?'var(--gold-dark)':'var(--sky)') + '"></span>' +
-          escHtml(r.t) + '</div>'
-        ).join('')
-      : '<div style="font-size:11.5px;color:var(--jade)">Không có vấn đề đáng lo ngại</div>';
-
-    // ════════════════════════════════════════════
-    // PHẦN CÁ NHÂN TRƯỞNG NHÓM (expandable)
-    // ════════════════════════════════════════════
-
-    // ── Block rèn luyện hôm nay (cá nhân TN) ──
-    let trainingBlock = '';
-    if (a.trainedToday && a.tStats) {
-      const ritBar   = Math.round((a.ritualsToday / 9) * 100);
-      const ritColor = a.ritualsToday >= 7 ? 'var(--jade)' : a.ritualsToday >= 4 ? 'var(--gold)' : 'var(--rose)';
-      const nnDots   = (a.nnToday || []).map((v, i) => {
-        const icons = [NN_LIST[0]?NN_LIST[0].icon:'🌱', NN_LIST[1]?NN_LIST[1].icon:'👪', NN_LIST[2]?NN_LIST[2].icon:'💑', NN_LIST[3]?NN_LIST[3].icon:'🏔', NN_LIST[4]?NN_LIST[4].icon:'🌍'];
-        const c = v >= 8 ? 'var(--jade)' : v >= 5 ? 'var(--gold)' : 'var(--rose)';
-        return '<div style="text-align:center;flex:1">' +
-          '<div style="font-size:13px">' + (icons[i]||'') + '</div>' +
-          '<div style="font-size:11px;font-weight:700;color:'+c+';margin-top:2px">' + v + '</div>' +
-          '</div>';
-      }).join('');
-      trainingBlock =
-        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;color:var(--jade);margin-bottom:7px">⚡ RÈN LUYỆN HÔM NAY (Trưởng nhóm)</div>' +
-          '<div style="margin-bottom:8px">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--ink-muted);margin-bottom:3px">' +
-              '<span>Nghi thức</span><span style="font-weight:700;color:'+ritColor+'">' + a.ritualsToday + '/9</span>' +
-            '</div>' +
-            '<div style="height:5px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden">' +
-              '<div style="height:100%;width:'+ritBar+'%;background:'+ritColor+';border-radius:3px"></div>' +
-            '</div>' +
-          '</div>' +
-          (a.nnToday && a.nnToday.length ?
-            '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:5px">Năng lượng 5 ngôi nhà</div>' +
-            '<div style="display:flex;gap:4px">' + nnDots + '</div>'
-            : '') +
-        '</div>';
-    } else {
-      trainingBlock =
-        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">⚡ RÈN LUYỆN HÔM NAY (Trưởng nhóm)</div>' +
-          '<div style="font-size:11px;color:var(--ink-muted);font-style:italic">📭 Chưa đồng bộ dữ liệu rèn luyện hôm nay' +
-          (a.tStats && a.tStats.date ? ' · cập nhật lần cuối: ' + a.tStats.date : '') + '</div>' +
-        '</div>';
-    }
-
-    // ── Block xu hướng 7 ngày (cá nhân TN) ──
-    let trendBlock = '';
-    if (a.trend7 && a.trend7.length > 0) {
-      const allNN7      = a.trend7.map(d => d.avgNN).filter(v => v !== null);
-      const trainedDays = a.trend7.filter(d => d.trained).length;
-      const ritAvg7     = trainedDays ? Math.round(a.trend7.filter(d=>d.trained).reduce((s,d)=>s+d.ritPct,0)/trainedDays) : 0;
-      const nnAvg7      = allNN7.length ? Math.round(allNN7.reduce((s,v)=>s+v,0)/allNN7.length*10)/10 : null;
-
-      const streakDots = a.trend7.map(d => {
-        const label = d.dk ? d.dk.slice(5) : '';
-        return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">' +
-          '<div style="width:10px;height:10px;border-radius:50%;background:'+(d.trained?'var(--jade)':'rgba(0,0,0,0.12)')+'"></div>' +
-          '<div style="font-size:9px;color:var(--ink-muted)">'+label+'</div>' +
-        '</div>';
-      }).join('');
-
-      const ritBars = a.trend7.map(d => {
-        const h = d.trained ? Math.max(4, Math.round((d.ritPct/100)*36)) : 4;
-        const c = d.ritPct >= 78 ? 'var(--jade)' : d.ritPct >= 44 ? 'var(--gold)' : (d.trained ? 'var(--rose)' : 'rgba(0,0,0,0.1)');
-        return '<div style="flex:1;display:flex;align-items:flex-end;justify-content:center">' +
-          '<div style="width:10px;height:'+h+'px;border-radius:3px 3px 0 0;background:'+c+'"></div>' +
-        '</div>';
-      }).join('');
-
-      const nnLine = a.trend7.map(d => {
-        if (d.avgNN === null) return '<div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:6px;height:6px;border-radius:50%;background:rgba(0,0,0,0.1)"></div></div>';
-        const c = d.avgNN >= 8 ? 'var(--jade)' : d.avgNN >= 5 ? 'var(--gold)' : 'var(--rose)';
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">' +
-          '<div style="font-size:9px;font-weight:700;color:'+c+'">'+d.avgNN+'</div>' +
-          '<div style="width:8px;height:8px;border-radius:50%;background:'+c+'"></div>' +
-        '</div>';
-      }).join('');
-
-      trendBlock =
-        '<div style="padding:10px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;color:var(--sky);margin-bottom:8px">📈 XU HƯỚNG 7 NGÀY (Trưởng nhóm)</div>' +
-          '<div style="display:flex;gap:6px;margin-bottom:10px">' +
-            '<div style="flex:1;background:rgba(74,127,168,0.07);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:15px;font-weight:700;color:var(--sky)">'+trainedDays+'/7</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">ngày rèn</div>' +
-            '</div>' +
-            '<div style="flex:1;background:rgba(74,127,168,0.07);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:15px;font-weight:700;color:'+(ritAvg7>=78?'var(--jade)':ritAvg7>=44?'var(--gold)':'var(--rose)')+'">'+ritAvg7+'%</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">TB nghi thức</div>' +
-            '</div>' +
-            (nnAvg7 !== null ?
-              '<div style="flex:1;background:rgba(74,127,168,0.07);border-radius:7px;padding:6px 8px;text-align:center">' +
-                '<div style="font-size:15px;font-weight:700;color:'+(nnAvg7>=8?'var(--jade)':nnAvg7>=5?'var(--gold)':'var(--rose)')+'">'+nnAvg7+'</div>' +
-                '<div style="font-size:9.5px;color:var(--ink-muted)">TB NL/10</div>' +
-              '</div>' : '') +
-          '</div>' +
-          '<div style="margin-bottom:6px">' +
-            '<div style="font-size:9px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">Ngày rèn luyện</div>' +
-            '<div style="display:flex;gap:2px">' + streakDots + '</div>' +
-          '</div>' +
-          '<div style="margin-bottom:6px">' +
-            '<div style="font-size:9px;font-weight:700;color:var(--ink-muted);margin-bottom:2px">% Nghi thức</div>' +
-            '<div style="display:flex;gap:2px;align-items:flex-end;height:44px;border-bottom:0.5px solid var(--border)">' + ritBars + '</div>' +
-          '</div>' +
-          (allNN7.length > 0 ?
-            '<div>' +
-              '<div style="font-size:9px;font-weight:700;color:var(--ink-muted);margin-bottom:4px">NL TB mỗi ngày (/10)</div>' +
-              '<div style="display:flex;gap:2px">' + nnLine + '</div>' +
-            '</div>'
-            : '') +
-        '</div>';
-    }
-
-    // ── Block hạt giống (cá nhân TN) ──
-    let seedsBlock = '';
-    if (a.latestSeedsActive !== null) {
-      const seedDiff    = (a.oldSeedsActive !== null) ? (a.latestSeedsActive - a.oldSeedsActive) : null;
-      const seedOverload = a.latestSeedsActive >= 10;
-      const seedTrend   = seedDiff === null ? '' :
-        seedDiff > 0  ? '<span style="color:var(--rose);font-size:10px;font-weight:700">▲ +'+seedDiff+' so 7 ngày trước</span>' :
-        seedDiff < 0  ? '<span style="color:var(--jade);font-size:10px;font-weight:700">▼ '+Math.abs(seedDiff)+' so 7 ngày trước</span>' :
-                        '<span style="color:var(--ink-muted);font-size:10px">— không đổi so 7 ngày trước</span>';
-      seedsBlock =
-        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">🌱 HẠT GIỐNG (Trưởng nhóm)</div>' +
-          '<div style="display:flex;gap:8px;align-items:stretch">' +
-            '<div style="flex:1;background:rgba(201,168,76,0.08);border-radius:7px;padding:6px 10px">' +
-              '<div style="display:flex;align-items:baseline;gap:4px">' +
-                '<span style="font-size:18px;font-weight:700;color:'+(seedOverload?'var(--rose)':'var(--gold-dark)')+'">'+a.latestSeedsActive+'</span>' +
-                '<span style="font-size:10px;color:var(--ink-muted)">đang theo dõi</span>' +
-                (seedOverload ? '<span style="font-size:9.5px;color:var(--rose);font-weight:700"> ⚠️ quá 10</span>' : '') +
-              '</div>' +
-              (seedTrend ? '<div style="margin-top:3px">'+seedTrend+'</div>' : '') +
-            '</div>' +
-            (a.latestSeedsDone !== null ?
-              '<div style="background:rgba(74,140,111,0.08);border-radius:7px;padding:6px 10px;text-align:center">' +
-                '<div style="font-size:18px;font-weight:700;color:var(--jade)">'+a.latestSeedsDone+'</div>' +
-                '<div style="font-size:9.5px;color:var(--ink-muted)">đã hoàn thành</div>' +
-              '</div>'
-              : '') +
-          '</div>' +
-        '</div>';
-    }
-
-    // ════════════════════════════════════════════
-    // PHẦN SỨC KHỎE NHÓM (mới — trong expandable)
-    // ════════════════════════════════════════════
-
-    // Tỉ lệ ghi hôm nay
-    const gTotal    = a.groupCount || 0;
-    const gActive   = a._groupActiveToday !== undefined ? a._groupActiveToday : 0;
-    const gInactive = gTotal - gActive;
-
-    // NL TB nhóm hôm nay
-    const gAvgNL = a._groupAvgNL !== null && a._groupAvgNL !== undefined
-      ? a._groupAvgNL : null;
-    const gAvgNLColor = gAvgNL === null ? 'var(--ink-muted)' : gAvgNL >= 7 ? 'var(--jade)' : gAvgNL >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
-
-    // Tỉ lệ ghi 7 ngày nhóm
-    const gRate7  = a._groupRate7 || [];   // mảng 7 phần tử: số % ghi mỗi ngày (0–100)
-    const gRate7Labels = a._groupRate7Labels || [];
-
-    const gRate7Bars = gRate7.map((pct, i) => {
-      const h   = Math.max(3, Math.round((pct/100)*36));
-      const c   = pct >= 70 ? 'var(--jade)' : pct >= 40 ? 'var(--gold)' : 'var(--rose)';
-      const lbl = gRate7Labels[i] || '';
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
-        '<div style="width:100%;display:flex;align-items:flex-end;justify-content:center;height:36px">' +
-          '<div style="width:80%;height:'+h+'px;border-radius:2px 2px 0 0;background:'+c+'"></div>' +
-        '</div>' +
-        '<div style="font-size:9px;color:var(--ink-muted)">'+lbl+'</div>' +
-      '</div>';
-    }).join('');
-
-    // Chiều hướng tỉ lệ ghi nhóm
-    const gRatePrev = a._groupRatePrev !== undefined ? a._groupRatePrev : null;
-    const gRateCur  = a._groupRateCur  !== undefined ? a._groupRateCur  : null;
-    let gRateTrend = '';
-    if (gRatePrev !== null && gRateCur !== null) {
-      const diff = gRateCur - gRatePrev;
-      if (diff < -5)      gRateTrend = '<span style="background:rgba(192,96,106,0.12);color:var(--rose);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px">▼ từ '+gRatePrev+'% → '+gRateCur+'%</span>';
-      else if (diff > 5)  gRateTrend = '<span style="background:rgba(74,140,111,0.1);color:var(--jade);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px">▲ từ '+gRatePrev+'% → '+gRateCur+'%</span>';
-      else                gRateTrend = '<span style="background:rgba(0,0,0,0.05);color:var(--ink-muted);font-size:10px;padding:2px 7px;border-radius:5px">≈ ổn định '+gRateCur+'%</span>';
-    }
-
-    // Ngôi nhà yếu nhất của nhóm
-    const gWeakestNN     = a._groupWeakestNN     || null; // { icon, label, avg, countBelow5, weekCount }
-    const gWeakestColor  = gWeakestNN && gWeakestNN.avg < 5 ? 'var(--rose)' : gWeakestNN && gWeakestNN.avg < 7 ? 'var(--gold-dark)' : 'var(--jade)';
-    const gWeakestFillW  = gWeakestNN ? Math.round((gWeakestNN.avg/10)*100) : 0;
-    const gWeakestBlock  = gWeakestNN ?
-      '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-        '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">🏠 Ngôi nhà yếu nhất của nhóm</div>' +
-        '<div style="display:flex;align-items:center;gap:8px">' +
-          '<span style="font-size:18px">' + escHtml(gWeakestNN.icon) + '</span>' +
-          '<div style="flex:1">' +
-            '<div style="font-size:12px;font-weight:700;color:'+gWeakestColor+'">' + escHtml(gWeakestNN.label) + ' — TB ' + gWeakestNN.avg + '/10</div>' +
-            '<div style="font-size:10px;color:var(--ink-muted);margin-top:1px">' + gWeakestNN.countBelow5 + '/' + gTotal + ' thành viên dưới 5 điểm' +
-              (gWeakestNN.weekCount > 1 ? ' · <strong style="color:var(--rose)">' + gWeakestNN.weekCount + ' tuần liên tiếp</strong>' : '') +
-            '</div>' +
-            '<div style="height:4px;background:rgba(0,0,0,0.07);border-radius:2px;overflow:hidden;margin-top:5px">' +
-              '<div style="height:100%;width:'+gWeakestFillW+'%;background:'+gWeakestColor+';border-radius:2px"></div>' +
-            '</div>' +
-          '</div>' +
-          (gWeakestNN.weekCount > 1 ?
-            '<span style="background:rgba(192,96,106,0.1);color:var(--rose);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap">tuần ' + gWeakestNN.weekCount + '</span>'
-            : '') +
-        '</div>' +
-      '</div>'
-      : '';
-
-    // Phân vùng NL thành viên: đỏ/vàng/xanh/chưa ghi
-    const gCountRed    = a._groupCountRed    !== undefined ? a._groupCountRed    : 0;
-    const gCountYellow = a._groupCountYellow !== undefined ? a._groupCountYellow : 0;
-    const gCountGreen  = a._groupCountGreen  !== undefined ? a._groupCountGreen  : 0;
-    const gCountNoLog  = a._groupCountNoLog  !== undefined ? a._groupCountNoLog  : gInactive;
-
-    // Danh sách thành viên mini (top 3 + xem thêm)
-    const gMemberList  = a._groupMemberList || [];
-    const gMemberRows  = gMemberList.slice(0, 3).map(m => {
-      const initials = (m.name||'?').trim().split(' ').pop().slice(0,2).toUpperCase();
-      const bgColor  = m.nlColor || 'var(--ink-muted)';
-      const nl7dots  = (m.last7 || []).map(active =>
-        '<div style="width:8px;height:8px;border-radius:50%;background:'+(active?'var(--jade)':'rgba(0,0,0,0.12)') +'"></div>'
-      ).join('');
-      const nlVal    = m.nlToday !== null && m.nlToday !== undefined ? m.nlToday.toFixed(1) : '–';
-      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">' +
-        '<div style="width:24px;height:24px;border-radius:50%;background:'+bgColor+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0">'+escHtml(initials)+'</div>' +
-        '<div style="flex:1;font-size:12px;color:var(--ink)">'+escHtml(m.name||'–')+'</div>' +
-        '<div style="display:flex;gap:2px">'+nl7dots+'</div>' +
-        '<div style="font-size:11px;font-weight:700;color:'+bgColor+';min-width:28px;text-align:right">'+nlVal+'</div>' +
-      '</div>';
-    }).join('');
-
-    const gMemberMore = gMemberList.length > 3
-      ? '<div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:5px 0">+ '+(gMemberList.length-3)+' thành viên khác</div>'
-      : '';
-
-    // Khoảng cách (đồng đều) — min/max NL
-    const gNLMin = a._groupNLMin !== undefined ? a._groupNLMin : null;
-    const gNLMax = a._groupNLMax !== undefined ? a._groupNLMax : null;
-    const gNLGap = (gNLMin !== null && gNLMax !== null) ? Math.round((gNLMax - gNLMin)*10)/10 : null;
-    const gNLGapColor = gNLGap === null ? 'var(--ink-muted)' : gNLGap >= 4 ? 'var(--rose)' : gNLGap >= 2 ? 'var(--gold-dark)' : 'var(--jade)';
-    const gNLMinPct = gNLMin !== null ? Math.round((gNLMin/10)*100) : 0;
-    const gNLMaxPct = gNLMax !== null ? Math.round((gNLMax/10)*100) : 100;
-
-    const equalityBlock = (gNLMin !== null && gNLMax !== null) ?
-      '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-        '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:6px">⚖️ Mức độ đồng đều nhóm</div>' +
-        '<div style="display:flex;align-items:center;gap:8px">' +
-          '<div style="font-size:11px;color:var(--ink-muted);min-width:40px">Thấp nhất</div>' +
-          '<div style="flex:1;height:6px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden;position:relative">' +
-            '<div style="position:absolute;left:'+gNLMinPct+'%;right:'+(100-gNLMaxPct)+'%;height:100%;background:'+gNLGapColor+';border-radius:3px"></div>' +
-          '</div>' +
-          '<div style="font-size:11px;color:var(--ink-muted);min-width:40px;text-align:right">Cao nhất</div>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:space-between;font-size:10px;margin-top:3px">' +
-          '<span style="color:var(--ink-muted)">'+gNLMin+'</span>' +
-          '<span style="color:'+gNLGapColor+';font-weight:700">Khoảng cách '+gNLGap+' điểm'+(gNLGap>=4?' — cần chú ý':gNLGap>=2?' — bình thường':' — tốt')+'</span>' +
-          '<span style="color:var(--ink-muted)">'+gNLMax+'</span>' +
-        '</div>' +
-      '</div>'
-      : '';
-
-    // ── Đồng hành của TN với thành viên ──
-    const gNoteCount        = a._leaderNoteCount !== undefined ? a._leaderNoteCount : 0;
-    const gNoNoteStruggling = a._noNoteStruggling !== undefined ? a._noNoteStruggling : 0;
-    const gDaysSinceNote    = a._daysSinceNote !== undefined ? a._daysSinceNote : null;
-    const gDaysSinceNoteTxt = gDaysSinceNote === null ? '–' : gDaysSinceNote === 0 ? 'hôm nay' : gDaysSinceNote + ' ngày trước';
-    const gDaySinceColor    = gDaysSinceNote === null ? 'var(--ink-muted)' : gDaysSinceNote <= 3 ? 'var(--jade)' : gDaysSinceNote <= 7 ? 'var(--gold-dark)' : 'var(--rose)';
-
-    // ════════════════════════════════════════════
-    // RENDER CARD
-    // ════════════════════════════════════════════
-    return (
-      '<div style="border-radius:10px;margin-bottom:12px;overflow:hidden;border:1px solid '+col.border+'">' +
-
-      // ── HEADER (luôn hiển thị) ──
-      '<div style="padding:10px 12px 8px;background:'+col.bg+';cursor:pointer" onclick="adminToggleCard(\''+midSafe+'\')">' +
-        '<div style="display:flex;align-items:flex-start;justify-content:space-between">' +
-          '<div style="flex:1">' +
-            '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:5px;'+col.badge+'">'+escHtml(displayLabel)+'</span>' +
-            '<div style="font-size:13px;font-weight:800;color:'+col.name+'">'+escHtml(a.name)+'</div>' +
-            '<div style="font-size:11px;color:var(--ink-muted);margin-top:1px">Nhóm: <strong>'+escHtml(a.groupCode)+'</strong> · '+a.groupCount+' thành viên · Hết hạn: '+expiryTxt+'</div>' +
-          '</div>' +
-          '<div id="admin-card-arrow-'+midSafe+'" style="font-size:12px;color:var(--ink-muted);margin-left:10px;padding-top:4px;flex-shrink:0">'+(isExpanded?'▲':'▼')+'</div>' +
-        '</div>' +
-      '</div>' +
-
-      // ── VẤNDỀ (luôn hiển thị) ──
-      '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' + issueHTML + '</div>' +
-
-      // ══ BODY CÓ THỂ THU GỌN ══
-      '<div id="admin-card-body-'+midSafe+'" style="display:'+(isExpanded?'block':'none')+'">' +
-
-        // ─ Divider: Cá nhân TN ─
-        '<div style="padding:6px 12px 4px;background:rgba(74,127,168,0.04);border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--sky)">👤 Cá nhân trưởng nhóm</div>' +
-        '</div>' +
-
-        trainingBlock +
-        trendBlock +
-        seedsBlock +
-
-        // ─ Divider: Sức khỏe nhóm ─
-        '<div style="padding:6px 12px 4px;background:rgba(74,140,111,0.04);border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--jade)">👥 Sức khỏe nhóm</div>' +
-        '</div>' +
-
-        // Tổng quan nhóm hôm nay
-        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:7px">📊 Tổng quan nhóm hôm nay</div>' +
-          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">' +
-            '<div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:7px 6px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--ink)">'+gTotal+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">thành viên</div>' +
-            '</div>' +
-            '<div style="background:rgba(74,140,111,0.08);border-radius:8px;padding:7px 6px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--jade)">'+gActive+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">ghi hôm nay</div>' +
-            '</div>' +
-            '<div style="background:rgba(192,96,106,0.07);border-radius:8px;padding:7px 6px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--rose)">'+gInactive+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">chưa ghi</div>' +
-            '</div>' +
-            '<div style="background:rgba(201,168,76,0.08);border-radius:8px;padding:7px 6px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:'+gAvgNLColor+'">'+(gAvgNL!==null?gAvgNL.toFixed(1):'–')+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">NL TB nhóm</div>' +
-            '</div>' +
-          '</div>' +
-
-          // Tỉ lệ ghi 7 ngày nhóm
-          (gRate7.length > 0 ?
-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
-              '<div style="font-size:10px;font-weight:700;color:var(--ink-muted)">Tỉ lệ ghi nhật ký 7 ngày — cả nhóm</div>' +
-              gRateTrend +
-            '</div>' +
-            '<div style="display:flex;gap:3px;margin-bottom:2px">' + gRate7Bars + '</div>'
-            : '<div style="font-size:11px;color:var(--ink-muted);font-style:italic">Chưa có dữ liệu lịch sử nhóm</div>') +
-        '</div>' +
-
-        // Ngôi nhà yếu nhất nhóm
-        gWeakestBlock +
-
-        // Phân bố NL thành viên
-        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:7px">👤 Phân bố thành viên — trạng thái hôm nay</div>' +
-          (gMemberRows ?
-            '<div style="margin-bottom:8px">' + gMemberRows + gMemberMore + '</div>'
-            : '') +
-          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' +
-            '<div style="background:rgba(192,96,106,0.08);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--rose)">'+gCountRed+'</div>' +
-              '<div style="font-size:9.5px;color:var(--rose)">vùng đỏ NL&lt;5</div>' +
-            '</div>' +
-            '<div style="background:rgba(201,168,76,0.08);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--gold-dark)">'+gCountYellow+'</div>' +
-              '<div style="font-size:9.5px;color:var(--gold-dark)">vùng vàng 5–7</div>' +
-            '</div>' +
-            '<div style="background:rgba(74,140,111,0.08);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--jade)">'+gCountGreen+'</div>' +
-              '<div style="font-size:9.5px;color:var(--jade)">vùng xanh &gt;7</div>' +
-            '</div>' +
-            '<div style="background:rgba(0,0,0,0.04);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:var(--ink-muted)">'+gCountNoLog+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">chưa ghi</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Khoảng cách NL nhóm
-        equalityBlock +
-
-        // ─ Divider: Đồng hành của TN ─
-        '<div style="padding:6px 12px 4px;background:rgba(201,168,76,0.04);border-top:0.5px solid var(--border)">' +
-          '<div style="font-size:10px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--gold-dark)">📝 Đồng hành của trưởng nhóm</div>' +
-        '</div>' +
-
-        '<div style="padding:8px 12px;border-top:0.5px solid var(--border)">' +
-          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">' +
-            '<div style="background:rgba(0,0,0,0.04);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:'+(gNoteCount>0?'var(--jade)':'var(--rose)')+'">'+gNoteCount+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">ghi chú đã tạo</div>' +
-            '</div>' +
-            '<div style="background:rgba(0,0,0,0.04);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:16px;font-weight:700;color:'+(gNoNoteStruggling>0?'var(--rose)':'var(--jade)')+'">'+gNoNoteStruggling+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">TV chật vật chưa được note</div>' +
-            '</div>' +
-            '<div style="background:rgba(0,0,0,0.04);border-radius:7px;padding:6px 8px;text-align:center">' +
-              '<div style="font-size:15px;font-weight:700;color:'+gDaySinceColor+'">'+escHtml(gDaysSinceNoteTxt)+'</div>' +
-              '<div style="font-size:9.5px;color:var(--ink-muted)">lần note cuối</div>' +
-            '</div>' +
-          '</div>' +
-
-          '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);margin-bottom:5px">Ghi chú đồng hành của Admin</div>' +
-          '<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" ' +
-            'placeholder="Ghi lại bối cảnh, lịch sử, quan sát, kế hoạch hỗ trợ..." ' +
-            'style="width:100%;min-height:52px;font-size:12px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink)">'+escHtml(a.savedNote)+'</textarea>' +
-        '</div>' +
-
-      '</div>' + // end card-body
-      '</div>'   // end card
-    );
-  }).join('');
+  // Toggle streak detail
+  window.adminToggleStreak = function(mid) {
+    const el = document.getElementById('admin-card-streak-' + mid);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    // Đóng report nếu đang mở
+    const rep = document.getElementById('admin-card-report-' + mid);
+    if (rep && el.style.display === 'block') rep.style.display = 'none';
+  };
+  // Toggle report
+  window.adminToggleReport = function(mid) {
+    const el = document.getElementById('admin-card-report-' + mid);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    // Đóng streak nếu đang mở
+    const str = document.getElementById('admin-card-streak-' + mid);
+    if (str && el.style.display === 'block') str.style.display = 'none';
+  };
 }
 
-// Lưu ghi chú admin lên Firebase để đồng bộ đa thiết bị
+
+// Bảng chuỗi rèn luyện TOÀN BỘ lịch sử của TN
+function buildStreakDetail(a) {
+  const nnLabels = typeof NN_LIST !== 'undefined'
+    ? NN_LIST.map(n => n.label.split('·')[0].trim())
+    : ['NN1','NN2','NN3','NN4','NN5'];
+
+  const allKeys = Object.keys(a.jHist || {}).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  if (!allKeys.length) {
+    return '<div style="font-size:11px;color:var(--ink-muted);font-style:italic;text-align:center;padding:6px">Chưa có dữ liệu journal</div>';
+  }
+
+  const rows = allKeys.map(dk => {
+    const je    = (a.jHist || {})[dk] || {};
+    let ritDone = 0;
+    if (je.rituals && typeof je.rituals === 'object') ritDone = Object.values(je.rituals).filter(Boolean).length;
+    else if (typeof je.rituals === 'number') ritDone = je.rituals;
+    const ritPct = Math.round((ritDone / 9) * 100);
+
+    let nnVals = [];
+    if (typeof NN_LIST !== 'undefined') {
+      NN_LIST.forEach((nn, i) => {
+        let v = null;
+        if (je.nnEnergy && typeof je.nnEnergy === 'object' && !Array.isArray(je.nnEnergy)) v = Number(je.nnEnergy[nn.key]);
+        else if (Array.isArray(je.nnEnergy)) v = Number(je.nnEnergy[i]);
+        nnVals.push((!isNaN(v) && v > 0) ? v : null);
+      });
+    }
+    const hasData  = ritDone > 0 || nnVals.some(v => v !== null);
+    const avgNN    = nnVals.filter(v=>v!==null).length ? Math.round(nnVals.filter(v=>v!==null).reduce((a,b)=>a+b,0)/nnVals.filter(v=>v!==null).length*10)/10 : null;
+    const ritColor = ritPct >= 78 ? 'var(--jade)' : ritPct >= 44 ? 'var(--gold-dark)' : 'var(--rose)';
+    const nlColor  = avgNN === null ? 'var(--ink-muted)' : avgNN >= 7 ? 'var(--jade)' : avgNN >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+
+    const nnCells = nnVals.map((v, i) => {
+      if (v === null) return '<td style="text-align:center;padding:3px 4px;font-size:10px;color:var(--ink-muted)">–</td>';
+      const c = v >= 7 ? 'var(--jade)' : v >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+      return '<td style="text-align:center;padding:3px 4px;font-size:10px;font-weight:700;color:'+c+'">'+v+'</td>';
+    }).join('');
+
+    const dateShort = dk.slice(5).replace('-','/');
+    const statusDot = hasData
+      ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--jade);margin-right:4px;vertical-align:middle"></span>'
+      : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:rgba(0,0,0,0.12);margin-right:4px;vertical-align:middle"></span>';
+
+    return '<tr style="border-bottom:0.5px solid var(--border)">' +
+      '<td style="padding:4px 6px;font-size:10.5px;white-space:nowrap">'+statusDot+dateShort+'</td>' +
+      '<td style="text-align:center;padding:3px 4px">' +
+        (hasData
+          ? '<div style="display:flex;align-items:center;gap:3px;justify-content:center">' +
+              '<div style="height:5px;width:32px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden">' +
+                '<div style="height:100%;width:'+ritPct+'%;background:'+ritColor+';border-radius:3px"></div>' +
+              '</div>' +
+              '<span style="font-size:10px;font-weight:700;color:'+ritColor+'">'+ritDone+'/9</span>' +
+            '</div>'
+          : '<span style="font-size:10px;color:var(--ink-muted)">—</span>') +
+      '</td>' +
+      '<td style="text-align:center;padding:3px 4px;font-size:10px;font-weight:700;color:'+nlColor+'">'+(avgNN !== null ? avgNN : '–')+'</td>' +
+      nnCells +
+    '</tr>';
+  });
+
+  const nnHeaders = nnLabels.map(l =>
+    '<th style="text-align:center;padding:3px 4px;font-size:9px;color:var(--ink-muted);font-weight:500">'+l+'</th>'
+  ).join('');
+
+  return '<div style="font-size:9.5px;font-weight:700;color:var(--sky);margin-bottom:7px">📅 Chuỗi rèn luyện — '+allKeys.length+' ngày đã ghi</div>' +
+    '<div style="max-height:320px;overflow-y:auto;border-radius:6px;border:0.5px solid var(--border)">' +
+    '<table style="width:100%;border-collapse:collapse;font-family:inherit">' +
+      '<thead style="position:sticky;top:0;background:var(--card)"><tr style="border-bottom:1px solid var(--border)">' +
+        '<th style="text-align:left;padding:3px 6px;font-size:9px;color:var(--ink-muted);font-weight:500">Ngày</th>' +
+        '<th style="text-align:center;padding:3px 4px;font-size:9px;color:var(--ink-muted);font-weight:500">Nghi thức</th>' +
+        '<th style="text-align:center;padding:3px 4px;font-size:9px;color:var(--ink-muted);font-weight:500">NL TB</th>' +
+        nnHeaders +
+      '</tr></thead>' +
+      '<tbody>' + rows.join('') + '</tbody>' +
+    '</table>' +
+    '</div>';
+}
+
+// Báo cáo đầy đủ theo mốc thời gian (3, 6, 9, 12 tháng) — dùng jHist + monthlyData của TN
+function buildReportDetail(a) {
+  const jHist = a.jHist || {};
+  const monthlyData = a.monthlyData || {};
+  if (!Object.keys(jHist).length && !Object.keys(monthlyData).length) {
+    return '<div style="font-size:11px;color:var(--ink-muted);font-style:italic;text-align:center;padding:8px">Chưa có dữ liệu</div>';
+  }
+
+  const midSafe = escHtml(a.mid);
+  const now = new Date(Date.now() + 7*60*60*1000);
+  const cy = now.getUTCFullYear(), cm = now.getUTCMonth(); // 0-indexed
+
+  // Lấy danh sách tháng N tháng gần nhất (0-indexed month)
+  const getMonths = (n) => {
+    const res = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(cy, cm - i, 1);
+      res.push({ y: d.getFullYear(), m: d.getMonth(), key: d.getFullYear() + '_' + (d.getMonth() + 1) });
+    }
+    return res;
+  };
+
+  // Lấy tất cả ngày trong range từ jHist
+  const getDaysInRange = (months) => {
+    const keys = [];
+    months.forEach(mo => {
+      const prefix = mo.y + '-' + String(mo.m + 1).padStart(2, '0');
+      Object.keys(jHist).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && k.startsWith(prefix)).forEach(k => keys.push(k));
+    });
+    return keys.sort();
+  };
+
+  // Tính stats cho một set ngày + months
+  const calcStats = (months, days) => {
+    const totalDays = days.length;
+    const daysActive = days.filter(k => {
+      const e = jHist[k]; if (!e) return false;
+      return Object.values(e.rituals || {}).some(Boolean) || (e.nnEnergy && Object.values(e.nnEnergy || {}).some(v => v > 0));
+    }).length;
+
+    const totalRituals = days.reduce((s, k) => s + Object.values(jHist[k] && jHist[k].rituals || {}).filter(Boolean).length, 0);
+    const maxRituals = totalDays * 9;
+    const ritualPct = maxRituals > 0 ? Math.round(totalRituals / maxRituals * 100) : 0;
+
+    // NL TB từ nnEnergy
+    let nnSum = 0, nnCount = 0;
+    days.forEach(k => {
+      const e = jHist[k]; if (!e || !e.nnEnergy) return;
+      const vals = typeof NN_LIST !== 'undefined'
+        ? NN_LIST.map((nn, i) => {
+            let v = typeof e.nnEnergy === 'object' && !Array.isArray(e.nnEnergy) ? Number(e.nnEnergy[nn.key]) : (Array.isArray(e.nnEnergy) ? Number(e.nnEnergy[i]) : null);
+            return (!isNaN(v) && v > 0) ? v : null;
+          }).filter(v => v !== null)
+        : Object.values(e.nnEnergy || {}).map(Number).filter(v => !isNaN(v) && v > 0);
+      if (vals.length) { nnSum += vals.reduce((a, b) => a + b, 0) / vals.length; nnCount++; }
+    });
+    const avgNL = nnCount > 0 ? Math.round(nnSum / nnCount * 10) / 10 : null;
+
+    // Chuỗi dài nhất
+    let maxStreak = 0, curRun = 0, prev = null;
+    const trainedDays = days.filter(k => Object.values(jHist[k] && jHist[k].rituals || {}).some(Boolean)).sort();
+    trainedDays.forEach(k => {
+      if (!prev) { curRun = 1; } else {
+        const diff = (new Date(k) - new Date(prev)) / 86400000;
+        curRun = diff === 1 ? curRun + 1 : 1;
+      }
+      maxStreak = Math.max(maxStreak, curRun); prev = k;
+    });
+
+    // OKR từ monthly data
+    let totO = 0, doneO = 0, totKR = 0, doneKR = 0;
+    const okrByMonth = [];
+    const houseMap = {};
+
+    months.forEach(mo => {
+      const md = monthlyData[mo.key];
+      const mKey = mo.y + '-' + String(mo.m + 1).padStart(2, '0');
+      const mDays = days.filter(k => k.startsWith(mKey));
+      const ritPctM = mDays.length ? Math.round(mDays.reduce((s, k) => s + Object.values(jHist[k] && jHist[k].rituals || {}).filter(Boolean).length, 0) / (mDays.length * 9) * 100) : 0;
+      let mTotO = 0, mDoneO = 0;
+
+      if (md && md.weekOKR) {
+        const houses = md.houses || [];
+        Object.values(md.weekOKR).forEach(w => {
+          if (!w || typeof w !== 'object') return;
+          (w.objectives || []).forEach(obj => {
+            if (!obj || !obj.text) return;
+            const krs = obj.krs || [];
+            if (!krs.length) return;
+            const sc = krs.filter(kr => kr.done).length / krs.length * 10;
+            totO++; mTotO++; totKR += krs.length; doneKR += krs.filter(kr => kr.done).length;
+            if (sc >= 7) { doneO++; mDoneO++; }
+            if (obj.houseId) {
+              const h = houses.find(h => h.id === obj.houseId);
+              if (!h) return;
+              const nm = (h.icon || '') + ' ' + (h.name || '?');
+              if (!houseMap[nm]) houseMap[nm] = { totKR: 0, doneKR: 0, objs: 0, doneObj: 0, sm: h.successMetric || '' };
+              houseMap[nm].objs++;
+              if (sc >= 7) houseMap[nm].doneObj++;
+              houseMap[nm].totKR += krs.length;
+              houseMap[nm].doneKR += krs.filter(kr => kr.done).length;
+            }
+          });
+        });
+
+        // Hạt giống từ monthly data
+        if (md.seedsActive != null || md.seedsDone != null) {
+          // handled below per-milestone
+        }
+      }
+      const lbl = 'T' + (mo.m + 1) + (months.length > 6 ? '/' + String(mo.y).slice(2) : '');
+      okrByMonth.push({ label: lbl, ritPct: ritPctM, okrPct: mTotO > 0 ? Math.round(mDoneO / mTotO * 100) : null });
+    });
+
+    // Hạt giống: lấy từ monthly data tháng mới nhất có dữ liệu
+    let seedsActive = null, seedsDone = null;
+    for (let i = months.length - 1; i >= 0; i--) {
+      const md = monthlyData[months[i].key];
+      if (md) {
+        if (seedsActive === null && md.seedsActive != null) seedsActive = md.seedsActive;
+        if (seedsDone === null && md.seedsDone != null) seedsDone = md.seedsDone;
+        if (seedsActive !== null && seedsDone !== null) break;
+      }
+    }
+
+    const outRate = totO > 0 ? Math.round(doneO / totO * 100) : 0;
+    return { totalDays, daysActive, totalRituals, maxRituals, ritualPct, avgNL, maxStreak, totO, doneO, totKR, doneKR, outRate, okrByMonth, houseMap, seedsActive, seedsDone };
+  };
+
+  const milestones = [
+    { id: '3m',  label: '3 tháng',  n: 3 },
+    { id: '6m',  label: '6 tháng',  n: 6 },
+    { id: '9m',  label: '9 tháng',  n: 9 },
+    { id: '12m', label: '1 năm',    n: 12 },
+  ];
+
+  // Default hiển thị mốc đầu tiên
+  const buildMilestoneHtml = (ms) => {
+    const months = getMonths(ms.n);
+    const days   = getDaysInRange(months);
+    const s      = calcStats(months, days);
+
+    const nlC  = s.avgNL === null ? 'var(--ink-muted)' : s.avgNL >= 7 ? 'var(--jade)' : s.avgNL >= 5 ? 'var(--gold-dark)' : 'var(--rose)';
+    const oC   = s.outRate >= 70 ? 'var(--jade)' : s.outRate >= 40 ? 'var(--gold-dark)' : 'var(--rose)';
+    const rC   = s.ritualPct >= 70 ? 'var(--jade)' : s.ritualPct >= 40 ? 'var(--gold-dark)' : 'var(--rose)';
+
+    const kpiCard = (v, l, sub, c) =>
+      '<div style="background:var(--color-background-secondary);border-radius:7px;padding:10px 8px;text-align:center">' +
+        '<div style="font-size:20px;font-weight:700;color:'+c+'">'+v+'</div>' +
+        '<div style="font-size:10.5px;font-weight:500;color:var(--ink);margin-top:2px">'+l+'</div>' +
+        '<div style="font-size:10px;color:var(--ink-muted);margin-top:1px">'+sub+'</div>' +
+      '</div>';
+
+    // HOẠT ĐỘNG
+    const kpi1 = [
+      { v: s.daysActive, l: 'Ngày rèn luyện',  sub: 'trong ' + s.totalDays + ' ngày',    c: 'var(--gold-dark)' },
+      { v: s.maxStreak,  l: 'Chuỗi dài nhất',   sub: 'ngày liên tiếp',                    c: 'var(--gold-dark)' },
+      { v: s.ritualPct + '%', l: '% Nghi thức', sub: s.totalRituals + '/' + s.maxRituals + ' lần', c: rC },
+      { v: s.avgNL !== null ? s.avgNL : '–', l: 'NL TB /10', sub: 'năng lượng ngôi nhà', c: nlC },
+    ].map(x => kpiCard(x.v, x.l, x.sub, x.c)).join('');
+
+    // KẾT QUẢ OKR
+    const seedsHtml = s.seedsActive !== null
+      ? kpiCard(s.seedsActive, 'Hạt theo dõi', s.seedsDone !== null ? s.seedsDone + ' đã chuyển hóa' : '–', 'var(--gold-dark)')
+      : kpiCard('–', 'Hạt giống', 'chưa có dữ liệu', 'var(--ink-muted)');
+
+    const kpi2 = [
+      kpiCard(s.totO, 'Tổng O đặt ra', 'objectives có KR', 'var(--sky)'),
+      kpiCard(s.doneO + '/' + s.totO, 'O hoàn thành ≥70%', 'score tự động', 'var(--jade)'),
+      kpiCard(s.outRate + '%', 'Tỉ lệ đạt', s.totO > 0 ? s.doneO + '/' + s.totO + ' mục tiêu' : 'Chưa có dữ liệu', oC),
+      seedsHtml,
+    ].join('');
+
+    // Biểu đồ xu hướng (mini bars)
+    const chartBars = s.okrByMonth.map(d => {
+      const rH = Math.max(3, Math.round((d.ritPct / 100) * 56));
+      const oH = d.okrPct !== null ? Math.max(3, Math.round((d.okrPct / 100) * 56)) : 0;
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
+        '<div style="width:100%;display:flex;align-items:flex-end;justify-content:center;gap:1px;height:56px">' +
+          '<div style="width:45%;height:'+rH+'px;background:rgba(201,168,76,0.5);border-radius:2px 2px 0 0"></div>' +
+          (oH > 0 ? '<div style="width:45%;height:'+oH+'px;background:rgba(74,140,111,0.7);border-radius:2px 2px 0 0"></div>' : '<div style="width:45%"></div>') +
+        '</div>' +
+        '<div style="font-size:8.5px;color:var(--ink-muted);text-align:center">'+d.label+'</div>' +
+      '</div>';
+    }).join('');
+
+    // Tiến độ ngôi nhà
+    const housesWithData = Object.entries(s.houseMap).filter(e => e[1].objs > 0);
+    let houseHtml = '';
+    if (housesWithData.length === 0) {
+      houseHtml = '<div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:10px 0">Chưa có O gắn vào Ngôi Nhà</div>';
+    } else {
+      houseHtml = housesWithData.map(([nm, info]) => {
+        const pct = info.totKR > 0 ? Math.round(info.doneKR / info.totKR * 100) : 0;
+        const c = pct >= 70 ? 'var(--jade)' : pct >= 40 ? 'var(--gold-dark)' : 'var(--rose)';
+        return '<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:0.5px solid var(--border)">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">' +
+            '<span style="font-size:12px;font-weight:700;color:var(--ink)">'+escHtml(nm)+'</span>' +
+            '<span style="font-size:11px;font-weight:700;color:'+c+'">'+pct+'% KR</span>' +
+          '</div>' +
+          (info.sm ? '<div style="font-size:10.5px;color:var(--ink-muted);margin-bottom:4px;font-style:italic">'+escHtml(info.sm)+'</div>' : '') +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+            '<div style="flex:1;height:5px;background:rgba(201,168,76,0.15);border-radius:3px;overflow:hidden">' +
+              '<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:3px"></div>' +
+            '</div>' +
+            '<span style="font-size:10px;color:var(--ink-muted);white-space:nowrap">'+info.doneKR+'/'+info.totKR+' KR · '+info.doneObj+'/'+info.objs+' O</span>' +
+          '</div></div>';
+      }).join('');
+    }
+
+    return '<div>' +
+      // HOẠT ĐỘNG
+      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:.5px;margin:0 0 7px">HOAT DONG</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px">'+kpi1+'</div>' +
+      // KẾT QUẢ OKR + Hạt giống
+      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:.5px;margin-bottom:7px">KET QUA THUC SU (OKR + HAT GIONG)</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px">'+kpi2+'</div>' +
+      // Biểu đồ xu hướng
+      (s.okrByMonth.length > 0
+        ? '<div style="background:var(--color-background-secondary);border-radius:8px;padding:10px 12px;margin-bottom:12px">' +
+            '<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Xu huong theo thang</div>' +
+            '<div style="display:flex;gap:1px;align-items:flex-end;border-bottom:0.5px solid var(--border)">'+chartBars+'</div>' +
+            '<div style="display:flex;gap:12px;margin-top:6px;font-size:9.5px;color:var(--ink-muted)">' +
+              '<span><span style="display:inline-block;width:8px;height:8px;background:rgba(201,168,76,0.5);border-radius:1px;margin-right:3px;vertical-align:middle"></span>% Nghi thuc</span>' +
+              '<span><span style="display:inline-block;width:8px;height:8px;background:rgba(74,140,111,0.7);border-radius:1px;margin-right:3px;vertical-align:middle"></span>% O dat</span>' +
+            '</div>' +
+          '</div>'
+        : '') +
+      // Tiến độ ngôi nhà
+      (housesWithData.length > 0
+        ? '<div style="background:var(--color-background-secondary);border-radius:8px;padding:10px 12px">' +
+            '<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Tien do theo Ngoi Nha</div>' +
+            houseHtml +
+          '</div>'
+        : '') +
+    '</div>';
+  };
+
+  // Tabs chọn mốc thời gian
+  const tabsHtml = milestones.map((ms, i) =>
+    '<button id="rpt-tab-'+midSafe+'-'+ms.id+'" onclick="adminReportTab(\''+midSafe+'\',\''+ms.id+'\')" ' +
+    'style="font-size:10px;font-weight:500;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;cursor:pointer;font-family:inherit;' +
+    (i === 0 ? 'background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)' : 'background:var(--color-background-secondary);color:var(--ink-muted)') +
+    '">'+ms.label+'</button>'
+  ).join('');
+
+  // Cache stats để toggle nhanh
+  window._adminReportCache = window._adminReportCache || {};
+  window._adminReportCache[a.mid] = { milestones, getMonths, getDaysInRange, calcStats, buildMilestoneHtml };
+
+  window.adminReportTab = function(mid, msId) {
+    const cache = window._adminReportCache[mid];
+    if (!cache) return;
+    const ms = cache.milestones.find(x => x.id === msId);
+    if (!ms) return;
+    const contentEl = document.getElementById('rpt-content-' + mid);
+    if (contentEl) contentEl.innerHTML = '<div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:12px">Dang tinh toan...</div>';
+    setTimeout(() => {
+      if (contentEl) contentEl.innerHTML = cache.buildMilestoneHtml(ms);
+      // Update tab styles
+      cache.milestones.forEach(m => {
+        const tab = document.getElementById('rpt-tab-' + mid + '-' + m.id);
+        if (!tab) return;
+        if (m.id === msId) {
+          tab.style.background = 'var(--color-background-info)';
+          tab.style.color = 'var(--color-text-info)';
+          tab.style.borderColor = 'var(--color-border-info)';
+        } else {
+          tab.style.background = 'var(--color-background-secondary)';
+          tab.style.color = 'var(--color-text-secondary)';
+          tab.style.borderColor = 'var(--color-border-tertiary)';
+        }
+      });
+    }, 50);
+  };
+
+  const firstMs = milestones[0];
+  const firstContent = buildMilestoneHtml(firstMs);
+
+  return '<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">Bao cao tong ket</div>' +
+    '<div style="display:flex;gap:5px;margin-bottom:10px">' + tabsHtml + '</div>' +
+    '<div id="rpt-content-' + midSafe + '">' + firstContent + '</div>';
+}
+// Lazy-load journal + monthly data của TV thường, render chuỗi rèn luyện hoặc báo cáo
+window._adminMemberCache = window._adminMemberCache || {};
+async function adminMemberToggle(type, memberId, groupCode) {
+  if (!memberId) return;
+  const streakEl = document.getElementById('ms-streak-' + memberId);
+  const reportEl = document.getElementById('ms-report-' + memberId);
+  if (!streakEl || !reportEl) return;
+
+  // Toggle: nếu đang mở thì đóng
+  const targetEl = type === 'streak' ? streakEl : reportEl;
+  const otherEl  = type === 'streak' ? reportEl : streakEl;
+  if (targetEl.style.display !== 'none') { targetEl.style.display = 'none'; return; }
+  otherEl.style.display = 'none'; // đóng cái kia
+  targetEl.style.display = 'block';
+
+  // Nếu đã load rồi thì render luôn
+  if (window._adminMemberCache[memberId]) {
+    _adminMemberRender(type, memberId, window._adminMemberCache[memberId]);
+    return;
+  }
+
+  // Lazy load
+  try {
+    const database = await loadFirebase();
+    if (!database) throw new Error('No DB');
+    const gcKey = typeof fbKey === 'function' ? fbKey(groupCode) : groupCode;
+
+    // Load journal history
+    const jSnap = await database.ref('journals/' + gcKey + '/' + memberId).once('value');
+    const jRaw  = jSnap.val() || {};
+    const jHist = {};
+    Object.keys(jRaw).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k => { jHist[k] = jRaw[k]; });
+
+    // Load uid để lấy monthly data
+    let monthlyData = {};
+    try {
+      const uidMapSnap = await database.ref('uid_to_member').once('value');
+      const uidMap = uidMapSnap.val() || {};
+      const uid = Object.keys(uidMap).find(u => uidMap[u] && uidMap[u].memberId === memberId);
+      if (uid) {
+        const now = new Date(Date.now() + 7*60*60*1000);
+        const cy = now.getUTCFullYear(), cm = now.getUTCMonth() + 1;
+        const monthKeys = [];
+        for (let i = 0; i < 13; i++) {
+          let y = cy, m = cm - i;
+          while (m <= 0) { m += 12; y--; }
+          monthKeys.push(y + '_' + m);
+        }
+        const snaps = await Promise.all(monthKeys.map(mk =>
+          database.ref('users/' + uid + '/monthly/' + mk).once('value').catch(() => null)
+        ));
+        monthKeys.forEach((mk, i) => {
+          const v = snaps[i] && snaps[i].val();
+          if (v) monthlyData[mk] = v;
+        });
+      }
+    } catch(e) { /* monthly optional */ }
+
+    window._adminMemberCache[memberId] = { jHist, monthlyData, mid: memberId };
+    _adminMemberRender(type, memberId, window._adminMemberCache[memberId]);
+  } catch(e) {
+    targetEl.innerHTML = '<div style="font-size:10px;color:var(--rose);padding:4px">Lỗi tải dữ liệu</div>';
+  }
+}
+
+function _adminMemberRender(type, memberId, data) {
+  const el = document.getElementById('ms-' + type + '-' + memberId);
+  if (!el) return;
+  if (type === 'streak') {
+    el.innerHTML = buildStreakDetail(data);
+  } else {
+    el.innerHTML = buildReportDetail(data);
+  }
+}
+
 async function adminSaveLeaderNote(mid, noteKey) {
   const el = document.getElementById('admin-ln-' + mid);
   if (!el) return;
@@ -10803,70 +11191,21 @@ function renderAdminPending(pending) {
     </div>`).join('');
 }
 
-function renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCodes) {
+function renderAdminLeaders(approved, leaderByGroup, membersByGroup, allGroupCodes, membersAll, leaderTrainingStats, leaderJournalHistory, leaderOkrStats, leaderMonthlyData) {
   const el = document.getElementById('admin-leaders-list');
   if (!el) return;
-
   const groups = allGroupCodes ? [...allGroupCodes].sort() : approved.map(([,r]) => r.groupCode);
-
   if (!groups.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">👑</div><p>Chưa có nhóm nào.</p></div>';
     return;
   }
-
-  // Nếu gọi kiểu cũ (không có leaderByGroup), fallback về kiểu cũ
-  if (!leaderByGroup) {
-    leaderByGroup = {};
-    approved.forEach(([id,r]) => { leaderByGroup[r.groupCode] = {id, ...r}; });
-  }
-  if (!membersByGroup) membersByGroup = {};
-
-  el.innerHTML = `<div style="font-size:11px;color:var(--ink-muted);margin-bottom:10px">
-    ${groups.length} nhóm &nbsp;·&nbsp; ${approved.length} trưởng nhóm đã duyệt
-  </div>` + groups.map(groupCode => {
-    const leader = leaderByGroup[groupCode];
-    const members = membersByGroup[groupCode] || [];
-    const memberCount = members.length;
-    const hasLeader = !!leader;
-
-    return `<div style="padding:12px 14px;background:var(--card);border:1.5px solid ${hasLeader ? 'rgba(91,138,110,0.25)' : 'rgba(201,168,76,0.2)'};border-radius:12px;margin-bottom:8px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <div style="font-weight:800;font-size:13.5px;color:var(--ink)">👥 Nhóm ${groupCode}</div>
-            <span style="background:rgba(91,138,110,0.1);color:var(--jade);font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px">${memberCount} thành viên</span>
-          </div>
-          ${hasLeader
-            ? `<div style="font-size:12px;color:var(--ink);font-weight:700;margin-bottom:2px">👑 TN: ${leader.name}</div>
-               <div style="font-size:11px;color:var(--ink-muted)">📱 ${leader.phone||'–'} ${leader.email ? '· 📧 ' + leader.email : ''}</div>
-               <div style="font-size:10.5px;color:var(--jade);margin-top:2px">✅ Duyệt: ${leader.approvedAt ? new Date(leader.approvedAt).toLocaleDateString('vi') : '–'}</div>
-               ${(() => { const exp = getExpiryInfo(leader.approvedAt); return `<div style="font-size:11px;font-weight:700;color:${exp.color};margin-top:3px">🗓 ${exp.label}</div>`; })()}
-               ${(() => { const exp = getExpiryInfo(leader.approvedAt); return exp.daysLeft !== null && exp.daysLeft <= 30 ? `<button onclick="adminRenewMember('${leader.memberId||leader.id}','${leader.name}')" style="margin-top:5px;padding:4px 10px;background:linear-gradient(135deg,var(--jade),#3d6b54);color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">🔄 Gia hạn</button>` : ''; })()}`
-            : `<div style="font-size:11.5px;color:rgba(201,168,76,0.9);font-weight:700">⚠️ Chưa có trưởng nhóm được duyệt</div>`
-          }
-        </div>
-        ${hasLeader
-          ? `<button onclick="revokeLeader('${leader.id}')"
-              style="padding:6px 12px;background:rgba(192,96,106,0.08);color:var(--rose);border:1px solid rgba(192,96,106,0.25);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;white-space:nowrap;flex-shrink:0">
-              Thu hồi
-             </button>`
-          : ''
-        }
-      </div>
-      <!-- Danh sách thành viên nhóm này – có toggle -->
-      <div style="border-top:1px solid var(--border);padding-top:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:11px;font-weight:700;color:var(--ink-muted)">👤 Thành viên</div>
-          <button id="admin-toggle-btn-${groupCode}" onclick="toggleGroupMembers('${groupCode}')"
-            style="font-size:11px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.25);border-radius:8px;padding:3px 10px;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-            Xem danh sách ▼
-          </button>
-        </div>
-        <div id="admin-group-members-list-${groupCode}" style="font-size:11.5px;color:var(--ink-muted);display:none;margin-top:8px"></div>
-      </div>
-    </div>`;
-  }).join('');
+  el.innerHTML = '<div style="font-size:11px;color:var(--ink-muted);margin-bottom:10px">'+groups.length+' nhóm · '+approved.length+' trưởng nhóm đã duyệt</div>' +
+    '<div id="admin-all-leaders-cards"></div>';
+  const tempListEl = document.getElementById('admin-all-leaders-cards');
+  if (!tempListEl) return;
+  renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll || {}, leaderTrainingStats || {}, leaderJournalHistory || {}, leaderOkrStats || {}, false, tempListEl, leaderMonthlyData || {});
 }
+
 
 function toggleGroupMembers(groupCode) {
   const el = document.getElementById('admin-group-members-list-' + groupCode);
@@ -11154,15 +11493,20 @@ async function rejectLeader(requestId) {
 async function revokeLeader(requestId) {
   if (!confirm('Thu hồi quyền trưởng nhóm này?')) return;
   const database = await loadFirebase();
-  if (!database) return;
-  const snap = await database.ref('leader_requests/' + requestId).once('value');
-  const r = snap.val();
-  if (r) {
-    await database.ref('leader_requests/' + requestId).update({ status: 'revoked' });
-    await database.ref('leaders/' + fbKey(r.groupCode) + '/' + r.memberId).remove();
+  if (!database) { showToast('⚠️ Không kết nối được Firebase.'); return; }
+  try {
+    const snap = await database.ref('leader_requests/' + requestId).once('value');
+    const r = snap.val();
+    if (r) {
+      await database.ref('leader_requests/' + requestId).update({ status: 'revoked' });
+      await database.ref('leaders/' + fbKey(r.groupCode) + '/' + r.memberId).remove();
+    }
+    showToast('🔄 Đã thu hồi quyền trưởng nhóm');
+    loadAdminData();
+  } catch(e) {
+    console.error('revokeLeader error:', e);
+    showToast('⚠️ Lỗi thu hồi: ' + e.message);
   }
-  showToast('🔄 Đã thu hồi quyền trưởng nhóm');
-  loadAdminData();
 }
 
 // renderAdminGroups: dùng dữ liệu đã load từ loadAdminData → luôn khớp với tab Trưởng Nhóm
@@ -11538,7 +11882,6 @@ function saveSeedsData() {
   if (db && userInfo) {
     const uidKey = getUidKey();
     db.ref('users/' + uidKey + '/seeds').set(seedsData)
-      .then(() => console.log('✅ Seeds synced to Firebase:', seedsData.length))
       .catch(e => {
         console.warn('Seeds sync failed, fallback to scheduleSyncPush:', e.message);
         if (typeof scheduleSyncPush === 'function') scheduleSyncPush(SEEDS_KEY);
@@ -12310,7 +12653,7 @@ function _showDebug(html) {
 }
 
 function debugCheckSeeds() {
-  const raw = localStorage.getItem('nk5nn-seeds');
+  const raw = localStorage.getItem(SEEDS_KEY);
   if (!raw || raw === '[]') {
     _showDebug('❌ <strong>Không có dữ liệu hạt giống trong thiết bị này.</strong><br>localStorage trống hoặc đã bị xóa.<br><br>→ Thử bấm "☁️ Kiểm tra Firebase" để xem cloud có không.');
     return;
@@ -12388,7 +12731,7 @@ function debugForceRestoreSeeds() {
   // Đọc lại từ localStorage một lần nữa (phòng trường hợp biến seedsData bị reset)
   let restored = false;
   try {
-    const raw = localStorage.getItem('nk5nn-seeds');
+    const raw = localStorage.getItem(SEEDS_KEY);
     if (raw && raw !== '[]') {
       const arr = JSON.parse(raw);
       if (arr.length > 0) {
@@ -12639,14 +12982,14 @@ function openETypeManager(){
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;">
-      <button class="btn-out" onclick="_etypeModal&&_etypeModal.remove();_etypeModal=null;renderCalLegend();renderETypeChips();" style="padding:8px 16px;font-size:13px;cursor:pointer;">Đóng</button>
+      <button class="btn-out" onclick="_etypeModal&&_etypeModal.remove();_etypeModal=null;renderCalAll();" style="padding:8px 16px;font-size:13px;cursor:pointer;">Đóng</button>
     </div>
   </div>`;
   document.body.appendChild(modal);
   _etypeModal=modal;
   _refreshETypeList();
   _renderNewColorPicker();
-  modal.addEventListener('click',e=>{if(e.target===modal){modal.remove();_etypeModal=null;renderCalLegend();renderETypeChips();}});
+  modal.addEventListener('click',e=>{if(e.target===modal){modal.remove();_etypeModal=null;renderCalAll();}});
   setTimeout(()=>document.getElementById('new-etype-name')?.focus(),80);
   document.getElementById('new-etype-name').onkeydown=e=>{if(e.key==='Enter')addEType();};
 }
@@ -12696,13 +13039,13 @@ function addEType(){
   inp.value='';
   _newEtypeColorIdx=(_newEtypeColorIdx+1)%ETYPE_COLORS.length;
   _refreshETypeList();_renderNewColorPicker();
-  renderCalLegend();renderETypeChips();
+  renderCalAll();
 }
 
 function updateETypeLabel(i,label){
   const types=getETypes();
   if(types[i]){types[i].label=label;saveETypes(types);}
-  renderCalLegend();renderETypeChips();
+  renderCalAll();
   // Không re-render list để tránh mất focus
 }
 
@@ -12712,7 +13055,7 @@ function updateETypeColor(i,colorIdx){
   const col=ETYPE_COLORS[colorIdx];
   types[i].bg=col.bg;types[i].fg=col.fg;
   saveETypes(types);
-  renderCalLegend();renderETypeChips();
+  renderCalAll();
   _refreshETypeList();
 }
 
@@ -12734,7 +13077,7 @@ function deleteEType(i){
     if(changed) persistCurrentMonth();
   }
   if(!types.find(e=>e.id===selEType))selEType=types[0].id;
-  renderCalLegend();renderETypeChips();renderCal();
+  renderCalAll();renderCal();
   _refreshETypeList();
 }
 
@@ -12987,7 +13330,7 @@ function renderHouses(){
   });
 }
 function delHouse(id){
-  if(monthData.houses.length<=1){alert('Cần giữ ít nhất 1 nhóm.');return;}
+  if(monthData.houses.length<=1){showToast('⚠️ Cần giữ ít nhất 1 nhóm.');return;}
   monthData.houses=monthData.houses.filter(h=>h.id!==id);
   renderHouses();
 }
@@ -13315,6 +13658,9 @@ function delKaizenItem(i){
 /* ═══════════════════════════════════════════
    LEGEND & PHÂN LOẠI SỰ KIỆN
 ═══════════════════════════════════════════ */
+/* Helper: gọi cả 2 cùng lúc — tránh lặp code */
+function renderCalAll() { renderCalLegend(); renderETypeChips(); }
+
 function renderCalLegend(){
   const leg=document.getElementById('cal-legend');if(!leg)return;
   const types=getETypes();
