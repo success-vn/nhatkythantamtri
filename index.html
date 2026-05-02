@@ -4991,6 +4991,20 @@ async function initFirebaseBackground() {
   // Sync toàn bộ lịch sử journal lên Firebase ngay sau khi pull+push xong
   // Đảm bảo nnEnergy từ localStorage (đã được merge đúng) được ghi lên /journals/
   syncJournalHistoryToFirebase();
+
+  // Sync thống kê nhóm hôm nay ngay khi khởi động
+  // Đảm bảo tab Đội Nhóm hiển thị đúng dù member không tương tác thêm
+  setTimeout(() => {
+    const todayK = todayKey();
+    const todayEntry = data[todayK];
+    if (todayEntry) {
+      const rituals = Object.values(todayEntry.rituals || {}).filter(Boolean).length;
+      const hasNN = todayEntry.nnEnergy && Object.values(todayEntry.nnEnergy).some(v => v && v !== 5);
+      if (rituals > 0 || hasNN) {
+        autoSyncMyTeamStats();
+      }
+    }
+  }, 1500);
 }
 
 // Kiểm tra auth state Firebase khi app load (auto-login nếu còn session)
@@ -5533,18 +5547,30 @@ function renderTeam() {
 
       const allMembers = {};
       // Chỉ hiển thị thành viên đã được duyệt
-      // Dùng Object.entries để lấy key Firebase làm fallback memberId
-      // (thành viên cũ dùng tên+nhóm không có m.memberId field)
       Object.entries(membersData).forEach(function([fbKey_, m]) {
-        const mid = m.memberId || fbKey_; // fallback về Firebase key
+        const mid = m.memberId || fbKey_;
         if (!mid) return;
-        if (!isMemberApproved(m)) return; // bỏ qua pending
+        if (!isMemberApproved(m)) return;
         const stat = allStats[mid] || {};
         allMembers[mid] = { name:m.name||stat.name||'–', date:stat.date||null, rituals:stat.rituals||0, nn:stat.nn||[5,5,5,5,5], isLeader:m.isLeader||false };
       });
-      // Chỉ thêm từ /groups/ nếu memberId đã tồn tại trong allMembers (đã được duyệt)
-      // Không thêm mới từ /groups/ để tránh hiển thị member cũ/pending còn sót stats
-      // (stats cũ trong /groups/ vẫn được dùng nếu member đã approved)
+
+      // Đảm bảo bản thân luôn hiển thị với data đúng từ localStorage
+      // (Firebase có thể chưa cập nhật nếu vừa tick nghi thức)
+      if (userInfo && userInfo.memberId && allMembers[userInfo.memberId]) {
+        const todayE = getTodayEntry();
+        const myRituals = Object.values(todayE.rituals || {}).filter(Boolean).length;
+        const myNN = NN_LIST.map(n => todayE.nnEnergy?.[n.key] || 5);
+        const myDate = myRituals > 0 || myNN.some(v => v !== 5) ? k : allMembers[userInfo.memberId].date;
+        if (myRituals > 0 || myNN.some(v => v !== 5)) {
+          allMembers[userInfo.memberId] = {
+            ...allMembers[userInfo.memberId],
+            date: myDate,
+            rituals: myRituals,
+            nn: myNN,
+          };
+        }
+      }
 
       const entries      = Object.entries(allMembers);
       const todayEntries = entries.filter(function(e){ return e[1].date === k; });
@@ -8071,7 +8097,21 @@ function showPage(name, btn) {
     renderDashboard();
   }
   if (name==='history')     renderHistory();
-  if (name==='team')        { renderTeam(); }
+  if (name==='team')        {
+    // Sync stats nhóm trước khi render — đảm bảo data mới nhất được ghi lên Firebase
+    const todayK = todayKey();
+    const todayEntry = data[todayK];
+    if (todayEntry && db) {
+      const rituals = Object.values(todayEntry.rituals || {}).filter(Boolean).length;
+      const hasNN = todayEntry.nnEnergy && Object.values(todayEntry.nnEnergy).some(v => v && v !== 5);
+      if (rituals > 0 || hasNN) {
+        autoSyncMyTeamStats().then(() => renderTeam()).catch(() => {});
+        renderTeam(); // render ngay với data cũ, sau đó re-render sau khi sync
+        return;
+      }
+    }
+    renderTeam();
+  }
   if (name==='finance')     { setTimeout(()=>{ updateMoneyColorAssess(); renderFinanceMonthlySummary(); }, 50); }
   if (name==='start')       { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('sp')||k.startsWith('r3m')) destroyChart(k); }); initStartPage(); }
   if (name==='milestones')  { Object.keys(chartInstances).forEach(k=>{ if(k.startsWith('ms')) destroyChart(k); }); initMilestonesPage(); }
@@ -9269,58 +9309,88 @@ function loadLeaderData() {
             firebaseUid:  memberToUid[mid] || memberInfo.firebaseUid || null,
           };
 
-          // Load journal: CHỈ đọc từ /journals/ (chỉ số, không có nội dung riêng tư)
-          // KHÔNG đọc /users/{uid}/daily vì path đó chứa toàn bộ nhật ký chi tiết
-          // Thử cả encoded path (mới) lẫn raw path (cũ — groupCode có dấu cách)
+          // Load journal: đọc song song /journals/ và /users/{uid}/daily
+          // Sau đó merge — /journals/ ưu tiên (đã filtered), /users/ làm bổ sung
           const encodedGC = fbKey(userInfo.groupCode);
           const rawGC = userInfo.groupCode || '';
           const memberUID = leaderAllData[mid]?.firebaseUid || memberToUid[mid] || null;
-          const jPromise = db.ref('journals/' + encodedGC + '/' + mid).once('value').catch(()=>null)
-            .then(async snap => {
-              if (snap && snap.val() && Object.keys(snap.val()).length > 0) return snap;
-              // Fallback 1: thử raw groupCode (data cũ ghi bằng path chưa encode)
-              if (rawGC !== encodedGC) {
-                const snap2 = await db.ref('journals/' + rawGC + '/' + mid).once('value').catch(() => null);
-                if (snap2 && snap2.val() && Object.keys(snap2.val()).length > 0) {
-                  // Migrate sang encoded path để lần sau nhanh hơn
-                  db.ref('journals/' + encodedGC + '/' + mid).update(snap2.val()).catch(()=>{});
-                  return snap2;
+
+          const jPromise = (async () => {
+            // Đọc song song tất cả nguồn
+            const fetches = [
+              db.ref('journals/' + encodedGC + '/' + mid).once('value').catch(()=>null),
+            ];
+            if (rawGC !== encodedGC) {
+              fetches.push(db.ref('journals/' + rawGC + '/' + mid).once('value').catch(()=>null));
+            }
+            if (memberUID) {
+              fetches.push(db.ref('users/' + memberUID + '/daily').once('value').catch(()=>null));
+            }
+            const snaps = await Promise.all(fetches);
+
+            // Lấy dữ liệu từ /journals/ encoded (ưu tiên)
+            let merged = {};
+            const jEncoded = snaps[0] && snaps[0].val();
+            if (jEncoded && typeof jEncoded === 'object') {
+              Object.entries(jEncoded).forEach(([dk, e]) => {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dk)) merged[dk] = e;
+              });
+            }
+
+            // Bổ sung từ /journals/ raw nếu encoded trống
+            if (rawGC !== encodedGC && snaps[1]) {
+              const jRaw = snaps[1].val();
+              if (jRaw && typeof jRaw === 'object') {
+                Object.entries(jRaw).forEach(([dk, e]) => {
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && !merged[dk]) merged[dk] = e;
+                });
+                // Migrate sang encoded path
+                if (Object.keys(jRaw).length > 0) {
+                  db.ref('journals/' + encodedGC + '/' + mid).update(jRaw).catch(()=>{});
                 }
               }
-              // Fallback 2: đọc từ /users/{uid}/daily nếu có uid
-              if (memberUID) {
-                try {
-                  const dailySnap = await db.ref('users/' + memberUID + '/daily').once('value').catch(()=>null);
-                  const dailyVal = dailySnap && dailySnap.val();
-                  if (dailyVal && typeof dailyVal === 'object') {
-                    const converted = {};
-                    Object.entries(dailyVal).forEach(([dk, e]) => {
-                      if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
-                        converted[dk] = {
-                          rituals:    e.rituals   || {},
-                          energy:     e.energy    || 5,
-                          nnEnergy:   e.nnEnergy  || {},
-                          recvGreen:  e.recvGreen || 0,
-                          recvRed:    e.recvRed   || 0,
-                          spendGreen: e.spendGreen|| 0,
-                          spendRed:   e.spendRed  || 0,
-                          seedsActive:e.seedsActive|| 0,
-                          seedsDone:  e.seedsDone || 0,
-                        };
+            }
+
+            // Bổ sung từ /users/{uid}/daily — convert sang journal format
+            const dailyIdx = memberUID ? (rawGC !== encodedGC ? 2 : 1) : -1;
+            if (dailyIdx >= 0 && snaps[dailyIdx]) {
+              const dailyVal = snaps[dailyIdx].val();
+              if (dailyVal && typeof dailyVal === 'object') {
+                const converted = {};
+                Object.entries(dailyVal).forEach(([dk, e]) => {
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+                    const jEntry = {
+                      rituals:    e.rituals    || {},
+                      energy:     e.energy     || 5,
+                      nnEnergy:   e.nnEnergy   || {},
+                      recvGreen:  e.recvGreen  || 0,
+                      recvRed:    e.recvRed    || 0,
+                      spendGreen: e.spendGreen || 0,
+                      spendRed:   e.spendRed   || 0,
+                      seedsActive: e.seedsActive != null ? e.seedsActive : (window._selfSeedsActive || 0),
+                      seedsDone:   e.seedsDone  != null ? e.seedsDone   : (window._selfSeedsDone   || 0),
+                    };
+                    // Dùng /users/ nếu /journals/ không có entry ngày này
+                    if (!merged[dk]) {
+                      merged[dk] = jEntry;
+                      converted[dk] = jEntry;
+                    } else {
+                      // Bổ sung field còn thiếu từ /users/ vào /journals/ entry
+                      if (!merged[dk].nnEnergy || Object.keys(merged[dk].nnEnergy || {}).length === 0) {
+                        merged[dk].nnEnergy = jEntry.nnEnergy;
                       }
-                    });
-                    if (Object.keys(converted).length > 0) {
-                      // Migrate lên /journals/ để lần sau không cần fallback
-                      db.ref('journals/' + encodedGC + '/' + mid).update(converted).catch(()=>{});
-                      // Trả về snap giả với data đã convert
-                      return { val: () => converted };
                     }
                   }
-                } catch(eDl) {}
+                });
+                // Migrate lên /journals/ để lần sau nhanh hơn
+                if (Object.keys(converted).length > 0) {
+                  db.ref('journals/' + encodedGC + '/' + mid).update(converted).catch(()=>{});
+                }
               }
-              return snap;
-            })
-            .catch(() => null);
+            }
+
+            return { val: () => merged };
+          })().catch(() => null);
           const promises = [jPromise];
 
           Promise.all(promises).then((results) => {
@@ -9365,14 +9435,40 @@ function loadLeaderData() {
               Object.entries(leaderAllData).forEach(([mid, m]) => {
                 window._lmDetailEntries[mid] = m.entries;
               });
+              // Bảo tồn trạng thái panel đang mở trước khi re-render
+              const prevStreakOpen = window._leaderOpenStreakMid;
+              const prevReportOpen = window._leaderOpenReportMid;
+              const prevPfx = window._leaderOpenPfx || '';
               renderLeaderMemberList();
               renderLeaderDashboard();
+              // Restore trạng thái sau khi re-render
+              if (prevStreakOpen && window._adminMemberCache && window._adminMemberCache[prevStreakOpen]) {
+                const el = document.getElementById(prevPfx + 'ms-streak-' + prevStreakOpen);
+                if (el) { el.style.display = 'block'; _leaderMemberRender('streak', prevStreakOpen, window._adminMemberCache[prevStreakOpen], prevPfx); }
+              }
+              if (prevReportOpen && window._adminMemberCache && window._adminMemberCache[prevReportOpen]) {
+                const el = document.getElementById(prevPfx + 'ms-report-' + prevReportOpen);
+                if (el) { el.style.display = 'block'; _leaderMemberRender('report', prevReportOpen, window._adminMemberCache[prevReportOpen], prevPfx); }
+              }
             }
           }).catch(() => {
             loaded++;
             if (loaded === allMemberEntries.length) {
+              // Bảo tồn trạng thái streak/report đang mở trước khi re-render
+              const prevStreakOpen = window._leaderOpenStreakMid;
+              const prevReportOpen = window._leaderOpenReportMid;
+              const prevPfx = window._leaderOpenPfx || '';
               renderLeaderMemberList();
               renderLeaderDashboard();
+              // Restore trạng thái sau khi re-render
+              if (prevStreakOpen && window._adminMemberCache && window._adminMemberCache[prevStreakOpen]) {
+                const el = document.getElementById(prevPfx + 'ms-streak-' + prevStreakOpen);
+                if (el) { el.style.display = 'block'; _leaderMemberRender('streak', prevStreakOpen, window._adminMemberCache[prevStreakOpen], prevPfx); }
+              }
+              if (prevReportOpen && window._adminMemberCache && window._adminMemberCache[prevReportOpen]) {
+                const el = document.getElementById(prevPfx + 'ms-report-' + prevReportOpen);
+                if (el) { el.style.display = 'block'; _leaderMemberRender('report', prevReportOpen, window._adminMemberCache[prevReportOpen], prevPfx); }
+              }
             }
           });
         });
@@ -9635,7 +9731,13 @@ function syncJournalHistoryToFirebase(onDone) {
         } catch(e) {}
       }
       if (entry.nnEnergy && Object.keys(entry.nnEnergy).length > 0) nnCount++;
-      batch[dateKey] = _makeJournalEntry(entry);
+      // Sync nếu có rituals HOẶC nnEnergy — không bỏ qua entries chỉ có rituals
+      const hasRituals = entry.rituals && Object.values(entry.rituals).some(Boolean);
+      const hasNN = entry.nnEnergy && Object.keys(entry.nnEnergy).length > 0;
+      const hasEnergy = entry.energy && entry.energy !== 5;
+      if (hasRituals || hasNN || hasEnergy) {
+        batch[dateKey] = _makeJournalEntry(entry);
+      }
     }
   });
   if (Object.keys(batch).length === 0) { if (onDone) onDone(); return; }
@@ -10076,46 +10178,62 @@ async function loadAdminData() {
         if (!nonLeaders.length) return;
 
         const memberJournals = {};
+        // Pre-load uid map 1 lần cho toàn bộ nhóm
+        const uidMapForGroup = await database.ref('uid_to_member').once('value').catch(()=>null);
+        const uidMapGV = (uidMapForGroup && uidMapForGroup.val()) || {};
+        const midToUidGV = {};
+        Object.entries(uidMapGV).forEach(([uid, v]) => { if (v && v.memberId) midToUidGV[v.memberId] = uid; });
+
         await Promise.all(nonLeaders.map(async m => {
           const mid = m.memberId;
           if (!mid) return;
           try {
-            let snap = await database.ref('journals/' + fbKey(gc) + '/' + mid).once('value').catch(()=>null);
-            if (!snap || !snap.val()) {
-              snap = await database.ref('journals/' + fbKey(gc) + '/' + fbKey(mid)).once('value').catch(()=>null);
+            const uid = midToUidGV[mid] || null;
+            // Đọc song song: /journals/ encoded, raw, và /users/{uid}/daily
+            const fetches = [
+              database.ref('journals/' + fbKey(gc) + '/' + mid).once('value').catch(()=>null),
+            ];
+            if (uid) fetches.push(database.ref('users/' + uid + '/daily').once('value').catch(()=>null));
+            const [jSnap, dailySnap] = await Promise.all(fetches);
+
+            let merged = {};
+            // Ưu tiên /journals/
+            const jVal = jSnap && jSnap.val();
+            if (jVal && typeof jVal === 'object') {
+              Object.entries(jVal).forEach(([dk, e]) => {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dk)) merged[dk] = e;
+              });
             }
-            if (snap && snap.val()) {
-              memberJournals[mid] = snap.val();
-            } else {
-              // Fallback: đọc từ /users/{uid}/daily
-              const uidMapSnap2 = await database.ref('uid_to_member').once('value').catch(()=>null);
-              const uidMap2 = (uidMapSnap2 && uidMapSnap2.val()) || {};
-              const uid2 = Object.keys(uidMap2).find(u => uidMap2[u] && uidMap2[u].memberId === mid);
-              if (uid2) {
-                const dailySnap2 = await database.ref('users/' + uid2 + '/daily').once('value').catch(()=>null);
-                const dailyVal2 = dailySnap2 && dailySnap2.val();
-                if (dailyVal2 && typeof dailyVal2 === 'object') {
-                  const converted2 = {};
-                  Object.entries(dailyVal2).forEach(([dk, e]) => {
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
-                      converted2[dk] = {
-                        rituals:    e.rituals   || {},
-                        energy:     e.energy    || 5,
-                        nnEnergy:   e.nnEnergy  || {},
-                        recvGreen:  e.recvGreen || 0,
-                        recvRed:    e.recvRed   || 0,
-                        spendGreen: e.spendGreen|| 0,
-                        spendRed:   e.spendRed  || 0,
-                      };
+            // Bổ sung từ /users/{uid}/daily
+            if (dailySnap) {
+              const dailyVal = dailySnap.val();
+              if (dailyVal && typeof dailyVal === 'object') {
+                const toMigrate = {};
+                Object.entries(dailyVal).forEach(([dk, e]) => {
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(dk) && e && typeof e === 'object') {
+                    const jEntry = {
+                      rituals:    e.rituals    || {},
+                      energy:     e.energy     || 5,
+                      nnEnergy:   e.nnEnergy   || {},
+                      recvGreen:  e.recvGreen  || 0,
+                      recvRed:    e.recvRed    || 0,
+                      spendGreen: e.spendGreen || 0,
+                      spendRed:   e.spendRed   || 0,
+                    };
+                    if (!merged[dk]) {
+                      merged[dk] = jEntry;
+                      toMigrate[dk] = jEntry;
+                    } else if (!merged[dk].nnEnergy || Object.keys(merged[dk].nnEnergy||{}).length === 0) {
+                      merged[dk].nnEnergy = jEntry.nnEnergy;
                     }
-                  });
-                  if (Object.keys(converted2).length > 0) {
-                    memberJournals[mid] = converted2;
-                    database.ref('journals/' + fbKey(gc) + '/' + mid).update(converted2).catch(()=>{});
                   }
+                });
+                if (Object.keys(toMigrate).length > 0) {
+                  database.ref('journals/' + fbKey(gc) + '/' + mid).update(toMigrate).catch(()=>{});
                 }
               }
             }
+            if (Object.keys(merged).length > 0) memberJournals[mid] = merged;
           } catch(e) {}
         }));
         window._adminGroupJournals[gc] = memberJournals;
@@ -10435,7 +10553,10 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
     const latestSeedsDone   = (() => { for (const dk of jKeys7) { const je = jHist[dk]; if (je && je.seedsDone != null) return je.seedsDone; } return null; })();
 
     // ── Sức khỏe nhóm ──
-    const cachedGroupData = window._adminGroupsAll ? (window._adminGroupsAll[fbKey ? fbKey(groupCode) : groupCode] || {}) : {};
+    const gcEncoded = fbKey ? fbKey(groupCode) : groupCode;
+    const cachedGroupData = window._adminGroupsAll
+      ? (window._adminGroupsAll[gcEncoded] || window._adminGroupsAll[groupCode] || {})
+      : {};
     let _groupActiveToday = 0, _groupAvgNL = null;
     let _groupCountRed = 0, _groupCountYellow = 0, _groupCountGreen = 0, _groupCountNoLog = 0;
     let _groupMemberNeedCare = [];
@@ -10453,8 +10574,9 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
       }
       _groupCountNoLog   = Math.max(0, groupMembers.length - _groupActiveToday);
 
-      // Thành viên cần quan tâm: chưa ghi hoặc NL đỏ, sắp xếp NL thấp lên trước
+      // Thành viên cần quan tâm: chưa ghi hôm nay HOẶC NL đỏ
       _groupMemberNeedCare = groupMembers.map(m => {
+        // Lookup theo memberId trong cachedGroupData
         const mStat    = cachedGroupData[m.memberId] || null;
         const isActive = mStat && mStat.date === todayK;
         const nn       = isActive ? (mStat.nn || []) : [];
@@ -10469,12 +10591,18 @@ function renderAdminLeaderMonitor(leaderByGroup, membersByGroup, membersAll, lea
           return a.nlToday - b.nlToday;
         }).slice(0, 5);
     } else {
+      // Nếu không có cached data → dùng groupMembers để count, all inactive
       _groupCountNoLog = groupMembers.length;
+      _groupMemberNeedCare = groupMembers.slice(0, 5).map(m => ({
+        name: m.name || '–', nlToday: null, isActive: false, memberId: m.memberId || '', groupCode
+      }));
     }
 
     // Tỉ lệ ghi 7 ngày nhóm
     let _groupRate7 = [], _groupRateTrend = '';
-    const groupJournalCache = window._adminGroupJournals ? (window._adminGroupJournals[groupCode] || null) : null;
+    const groupJournalCache = window._adminGroupJournals
+      ? (window._adminGroupJournals[gcEncoded] || window._adminGroupJournals[groupCode] || null)
+      : null;
     if (groupJournalCache && groupMembers.length > 0) {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() + 7*60*60*1000);
@@ -11193,41 +11321,60 @@ function buildReportDetail(a) {
           if (!w || typeof w !== 'object') return;
           (w.objectives || []).forEach(obj => {
             if (!obj || !obj.text) return;
-            const krs = obj.krs || [];
-            if (!krs.length) return;
-            const sc = krs.filter(kr => kr.done).length / krs.length * 10;
-            totO++; mTotO++; totKR += krs.length; doneKR += krs.filter(kr => kr.done).length;
-            if (sc >= 7) { doneO++; mDoneO++; }
+            const krs = (obj.krs || []).filter(kr => kr && kr.text);
+            // Tính score: nếu có KR thì tính theo KR done, không thì dùng obj.score trực tiếp
+            let sc = 0;
+            if (krs.length > 0) {
+              const doneCnt = krs.filter(kr => kr.done || (kr.score >= 10)).length;
+              sc = krs.length > 0 ? doneCnt / krs.length * 10 : 0;
+              totKR += krs.length;
+              doneKR += krs.filter(kr => kr.done || (kr.score >= 10)).length;
+            } else {
+              // Objective không có KR — dùng score trực tiếp nếu có
+              sc = obj.score || 0;
+            }
+            totO++; mTotO++;
+            if (sc >= 7 || obj.done) { doneO++; mDoneO++; }
             if (obj.houseId) {
               const h = houses.find(h => h.id === obj.houseId);
               if (!h) return;
               const nm = (h.icon || '') + ' ' + (h.name || '?');
               if (!houseMap[nm]) houseMap[nm] = { totKR: 0, doneKR: 0, objs: 0, doneObj: 0, sm: h.successMetric || '' };
               houseMap[nm].objs++;
-              if (sc >= 7) houseMap[nm].doneObj++;
-              houseMap[nm].totKR += krs.length;
-              houseMap[nm].doneKR += krs.filter(kr => kr.done).length;
+              if (sc >= 7 || obj.done) houseMap[nm].doneObj++;
+              if (krs.length > 0) {
+                houseMap[nm].totKR += krs.length;
+                houseMap[nm].doneKR += krs.filter(kr => kr.done || (kr.score >= 10)).length;
+              }
             }
           });
         });
-
-        // Hạt giống từ monthly data
-        if (md.seedsActive != null || md.seedsDone != null) {
-          // handled below per-milestone
-        }
       }
       const lbl = 'T' + (mo.m + 1) + (months.length > 6 ? '/' + String(mo.y).slice(2) : '');
       okrByMonth.push({ label: lbl, ritPct: ritPctM, okrPct: mTotO > 0 ? Math.round(mDoneO / mTotO * 100) : null });
     });
 
-    // Hạt giống: lấy từ monthly data tháng mới nhất có dữ liệu
+    // Hạt giống: ưu tiên jHist entries (seedsActive/seedsDone được sync mỗi ngày)
+    // Fallback về monthly data nếu jHist không có
     let seedsActive = null, seedsDone = null;
-    for (let i = months.length - 1; i >= 0; i--) {
-      const md = monthlyData[months[i].key];
-      if (md) {
-        if (seedsActive === null && md.seedsActive != null) seedsActive = md.seedsActive;
-        if (seedsDone === null && md.seedsDone != null) seedsDone = md.seedsDone;
-        if (seedsActive !== null && seedsDone !== null) break;
+    // Thử lấy từ jHist — lấy entry gần nhất có seedsActive
+    const jHistKeys = Object.keys(jHist).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse();
+    for (const dk of jHistKeys) {
+      const je = jHist[dk];
+      if (!je) continue;
+      if (seedsActive === null && je.seedsActive != null) seedsActive = je.seedsActive;
+      if (seedsDone === null && je.seedsDone != null) seedsDone = je.seedsDone;
+      if (seedsActive !== null && seedsDone !== null) break;
+    }
+    // Fallback: monthly data
+    if (seedsActive === null || seedsDone === null) {
+      for (let i = months.length - 1; i >= 0; i--) {
+        const md = monthlyData[months[i].key];
+        if (md) {
+          if (seedsActive === null && md.seedsActive != null) seedsActive = md.seedsActive;
+          if (seedsDone === null && md.seedsDone != null) seedsDone = md.seedsDone;
+          if (seedsActive !== null && seedsDone !== null) break;
+        }
       }
     }
 
@@ -11279,18 +11426,9 @@ function buildReportDetail(a) {
       seedsHtml,
     ].join('');
 
-    // Biểu đồ xu hướng (mini bars)
-    const chartBars = s.okrByMonth.map(d => {
-      const rH = Math.max(3, Math.round((d.ritPct / 100) * 56));
-      const oH = d.okrPct !== null ? Math.max(3, Math.round((d.okrPct / 100) * 56)) : 0;
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
-        '<div style="width:100%;display:flex;align-items:flex-end;justify-content:center;gap:1px;height:56px">' +
-          '<div style="width:45%;height:'+rH+'px;background:rgba(201,168,76,0.5);border-radius:2px 2px 0 0"></div>' +
-          (oH > 0 ? '<div style="width:45%;height:'+oH+'px;background:rgba(74,140,111,0.7);border-radius:2px 2px 0 0"></div>' : '<div style="width:45%"></div>') +
-        '</div>' +
-        '<div style="font-size:8.5px;color:var(--ink-muted);text-align:center">'+d.label+'</div>' +
-      '</div>';
-    }).join('');
+    // Biểu đồ xu hướng combo: đường nghi thức + cột OKR
+    const chartId = 'rpt-chart-' + midSafe + '-' + Date.now();
+    const okrByMonth = s.okrByMonth;
 
     // Tiến độ ngôi nhà
     const housesWithData = Object.entries(s.houseMap).filter(e => e[1].objs > 0);
@@ -11318,26 +11456,42 @@ function buildReportDetail(a) {
 
     return '<div>' +
       // HOẠT ĐỘNG
-      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:.5px;margin:0 0 7px">HOAT DONG</div>' +
+      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:.5px;margin:0 0 7px">HOẠT ĐỘNG</div>' +
       '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px">'+kpi1+'</div>' +
       // KẾT QUẢ OKR + Hạt giống
-      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:.5px;margin-bottom:7px">KET QUA THUC SU (OKR + HAT GIONG)</div>' +
+      '<div style="font-size:10px;font-weight:700;color:var(--ink-muted);letter-spacing:.5px;margin-bottom:7px">KẾT QUẢ THỰC SỰ (OKR + HẠT GIỐNG)</div>' +
       '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px">'+kpi2+'</div>' +
-      // Biểu đồ xu hướng
-      (s.okrByMonth.length > 0
+      // Biểu đồ combo Chart.js
+      (okrByMonth.length > 0
         ? '<div style="background:var(--color-background-secondary);border-radius:8px;padding:10px 12px;margin-bottom:12px">' +
-            '<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Xu huong theo thang</div>' +
-            '<div style="display:flex;gap:1px;align-items:flex-end;border-bottom:0.5px solid var(--border)">'+chartBars+'</div>' +
-            '<div style="display:flex;gap:12px;margin-top:6px;font-size:9.5px;color:var(--ink-muted)">' +
-              '<span><span style="display:inline-block;width:8px;height:8px;background:rgba(201,168,76,0.5);border-radius:1px;margin-right:3px;vertical-align:middle"></span>% Nghi thuc</span>' +
-              '<span><span style="display:inline-block;width:8px;height:8px;background:rgba(74,140,111,0.7);border-radius:1px;margin-right:3px;vertical-align:middle"></span>% O dat</span>' +
+            '<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Xu hướng theo tháng</div>' +
+            '<div style="position:relative;height:110px"><canvas id="'+chartId+'"></canvas></div>' +
+            '<div style="display:flex;gap:12px;margin-top:4px;font-size:9.5px;color:var(--ink-muted)">' +
+              '<span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:16px;height:2px;background:rgba(201,168,76,0.9);vertical-align:middle"></span>% Nghi thức (đường)</span>' +
+              '<span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:8px;height:8px;background:rgba(74,140,111,0.7);border-radius:1px"></span>% OKR đạt (cột)</span>' +
             '</div>' +
+            '<script>(function(){' +
+              'var el=document.getElementById("'+chartId+'");if(!el)return;' +
+              'var labels='+JSON.stringify(okrByMonth.map(d=>d.label))+';' +
+              'var ritData='+JSON.stringify(okrByMonth.map(d=>d.ritPct))+';' +
+              'var okrData='+JSON.stringify(okrByMonth.map(d=>d.okrPct))+';' +
+              'var isDark=document.documentElement.getAttribute("data-theme")==="dark"||window.matchMedia("(prefers-color-scheme:dark)").matches;' +
+              'var textC=isDark?"rgba(200,196,188,0.8)":"rgba(60,58,54,0.7)";' +
+              'var gridC=isDark?"rgba(255,255,255,0.06)":"rgba(0,0,0,0.06)";' +
+              'if(window.Chart){new window.Chart(el,{type:"bar",data:{labels:labels,datasets:[' +
+                '{type:"line",label:"% Nghi thức",data:ritData,borderColor:"rgba(201,168,76,0.9)",backgroundColor:"rgba(201,168,76,0.12)",pointBackgroundColor:"rgba(201,168,76,1)",pointRadius:3,borderWidth:2,tension:0.3,yAxisID:"y",fill:false,order:1},' +
+                '{type:"bar",label:"% OKR đạt",data:okrData,backgroundColor:"rgba(74,140,111,0.65)",borderColor:"rgba(74,140,111,0.85)",borderWidth:1,borderRadius:3,yAxisID:"y",order:2}' +
+              ']},options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},' +
+                'plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+(c.raw!==null?c.raw+"%":"–");}}}},' +
+                'scales:{y:{min:0,max:100,grid:{color:gridC},ticks:{color:textC,font:{size:9},callback:function(v){return v+"%";}},border:{display:false}},x:{grid:{display:false},ticks:{color:textC,font:{size:9}},border:{display:false}}}' +
+              '}});} else {el.parentElement.innerHTML="<div style=\'font-size:10px;color:var(--ink-muted);text-align:center;padding:16px\'>Chart.js chưa tải</div>";}' +
+            '})();<\/script>' +
           '</div>'
         : '') +
       // Tiến độ ngôi nhà
       (housesWithData.length > 0
         ? '<div style="background:var(--color-background-secondary);border-radius:8px;padding:10px 12px">' +
-            '<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Tien do theo Ngoi Nha</div>' +
+            '<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Tiến độ theo Ngôi Nhà</div>' +
             houseHtml +
           '</div>'
         : '') +
@@ -11385,7 +11539,7 @@ function buildReportDetail(a) {
   const firstMs = milestones[0];
   const firstContent = buildMilestoneHtml(firstMs);
 
-  return '<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">Bao cao tong ket</div>' +
+  return '<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">Báo cáo tổng kết</div>' +
     '<div style="display:flex;gap:5px;margin-bottom:10px">' + tabsHtml + '</div>' +
     '<div id="rpt-content-' + midSafe + '">' + firstContent + '</div>';
 }
@@ -11488,9 +11642,19 @@ async function leaderMemberToggle(type, memberId, groupCode, pfx) {
 
   const targetEl = type === 'streak' ? streakEl : reportEl;
   const otherEl  = type === 'streak' ? reportEl : streakEl;
-  if (targetEl.style.display !== 'none') { targetEl.style.display = 'none'; return; }
+  if (targetEl.style.display !== 'none') {
+    targetEl.style.display = 'none';
+    // Clear tracking
+    if (type === 'streak') window._leaderOpenStreakMid = null;
+    else window._leaderOpenReportMid = null;
+    return;
+  }
   otherEl.style.display = 'none';
   targetEl.style.display = 'block';
+  // Track which panel is open (để restore sau khi re-render)
+  if (type === 'streak') { window._leaderOpenStreakMid = memberId; window._leaderOpenReportMid = null; }
+  else { window._leaderOpenReportMid = memberId; window._leaderOpenStreakMid = null; }
+  window._leaderOpenPfx = idPfx;
 
   // Dùng cache chung với adminMemberToggle để tránh load lại
   if (!window._adminMemberCache) window._adminMemberCache = {};
@@ -14638,11 +14802,12 @@ function renderBaoCao(){
       data:{
         labels:okrByMonth.map(function(d){return d.label;}),
         datasets:[
-          {label:'% Nghi thức',data:okrByMonth.map(function(d){return d.ritPct;}),
-           backgroundColor:'rgba(201,168,76,0.25)',borderColor:'var(--gold)',borderWidth:1.5,borderRadius:3,order:2},
-          {label:'% O đạt ≥7/10',data:okrByMonth.map(function(d){return d.okrPct;}),
-           type:'line',borderColor:'#4a8c6f',backgroundColor:'rgba(74,140,111,0.12)',
-           borderWidth:2,pointRadius:4,pointBackgroundColor:'#4a8c6f',tension:0.3,fill:true,order:1}
+          {type:'line',label:'% Nghi thức',data:okrByMonth.map(function(d){return d.ritPct;}),
+           borderColor:'rgba(201,168,76,0.9)',backgroundColor:'rgba(201,168,76,0.1)',
+           pointBackgroundColor:'rgba(201,168,76,1)',borderWidth:2,pointRadius:3,tension:0.3,fill:false,order:1},
+          {type:'bar',label:'% O đạt ≥7/10',data:okrByMonth.map(function(d){return d.okrPct;}),
+           backgroundColor:'rgba(74,140,111,0.65)',borderColor:'rgba(74,140,111,0.85)',
+           borderWidth:1,borderRadius:3,order:2}
         ]
       },
       options:{
