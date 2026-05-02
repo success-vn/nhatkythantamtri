@@ -3534,22 +3534,29 @@ return'<div>'+'<div style="font-size:10px;font-weight:700;color:var(--ink-muted)
 (housesWithData.length>0?'<div style="background:rgba(245,237,224,0.4);border-radius:8px;padding:10px 12px">'+'<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Tiến độ theo Ngôi Nhà</div>'+
 houseHtml+'</div>':'')+'</div>';};const tabsHtml=milestones.map((ms,i)=>'<button id="rpt-tab-'+midSafe+'-'+ms.id+'" onclick="adminReportTab(\''+midSafe+'\',\''+ms.id+'\')" '+'style="font-size:10px;font-weight:500;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;cursor:pointer;font-family:inherit;'+
 (i===1?'background:var(--sky-light);color:var(--sky);border-color:rgba(74,127,168,0.3)':'background:rgba(245,237,224,0.4);color:var(--ink-muted)')+'">'+ms.label+'</button>').join('');window._adminReportCache=window._adminReportCache||{};window._adminReportCache[a.mid]={milestones,getMonths,getDaysInRange,calcStats,buildMilestoneHtml};window.adminReportTab=function(mid,msId){const cache=window._adminReportCache[mid];if(!cache)return;const ms=cache.milestones.find(x=>x.id===msId);if(!ms)return;const contentEl=document.getElementById('rpt-content-'+mid);if(contentEl)contentEl.innerHTML='<div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:12px">Dang tinh toan...</div>';setTimeout(()=>{if(contentEl){contentEl.innerHTML=cache.buildMilestoneHtml(ms);setTimeout(function(){renderAllReportCharts(contentEl);},80);}cache.milestones.forEach(m=>{const tab=document.getElementById('rpt-tab-'+mid+'-'+m.id);if(!tab)return;if(m.id===msId){tab.style.background='var(--sky-light)';tab.style.color='var(--sky)';tab.style.borderColor='rgba(74,127,168,0.3)';}else{tab.style.background='rgba(245,237,224,0.4)';tab.style.color='var(--ink-muted)';tab.style.borderColor='var(--border)';}});},50);};const firstMs=milestones[1];const firstContent=buildMilestoneHtml(firstMs);return'<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">Báo cáo tổng kết</div>'+'<div style="display:flex;gap:5px;margin-bottom:10px">'+tabsHtml+'</div>'+'<div id="rpt-content-'+midSafe+'">'+firstContent+'</div>';}
-window._adminMemberCache=window._adminMemberCache||{};window._adminMemberNames=window._adminMemberNames||{};async function adminMemberToggle(type,memberId,groupCode,memberName){if(!memberId)return;const streakEl=document.getElementById('ms-streak-'+memberId);const reportEl=document.getElementById('ms-report-'+memberId);if(!streakEl||!reportEl)return;const targetEl=type==='streak'?streakEl:reportEl;const otherEl=type==='streak'?reportEl:streakEl;if(targetEl.style.display!=='none'){targetEl.style.display='none';return;}
-otherEl.style.display='none';targetEl.style.display='block';targetEl.innerHTML='<div style="font-size:10px;color:var(--ink-muted);text-align:center;padding:6px">Đang tải...</div>';if(!window._adminMemberCache)window._adminMemberCache={};if(window._adminMemberCache[memberId]){_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);return;}
-if(memberName)window._adminMemberNames[memberId]=memberName;try{const database=await loadFirebase();if(!database)throw new Error('No DB');const gcKey=typeof fbKey==='function'?fbKey(groupCode):groupCode;const rawGC=groupCode||'';let jSnap=await database.ref('journals/'+gcKey+'/'+memberId).once('value');if((!jSnap||!jSnap.val()||Object.keys(jSnap.val()).length===0)&&rawGC!==gcKey){try{const jSnap2=await database.ref('journals/'+rawGC+'/'+memberId).once('value');if(jSnap2&&jSnap2.val()&&Object.keys(jSnap2.val()).length>0)jSnap=jSnap2;}catch(e2){}}
-const jRaw=(jSnap&&jSnap.val())||{};const jHist={};Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});let monthlyData={};try{const uidMapSnap=await database.ref('uid_to_member').once('value');const uidMap=uidMapSnap.val()||{};const uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===memberId);if(uid){const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth()+1;const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<=0){m+=12;y--;}
-monthKeys.push(y+'_'+m);}
-const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}}catch(e){}
-window._adminMemberCache[memberId]={jHist,monthlyData,mid:memberId};_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);}catch(e){targetEl.innerHTML='<div style="font-size:10px;color:var(--rose);padding:4px">Lỗi tải dữ liệu</div>';}}
+window._adminMemberCache=window._adminMemberCache||{};window._adminMemberNames=window._adminMemberNames||{};async function adminMemberToggle(type,memberId,groupCode,memberName){if(!memberId)return;
+// Always use popup - hide any inline divs
+var streakEl=document.getElementById('ms-streak-'+memberId);var reportEl=document.getElementById('ms-report-'+memberId);if(streakEl)streakEl.style.display='none';if(reportEl)reportEl.style.display='none';
+if(memberName)window._adminMemberNames[memberId]=memberName;
+if(!window._adminMemberCache)window._adminMemberCache={};
+if(window._adminMemberCache[memberId]){_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);return;}
+// Use leaderAllData if available (same as leaderMemberToggle)
+const existingEntry=typeof leaderAllData!=='undefined'?leaderAllData[memberId]:null;
+const existingJHist=existingEntry?existingEntry.entries||{}:{};
+try{const database=await loadFirebase();if(!database)throw new Error('No DB');
+let uid=existingEntry&&existingEntry.firebaseUid?existingEntry.firebaseUid:null;
+if(!uid){const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);const uidMap=(uidMapSnap&&uidMapSnap.val())||{};uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===memberId)||null;}
+let jHist={};if(Object.keys(existingJHist).length>0){Object.keys(existingJHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=existingJHist[k];});}else{const gcKey=typeof fbKey==='function'?fbKey(groupCode):groupCode;const rawGC=groupCode||'';let jSnap=await database.ref('journals/'+gcKey+'/'+memberId).once('value').catch(()=>null);if((!jSnap||!jSnap.val()||Object.keys(jSnap.val()||{}).length===0)&&rawGC!==gcKey){try{const jSnap2=await database.ref('journals/'+rawGC+'/'+memberId).once('value');if(jSnap2&&jSnap2.val()&&Object.keys(jSnap2.val()).length>0)jSnap=jSnap2;}catch(e2){}}
+const jRaw=(jSnap&&jSnap.val())||{};Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});}
+let monthlyData={};if(uid){try{const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth()+1;const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<=0){m+=12;y--;}monthKeys.push(y+'_'+m);}
+const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}catch(e){}}
+window._adminMemberCache[memberId]={jHist,monthlyData,mid:memberId};_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);}catch(e){console.warn('adminMemberToggle error:',e);}}
 function _adminMemberRender(type,memberId,data){
   var memberName=data.name||(window._adminMemberNames&&window._adminMemberNames[memberId])||memberId;
   openMemberDetailPopup(memberName,data,type);
-  // Also keep inline for backward compat if element exists
+  // Ensure inline divs stay hidden
   var el=document.getElementById('ms-'+type+'-'+memberId);
-  if(el&&el.style.display!=='none'){
-    if(type==='streak'){el.innerHTML=buildStreakDetail(data);}
-    else{el.innerHTML=buildReportDetail(data);setTimeout(function(){renderAllReportCharts(el);},80);}
-  }
+  if(el)el.style.display='none';
 }
 async function leaderMemberToggle(type,memberId,groupCode,pfx,memberName){if(!memberId)return;const idPfx=pfx||'';// Always use popup - hide inline divs if they exist
 var streakInline=document.getElementById(idPfx+'ms-streak-'+memberId);var reportInline=document.getElementById(idPfx+'ms-report-'+memberId);if(streakInline)streakInline.style.display='none';if(reportInline)reportInline.style.display='none';
