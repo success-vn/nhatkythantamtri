@@ -2044,6 +2044,14 @@
         <div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>
       </div>
       <button class="btn-outline" id="admin-refresh-btn" onclick="adminRefresh()" style="width:100%;margin-top:8px">🔄 Làm mới</button>
+      <button onclick="document.getElementById('admin-debug-section').style.display=document.getElementById('admin-debug-section').style.display==='none'?'block':'none'" style="width:100%;margin-top:6px;padding:8px;background:rgba(201,168,76,0.1);border:1.5px dashed rgba(201,168,76,0.5);border-radius:8px;font-size:11px;font-weight:700;color:#8a6a1e;cursor:pointer;font-family:inherit">🔍 Mở công cụ debug</button>
+    </div>
+    <div id="admin-debug-section" style="margin-top:12px;padding:14px;background:#fff8f0;border:2px dashed #c9a84c;border-radius:12px;display:none">
+      <div style="font-size:12px;font-weight:800;color:#8a6a1e;margin-bottom:8px">🔍 Debug: kiểm tra dữ liệu Firebase của trưởng nhóm</div>
+      <input id="debug-mid-input" type="text" placeholder="memberId (vd: u_abc123...)" style="width:100%;padding:8px 12px;border:1.5px solid #c9a84c;border-radius:8px;font-size:12px;margin-bottom:6px;font-family:monospace;box-sizing:border-box">
+      <input id="debug-gc-input" type="text" placeholder="groupCode (tên nhóm, vd: HOA HUONG DUONG)" style="width:100%;padding:8px 12px;border:1.5px solid #c9a84c;border-radius:8px;font-size:12px;margin-bottom:8px;font-family:monospace;box-sizing:border-box">
+      <button onclick="runAdminDebug()" style="width:100%;padding:9px;background:linear-gradient(135deg,#c9a84c,#8a6a1e);color:white;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">🔎 Kiểm tra</button>
+      <div id="debug-output" style="margin-top:10px;font-size:11px;font-family:monospace;white-space:pre-wrap;background:#1a1410;color:#f5eddf;padding:10px;border-radius:8px;max-height:500px;overflow-y:auto;display:none"></div>
     </div>
 
     
@@ -4565,5 +4573,141 @@ window.renderAllReportCharts=function(container){
 };
 })();
 </script>
+
+<script>
+// ===== ADMIN DEBUG TOOL =====
+window.runAdminDebug = async function() {
+  const mid = (document.getElementById('debug-mid-input').value || '').trim();
+  const gc  = (document.getElementById('debug-gc-input').value  || '').trim();
+  const out = document.getElementById('debug-output');
+  out.style.display = 'block';
+  out.textContent = '⏳ Đang kiểm tra...';
+
+  const log = (...args) => { out.textContent += args.join(' ') + '\n'; };
+
+  try {
+    const db = await loadFirebase();
+    if (!db) { log('❌ Không kết nối được Firebase'); return; }
+    out.textContent = '';
+
+    // 1. UID mapping
+    log('=== 1. uid_to_member ===');
+    const uidSnap = await db.ref('uid_to_member').once('value').catch(()=>null);
+    const uidMap  = (uidSnap && uidSnap.val()) || {};
+    const uid = Object.keys(uidMap).find(u => uidMap[u] && uidMap[u].memberId === mid) || null;
+    log('memberId đang tra:', mid || '(chưa nhập)');
+    log('firebaseUid tìm được:', uid || '❌ KHÔNG TÌM THẤY');
+    if (!uid) log('→ Dữ liệu daily sẽ không load được vì không có UID!');
+
+    // 2. members node
+    if (mid) {
+      log('\n=== 2. members/' + mid + ' ===');
+      const mSnap = await db.ref('members/' + mid).once('value').catch(()=>null);
+      const mVal  = mSnap && mSnap.val();
+      if (mVal) {
+        log('name:', mVal.name);
+        log('groupCode:', mVal.groupCode);
+        log('isLeader:', mVal.isLeader);
+        log('approved:', mVal.approved);
+        log('registeredAt:', mVal.registeredAt);
+      } else {
+        log('❌ Không tìm thấy member với id này');
+      }
+    }
+
+    // 3. journals node
+    if (gc) {
+      const gcKey = typeof fbKey === 'function' ? fbKey(gc) : gc;
+      log('\n=== 3. journals/' + gcKey + '/' + (mid||'?') + ' ===');
+      const jSnap = await db.ref('journals/' + gcKey + '/' + (mid||'_')).once('value').catch(()=>null);
+      const jVal  = jSnap && jSnap.val();
+      if (jVal) {
+        const keys = Object.keys(jVal).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+        log('Số ngày có journal:', keys.length);
+        if (keys.length) {
+          log('Ngày đầu tiên:', keys[0]);
+          log('Ngày cuối cùng:', keys[keys.length-1]);
+          const lastEntry = jVal[keys[keys.length-1]];
+          log('Entry cuối:', JSON.stringify(lastEntry, null, 2).slice(0, 300));
+        }
+      } else {
+        log('❌ journals/' + gcKey + '/' + mid + ' = NULL');
+        // Try with fbKey(mid)
+        if (mid && typeof fbKey === 'function') {
+          const jSnap2 = await db.ref('journals/' + gcKey + '/' + fbKey(mid)).once('value').catch(()=>null);
+          const jVal2  = jSnap2 && jSnap2.val();
+          if (jVal2 && Object.keys(jVal2).length) {
+            log('⚠️ Tìm thấy ở journals/' + gcKey + '/' + fbKey(mid) + ' (fbKey encoded)');
+            log('Số ngày:', Object.keys(jVal2).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).length);
+          } else {
+            log('❌ Cũng không có ở fbKey path');
+          }
+        }
+        // Try parent node
+        log('\nThử xem toàn bộ journals/' + gcKey + ':');
+        const parentSnap = await db.ref('journals/' + gcKey).once('value').catch(()=>null);
+        const parentVal  = parentSnap && parentSnap.val();
+        if (parentVal) {
+          log('Keys trong journals/' + gcKey + ':', Object.keys(parentVal).join(', ').slice(0,200));
+        } else {
+          log('❌ journals/' + gcKey + ' = NULL');
+        }
+      }
+    }
+
+    // 4. users/{uid}/daily
+    if (uid) {
+      log('\n=== 4. users/' + uid + '/daily ===');
+      const dSnap = await db.ref('users/' + uid + '/daily').once('value').catch(()=>null);
+      const dVal  = dSnap && dSnap.val();
+      if (dVal) {
+        const keys = Object.keys(dVal).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+        log('Số ngày có daily:', keys.length);
+        if (keys.length) {
+          log('Ngày đầu tiên:', keys[0]);
+          log('Ngày cuối cùng:', keys[keys.length-1]);
+          const lastEntry = dVal[keys[keys.length-1]];
+          log('Entry cuối:', JSON.stringify(lastEntry, null, 2).slice(0, 300));
+        }
+      } else {
+        log('❌ users/' + uid + '/daily = NULL');
+      }
+
+      // 5. users/{uid}/monthly
+      log('\n=== 5. users/' + uid + '/monthly ===');
+      const mthSnap = await db.ref('users/' + uid + '/monthly').once('value').catch(()=>null);
+      const mthVal  = mthSnap && mthSnap.val();
+      if (mthVal) {
+        log('Tháng có dữ liệu:', Object.keys(mthVal).join(', '));
+      } else {
+        log('❌ monthly = NULL');
+      }
+    }
+
+    // 6. groups node - today stats
+    if (gc) {
+      const gcKey = typeof fbKey === 'function' ? fbKey(gc) : gc;
+      const todayK = (typeof todayKey === 'function') ? todayKey() : new Date().toISOString().split('T')[0];
+      log('\n=== 6. groups/' + gcKey + '/' + (mid||'?') + ' (stats hôm nay: ' + todayK + ') ===');
+      const gSnap = await db.ref('groups/' + gcKey + '/' + (mid||'_')).once('value').catch(()=>null);
+      const gVal  = gSnap && gSnap.val();
+      if (gVal) {
+        log('date trong groups:', gVal.date);
+        log('date khớp hôm nay:', gVal.date === todayK ? '✅ CÓ' : '❌ KHÔNG (cũ)');
+        log('rituals:', gVal.rituals);
+        log('nn:', JSON.stringify(gVal.nn));
+      } else {
+        log('❌ groups/' + gcKey + '/' + mid + ' = NULL');
+      }
+    }
+
+    log('\n✅ DEBUG XONG');
+  } catch(e) {
+    log('\n❌ LỖI:', e.message);
+    console.error(e);
+  }
+};
+</script>
+
 </body>
 </html>
