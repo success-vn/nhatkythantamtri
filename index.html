@@ -2344,17 +2344,42 @@ function togglePwVis(inputId,btn){const el=document.getElementById(inputId);if(!
 let _leaderListCache=null;async function loadLeaderList(){const dropdown=document.getElementById('leader-dropdown');if(dropdown)dropdown.style.display='block';if(_leaderListCache){renderLeaderDropdown(_leaderListCache,'');return;}
 const database=await loadFirebase();if(!database){document.getElementById('leader-list-items').innerHTML='<div style="padding:10px 14px;font-size:12px;color:var(--rose)">⚠️ Không kết nối được. Thử lại.</div>';return;}
 if(auth&&!auth.currentUser){try{await auth.signInAnonymously();}catch(e){console.warn('anon auth for signup list:',e.message);}}
-try{const[snap,membersSnap,deletedSnap]=await Promise.all([database.ref('leader_requests').once('value'),database.ref('members').once('value'),database.ref('deleted_groups').once('value'),]);const all=snap.val()||{};const membersAll=membersSnap.val()||{};const deletedGroups=deletedSnap.val()||{};const deletedCodes=new Set(Object.values(deletedGroups).map(d=>d.groupCode));
-// Source 1: approved leader_requests
-const fromRequests=Object.values(all).filter(r=>r.status==='approved'&&r.groupCode&&!deletedCodes.has(r.groupCode));
-const byGroup={};fromRequests.forEach(r=>{byGroup[r.groupCode]=r;});
-// Source 2: members with isLeader=true (may not have a leader_request entry)
-Object.values(membersAll).forEach(m=>{
-  if(!m||!m.isLeader||!m.groupCode||deletedCodes.has(m.groupCode))return;
-  if(!byGroup[m.groupCode]){
-    byGroup[m.groupCode]={name:m.name||'–',groupCode:m.groupCode,memberId:m.memberId||'',status:'approved'};
+try{const[snap,membersSnap,leadersSnap,deletedSnap]=await Promise.all([database.ref('leader_requests').once('value'),database.ref('members').once('value'),database.ref('leaders').once('value'),database.ref('deleted_groups').once('value'),]);const all=snap.val()||{};const membersAll=membersSnap.val()||{};const leadersAll=leadersSnap.val()||{};const deletedGroups=deletedSnap.val()||{};const deletedCodes=new Set(Object.values(deletedGroups).map(d=>d.groupCode));
+
+// byGroup: groupCode → leader info. Dedup by normalized groupCode.
+const byGroup={};
+const normGC=gc=>(gc||'').toLowerCase().replace(/\s+/g,'').replace(/_/g,'');
+
+// Source 1: leader_requests approved
+Object.values(all).forEach(r=>{
+  if(r.status==='approved'&&r.groupCode&&!deletedCodes.has(r.groupCode)){
+    const nk=normGC(r.groupCode);
+    if(!byGroup[nk])byGroup[nk]={name:r.name||'–',groupCode:r.groupCode,memberId:r.memberId||'',status:'approved'};
   }
 });
+
+// Source 2: leaders node (groupCode → memberId → {name})
+Object.entries(leadersAll).forEach(([gcKey,members])=>{
+  if(!members||typeof members!=='object')return;
+  // gcKey may be fbKey encoded — decode spaces
+  const gcRaw=gcKey.replace(/_dot_/g,'.').replace(/_hash_/g,'#').replace(/_dollar_/g,'$').replace(/_lb_/g,'[').replace(/_rb_/g,']').replace(/_sl_/g,'/');
+  if(deletedCodes.has(gcRaw))return;
+  const nk=normGC(gcRaw);
+  if(byGroup[nk])return;// already have from leader_requests
+  const firstMember=Object.values(members)[0];
+  if(firstMember&&firstMember.name){
+    byGroup[nk]={name:firstMember.name,groupCode:gcRaw,memberId:firstMember.memberId||'',status:'approved'};
+  }
+});
+
+// Source 3: members with isLeader=true
+Object.entries(membersAll).forEach(([mKey,m])=>{
+  if(!m||!m.isLeader||!m.groupCode||deletedCodes.has(m.groupCode))return;
+  const nk=normGC(m.groupCode);
+  if(byGroup[nk])return;// already have
+  byGroup[nk]={name:m.name||'–',groupCode:m.groupCode,memberId:m.memberId||mKey,status:'approved'};
+});
+
 _leaderListCache=Object.values(byGroup).sort((a,b)=>(a.name||'').localeCompare(b.name||'','vi'));
 renderLeaderDropdown(_leaderListCache,'');}catch(e){document.getElementById('leader-list-items').innerHTML='<div style="padding:10px 14px;font-size:12px;color:var(--rose)">⚠️ Lỗi tải danh sách</div>';}}
 function filterLeaderList(q){if(!_leaderListCache)return;const dropdown=document.getElementById('leader-dropdown');if(dropdown)dropdown.style.display='block';renderLeaderDropdown(_leaderListCache,q);}
