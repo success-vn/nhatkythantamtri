@@ -2033,6 +2033,10 @@
         style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
         ⚙️ Cài Đặt
       </button>
+      <button class="admin-tab" id="atab-debug" onclick="switchAdminTab('debug')"
+        style="padding:10px 16px;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink-muted);border-bottom:3px solid transparent;cursor:pointer;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+        🔍 Debug
+      </button>
     </div>
 
     
@@ -2100,6 +2104,21 @@
           Thống Kê Hệ Thống
         </div>
         <div id="admin-stats" style="font-size:13.5px;line-height:2;color:var(--ink-soft)">Đang tải...</div>
+      </div>
+    </div>
+
+    <div id="admin-tab-debug" style="display:none">
+      <div class="section-card" style="margin-top:0">
+        <div class="section-title">
+          <div class="section-icon" style="background:rgba(74,127,168,0.12)">🔍</div>
+          Debug Dữ Liệu Trưởng Nhóm
+        </div>
+        <p style="font-size:12px;color:var(--ink-muted);margin-bottom:12px">Tự động quét toàn bộ trưởng nhóm — kiểm tra dữ liệu Firebase đang nằm ở đâu.</p>
+        <button onclick="runAdminDebugScan()" id="debug-scan-btn" style="padding:11px 20px;background:linear-gradient(135deg,var(--sky),#2d5a7a);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:12px">🔎 Bắt đầu quét</button>
+        <div id="debug-scan-progress" style="font-size:12px;color:var(--ink-muted);margin-bottom:8px"></div>
+        <div id="debug-scan-summary" style="display:none;background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px"></div>
+        <button id="debug-copy-btn" onclick="debugCopyResult()" style="display:none;padding:9px 16px;background:rgba(74,140,111,0.15);border:1.5px solid rgba(74,140,111,0.3);border-radius:8px;color:var(--jade);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">📋 Copy kết quả gửi developer</button>
+        <div id="debug-scan-results"></div>
       </div>
     </div>
 
@@ -3450,7 +3469,7 @@ let correctPw=null;try{const snap=await database.ref('admin/password').once('val
 if(!correctPw){showToast('⚠️ Chưa cấu hình mật khẩu admin trong Firebase.');return;}
 if(pw===correctPw){adminAuthed=true;localStorage.setItem(ADMIN_KEY,'true');document.getElementById('admin-login-section').style.display='none';document.getElementById('admin-content').style.display='block';loadAdminData();showAdminButton();showToast('✅ Xác thực thành công!');if(errEl)errEl.style.display='none';}else{if(errEl){errEl.style.display='block';}
 document.getElementById('admin-password').value='';showToast('⚠️ Mật khẩu không đúng!');}}
-function switchAdminTab(tab){['pending','leaders','groups','expiry','settings'].forEach(t=>{const tabEl=document.getElementById('admin-tab-'+t);const btnEl=document.getElementById('atab-'+t);if(tabEl)tabEl.style.display=t===tab?'block':'none';if(btnEl){btnEl.style.color=t===tab?'var(--rose)':'var(--ink-muted)';btnEl.style.borderBottom=t===tab?'3px solid var(--rose)':'3px solid transparent';}});if(tab==='pending')loadAdminData();if(tab==='leaders')loadAdminData();if(tab==='groups')loadAdminGroups();if(tab==='expiry')loadAdminExpiry();if(tab==='settings')loadAdminStats();}
+function switchAdminTab(tab){['pending','leaders','groups','expiry','settings','debug'].forEach(t=>{const tabEl=document.getElementById('admin-tab-'+t);const btnEl=document.getElementById('atab-'+t);if(tabEl)tabEl.style.display=t===tab?'block':'none';if(btnEl){btnEl.style.color=t===tab?'var(--rose)':'var(--ink-muted)';btnEl.style.borderBottom=t===tab?'3px solid var(--rose)':'3px solid transparent';}});if(tab==='pending')loadAdminData();if(tab==='leaders')loadAdminData();if(tab==='groups')loadAdminGroups();if(tab==='expiry')loadAdminExpiry();if(tab==='settings')loadAdminStats();if(tab==='debug')initDebugTab();}
 async function adminRefresh(){const btn=document.getElementById('admin-refresh-btn');if(btn){btn.disabled=true;btn.textContent='⏳ Đang tải...';}
 invalidateMembersCache();['admin-pending-list','admin-leaders-list','admin-groups-list'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><p>Đang tải...</p></div>';});await loadAdminData();if(btn){btn.disabled=false;btn.textContent='🔄 Làm mới';}}
 async function loadAdminData(){if(!adminAuthed&&localStorage.getItem(ADMIN_KEY)==='true'){adminAuthed=true;}
@@ -3461,72 +3480,148 @@ if(!auth.currentUser){try{await auth.signInAnonymously();}catch(e){console.warn(
 if(auth.currentUser){await auth.currentUser.getIdToken(true).catch(()=>{});}}catch(e){console.warn('Auth wait admin:',e.message);}}
 try{const[reqSnap,membersSnap,groupsSnap,deletedSnap]=await Promise.all([database.ref('leader_requests').once('value'),database.ref('members').once('value'),database.ref('groups').once('value'),database.ref('deleted_groups').once('value'),]);const requests=reqSnap.val()||{};const membersAll=membersSnap.val()||{};const groupsAll=groupsSnap.val()||{};const deletedAll=deletedSnap.val()||{};window._adminGroupsAll=groupsAll;const deletedCodes=new Set(Object.values(deletedAll).map(d=>d.groupCode).filter(Boolean));const pending=Object.entries(requests).filter(([,r])=>r.status==='pending');const approved=Object.entries(requests).filter(([,r])=>r.status==='approved'&&!deletedCodes.has(r.groupCode));const badge=document.getElementById('pending-count-badge');if(badge)badge.textContent=pending.length;const expiryCount=Object.values(membersAll).filter(m=>{const exp=getExpiryInfo(m.expiryDate||m.approvedAt);return exp.daysLeft!==null&&exp.daysLeft<=30;}).length;const expiryBadge=document.getElementById('expiry-count-badge');if(expiryBadge){expiryBadge.textContent=expiryCount;expiryBadge.style.display=expiryCount>0?'inline':'none';}
 renderAdminPending(pending);const leaderByGroup={};approved.forEach(([id,r])=>{leaderByGroup[r.groupCode]={id,...r};});Object.entries(membersAll).forEach(([mKey,m])=>{if(!m||!m.groupCode)return;if(m.isLeader){if(!leaderByGroup[m.groupCode]){leaderByGroup[m.groupCode]={id:m.memberId||mKey,memberId:m.memberId||mKey,name:m.name||'–',phone:m.phone||'',email:m.email||'',groupCode:m.groupCode,approvedAt:m.registeredAt||'',status:'approved',};}else{const existing=leaderByGroup[m.groupCode];const existingMid=existing.memberId||existing.id||'';const realMid=m.memberId||mKey;if(!existing.memberId)existing.memberId=realMid;const lrName=(existing.name||'').toLowerCase().trim();const lrPhone=(existing.phone||'').replace(/\D/g,'');const mName=(m.name||'').toLowerCase().trim();const mPhone=(m.phone||'').replace(/\D/g,'');if((lrName&&mName&&lrName===mName)||(lrPhone&&mPhone&&lrPhone===mPhone)){existing.memberId=realMid;}}}});const membersByGroup={};Object.values(membersAll).forEach(m=>{const g=m.groupCode;if(!g||deletedCodes.has(g))return;if(!isMemberApproved(m))return;if(!membersByGroup[g])membersByGroup[g]=[];membersByGroup[g].push(m);});const allGroupCodes=new Set([...Object.keys(membersByGroup),...Object.keys(leaderByGroup),].filter(g=>!deletedCodes.has(g)));try{const notesSnap=await database.ref('admin_notes').once('value');window._adminLeaderNotes={};window._adminLeaderNotesUpdatedAt={};Object.entries(notesSnap.val()||{}).forEach(([k,v])=>{const mid=k.replace(/^leader_/,'');window._adminLeaderNotes[mid]=v.note||'';window._adminLeaderNotesUpdatedAt[mid]=v.updatedAt||null;});}catch(e){window._adminLeaderNotes=window._adminLeaderNotes||{};window._adminLeaderNotesUpdatedAt=window._adminLeaderNotesUpdatedAt||{};}
-// ── Fetch UID map once, reuse everywhere ──────────────────────────────────
+// ── Load all leader data: UID map + journal history + training stats ──────
 const uidMapAll=(await database.ref('uid_to_member').once('value').catch(()=>null))?.val()||{};
 const midToUidAll={};
+// Build mid→uid AND uid→mid maps
 Object.entries(uidMapAll).forEach(([uid,v])=>{if(v&&v.memberId)midToUidAll[v.memberId]=uid;});
 const leaderGroupCodes=Object.keys(leaderByGroup);
 const todayKAdmin=todayKey();
 
-// ── Step 1: Load leaderJournalHistory (journals + users/daily merged) ──────
+// Helper: extract date-keyed entries from a Firebase snapshot value
+function extractDateEntries(val){
+  if(!val||typeof val!=='object')return{};
+  const out={};
+  // Direct date keys
+  Object.keys(val).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{out[k]=val[k];});
+  return out;
+}
+
+// Helper: merge a daily snapshot into jHist (fills gaps, merges nnEnergy)
+function mergeDailyIntoHist(jHist,dailyVal){
+  if(!dailyVal||typeof dailyVal!=='object')return;
+  Object.entries(dailyVal).forEach(([dk,e])=>{
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)||!e||typeof e!=='object')return;
+    const entry={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},
+      recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,
+      spendRed:e.spendRed||0,seedsActive:e.seedsActive||0,seedsDone:e.seedsDone||0};
+    if(!jHist[dk]){
+      jHist[dk]=entry;
+    } else {
+      // Merge: fill missing fields
+      if(!jHist[dk].nnEnergy||Object.keys(jHist[dk].nnEnergy||{}).length===0)jHist[dk].nnEnergy=entry.nnEnergy;
+      if(!jHist[dk].rituals||Object.keys(jHist[dk].rituals||{}).length===0)jHist[dk].rituals=entry.rituals;
+      if(!jHist[dk].energy)jHist[dk].energy=entry.energy;
+    }
+  });
+}
+
+// ── Load journal history for every leader ────────────────────────────────
 const leaderJournalHistory={};
 await Promise.all(leaderGroupCodes.map(async gc=>{
-  const lr=leaderByGroup[gc];const mid=lr.memberId||lr.id;if(!mid)return;
+  const lr=leaderByGroup[gc];
+  const mid=lr.memberId||lr.id;
+  if(!mid)return;
   const uid=midToUidAll[mid]||null;
   const jHist={};
-  // Primary: journals/{gc}/{mid}
-  const [snap1,snap2]=await Promise.all([
-    database.ref('journals/'+fbKey(gc)+'/'+mid).once('value').catch(()=>null),
-    database.ref('journals/'+fbKey(gc)+'/'+fbKey(mid)).once('value').catch(()=>null),
-  ]);
-  [snap1,snap2].forEach(snap=>{const v=snap&&snap.val();if(!v)return;Object.keys(v).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{if(!jHist[k])jHist[k]=v[k];});});
-  // Secondary: users/{uid}/daily — always merge to fill gaps
-  if(uid){try{
-    const dailySnap=await database.ref('users/'+uid+'/daily').once('value').catch(()=>null);
-    const dailyVal=dailySnap&&dailySnap.val();
-    if(dailyVal&&typeof dailyVal==='object'){
-      Object.entries(dailyVal).forEach(([dk,e])=>{
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)||!e||typeof e!=='object')return;
-        const entry={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,spendRed:e.spendRed||0,seedsActive:e.seedsActive||0,seedsDone:e.seedsDone||0};
-        if(!jHist[dk])jHist[dk]=entry;
-        else if((!jHist[dk].nnEnergy||!Object.keys(jHist[dk].nnEnergy||{}).length)&&e.nnEnergy)jHist[dk].nnEnergy=e.nnEnergy;
-      });
-    }
-  }catch(e){}}
+  const gcK=fbKey(gc);
+
+  // Try every possible journal path in parallel
+  const jPaths=[
+    database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
+    database.ref('journals/'+gcK+'/'+fbKey(mid)).once('value').catch(()=>null),
+  ];
+  // Also try raw group code if different from fbKey
+  if(gc!==gcK) jPaths.push(database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null));
+
+  const snaps=await Promise.all(jPaths);
+  snaps.forEach(snap=>{
+    const val=snap&&snap.val();
+    if(!val)return;
+    // Handle both flat date-keyed and nested structures
+    const flat=extractDateEntries(val);
+    Object.assign(jHist,flat); // merge all found
+    // If nested under mid key
+    if(val[mid])Object.assign(jHist,extractDateEntries(val[mid]));
+    if(val[fbKey(mid)])Object.assign(jHist,extractDateEntries(val[fbKey(mid)]));
+  });
+
+  // ALWAYS also read users/{uid}/daily and merge — this is the most reliable source
+  if(uid){
+    try{
+      const dailySnap=await database.ref('users/'+uid+'/daily').once('value').catch(()=>null);
+      mergeDailyIntoHist(jHist,dailySnap&&dailySnap.val());
+    }catch(e){}
+  }
+
+  // If still nothing, try uid as a path directly (some old accounts stored under uid)
+  if(Object.keys(jHist).length===0&&uid){
+    try{
+      const oldSnap=await database.ref('journals/'+gcK+'/'+uid).once('value').catch(()=>null);
+      const oldVal=oldSnap&&oldSnap.val();
+      if(oldVal)Object.assign(jHist,extractDateEntries(oldVal));
+    }catch(e){}
+  }
+
   if(Object.keys(jHist).length>0){
     leaderJournalHistory[mid]=jHist;
-    if(uid){try{database.ref('journals/'+fbKey(gc)+'/'+mid).update(jHist).catch(()=>{});}catch(e){}}
+    // Migrate back to canonical path for future reads
+    try{database.ref('journals/'+gcK+'/'+mid).update(jHist).catch(()=>{});}catch(e){}
   }
 }));
 
-// ── Step 2: leaderTrainingStats from groups node, fallback to jHist today ──
+// ── Build leaderTrainingStats from groups node OR derive from jHist ───────
 const leaderTrainingStats={};
 try{
-  const groupSnapshots=await Promise.all(leaderGroupCodes.map(gc=>database.ref('groups/'+fbKey(gc)).once('value').catch(()=>null)));
+  const groupSnaps=await Promise.all(leaderGroupCodes.map(gc=>database.ref('groups/'+fbKey(gc)).once('value').catch(()=>null)));
   leaderGroupCodes.forEach((gc,i)=>{
-    const snap=groupSnapshots[i];if(!snap)return;
-    const groupData=snap.val()||{};
-    const lr=leaderByGroup[gc];const mid=lr.memberId||lr.id;if(!mid)return;
-    let lStats=groupData[mid];
-    if(!lStats){const lrName=(lr.name||'').toLowerCase().trim();const lrPhone=(lr.phone||'').replace(/\D/g,'');
-      for(const[gKey,gVal]of Object.entries(groupData)){if(!gVal||typeof gVal!=='object')continue;const gMid=(gVal.memberId||gKey).toLowerCase();const gName=(gVal.name||'').toLowerCase().trim();const gPhone=(gVal.phone||'').replace(/\D/g,'');if(gMid===mid.toLowerCase()||(lrName&&gName&&gName===lrName)||(lrPhone&&gPhone&&gPhone===lrPhone)){lStats=gVal;break;}}
+    const snap=groupSnaps[i];
+    const groupData=(snap&&snap.val())||{};
+    const lr=leaderByGroup[gc];
+    const mid=lr.memberId||lr.id;
+    if(!mid)return;
+
+    // Find this leader's stats in groups node (try mid directly, then by name/phone match)
+    let lStats=groupData[mid]||null;
+    if(!lStats){
+      const lrName=(lr.name||'').toLowerCase().trim();
+      const lrPhone=(lr.phone||'').replace(/\D/g,'');
+      for(const[gKey,gVal]of Object.entries(groupData)){
+        if(!gVal||typeof gVal!=='object')continue;
+        const gMid=(gVal.memberId||gKey).toLowerCase();
+        const gName=(gVal.name||'').toLowerCase().trim();
+        const gPhone=(gVal.phone||'').replace(/\D/g,'');
+        if(gMid===mid.toLowerCase()||(lrName&&gName&&gName===lrName)||(lrPhone&&gPhone&&gPhone===lrPhone)){lStats=gVal;break;}
+      }
     }
-    // Only use groups stats if they're from today; otherwise derive from jHist
-    if(lStats&&lStats.date===todayKAdmin){leaderTrainingStats[mid]=lStats;}
-  });
-  // Fallback: derive today's stats from jHist for leaders not in groups today
-  leaderGroupCodes.forEach(gc=>{
-    const lr=leaderByGroup[gc];const mid=lr.memberId||lr.id;if(!mid)return;
-    if(leaderTrainingStats[mid])return;// already have today's stats
+
+    // Only trust groups stats if they're from today
+    if(lStats&&lStats.date===todayKAdmin){
+      leaderTrainingStats[mid]=lStats;
+      return;
+    }
+
+    // Fallback: derive today's stats from jHist
     const jHist=leaderJournalHistory[mid]||{};
     const je=jHist[todayKAdmin];
     if(je){
-      let ritDone=0;if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;else if(typeof je.rituals==='number')ritDone=je.rituals;
-      let nnArr=[];if(typeof NN_LIST!=='undefined'){NN_LIST.forEach((nn,i)=>{let v=null;if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[nn.key]);else if(Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[i]);nnArr.push((!isNaN(v)&&v>0)?v:5);});}else{nnArr=[5,5,5,5,5];}
+      let ritDone=0;
+      if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;
+      else if(typeof je.rituals==='number')ritDone=je.rituals;
+      let nnArr=[];
+      if(typeof NN_LIST!=='undefined'){
+        NN_LIST.forEach((nn,idx)=>{
+          let v=null;
+          if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[nn.key]);
+          else if(Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[idx]);
+          nnArr.push((!isNaN(v)&&v>0)?v:5);
+        });
+      } else nnArr=[5,5,5,5,5];
       leaderTrainingStats[mid]={date:todayKAdmin,rituals:ritDone,nn:nnArr,energy:je.energy||5};
     }
   });
 }catch(e){console.warn('Load leader training stats:',e);}
+
 
 try{const leaderGroupCodes2=Object.keys(leaderByGroup);window._adminGroupJournals={};window._adminGroupWeeklyNN={};await Promise.all(leaderGroupCodes2.map(async gc=>{const nonLeaders=(membersByGroup[gc]||[]).filter(m=>!m.isLeader);if(!nonLeaders.length)return;const memberJournals={};await Promise.all(nonLeaders.map(async m=>{const mid=m.memberId;if(!mid)return;try{const uid=midToUidAll[mid]||null;const fetches=[database.ref('journals/'+fbKey(gc)+'/'+mid).once('value').catch(()=>null),];if(uid)fetches.push(database.ref('users/'+uid+'/daily').once('value').catch(()=>null));const[jSnap,dailySnap]=await Promise.all(fetches);let merged={};const jVal=jSnap&&jSnap.val();if(jVal&&typeof jVal==='object'){Object.entries(jVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk))merged[dk]=e;});}
 if(dailySnap){const dailyVal=dailySnap.val();if(dailyVal&&typeof dailyVal==='object'){const toMigrate={};Object.entries(dailyVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&e&&typeof e==='object'){const jEntry={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,spendRed:e.spendRed||0,};if(!merged[dk]){merged[dk]=jEntry;toMigrate[dk]=jEntry;}else if(!merged[dk].nnEnergy||Object.keys(merged[dk].nnEnergy||{}).length===0){merged[dk].nnEnergy=jEntry.nnEnergy;}}});if(Object.keys(toMigrate).length>0){database.ref('journals/'+fbKey(gc)+'/'+mid).update(toMigrate).catch(()=>{});}}}
@@ -3572,7 +3667,76 @@ careRows+'</div>':'<div style="font-size:10px;color:var(--jade);text-align:cente
 leftCol+
 rightCol+'</div>'+'<div id="admin-card-streak-'+midSafe+'" style="display:none;padding:8px 12px 10px;border-top:0.5px solid var(--border)">'+
 buildStreakDetail(a)+'</div>'+'<div id="admin-card-report-'+midSafe+'" style="display:none;padding:8px 12px 10px;border-top:0.5px solid var(--border)">'+
-buildReportDetail(a)+'</div>'+'<div id="admin-card-note-'+midSafe+'" style="display:'+(isExpanded?'block':'none')+';padding:6px 12px 6px;border-top:0.5px solid var(--border)">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+'<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark)">📝 Ghi chú đồng hành</div>'+'<div style="display:flex;gap:5px">'+'<button onclick="adminToggleStreak(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📅 Chuỗi rèn luyện</button>'+'<button onclick="adminToggleReport(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:1px solid rgba(133,79,11,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📊 Xem báo cáo</button>'+'</div>'+'</div>'+'<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" '+'placeholder="Ghi bối cảnh, lịch sử, kế hoạch hỗ trợ..." '+'style="width:100%;min-height:44px;font-size:11.5px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box">'+escHtml(a.savedNote)+'</textarea>'+'</div>'+'</div>');}).join('');window._adminCardExpanded=window._adminCardExpanded||{};window.adminToggleCard=function(mid){window._adminCardExpanded[mid]=!window._adminCardExpanded[mid];const body=document.getElementById('admin-card-body-'+mid);const note=document.getElementById('admin-card-note-'+mid);const arrow=document.getElementById('admin-card-arrow-'+mid);const streak=document.getElementById('admin-card-streak-'+mid);const report=document.getElementById('admin-card-report-'+mid);const open=window._adminCardExpanded[mid];if(body)body.style.display=open?'flex':'none';if(note)note.style.display=open?'block':'none';if(arrow)arrow.textContent=open?'▲':'▼';if(!open){if(streak)streak.style.display='none';if(report)report.style.display='none';}};window.adminToggleStreak=function(mid){adminOpenLeaderPopup(mid,'streak');};window.adminToggleReport=function(mid){adminOpenLeaderPopup(mid,'report');};window.adminOpenLeaderPopup=async function(mid,type){const memberName=window._adminMemberNames&&window._adminMemberNames[mid]?window._adminMemberNames[mid]:mid;if(window._adminLeaderJHistCache&&window._adminLeaderJHistCache[mid]){openMemberDetailPopup(memberName,window._adminLeaderJHistCache[mid],type);return;}var loadingModal=document.createElement('div');loadingModal.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(26,20,16,0.4);display:flex;align-items:center;justify-content:center;';loadingModal.innerHTML='<div style="background:var(--card);border-radius:14px;padding:20px 28px;font-size:13px;font-weight:700;color:var(--ink-muted)">⏳ Đang tải dữ liệu...</div>';document.body.appendChild(loadingModal);try{const database=await loadFirebase();if(!database)throw new Error('No DB');let gc=null;try{const mSnap=await database.ref('members/'+mid).once('value');const mVal=mSnap&&mSnap.val();if(mVal&&mVal.groupCode)gc=typeof fbKey==='function'?fbKey(mVal.groupCode):mVal.groupCode;}catch(e){}if(!gc&&window._adminGroupsAll){for(const[gKey,gData]of Object.entries(window._adminGroupsAll)){if(gData&&gData[mid]){gc=gKey;break;}}}const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);const uidMap=(uidMapSnap&&uidMapSnap.val())||{};const foundUid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===mid)||null;let jHist={};if(gc){const jSnap=await database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null);const jRaw=(jSnap&&jSnap.val())||{};Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});}if(!Object.keys(jHist).length&&foundUid){const dailySnap=await database.ref('users/'+foundUid+'/daily').once('value').catch(()=>null);const dailyVal=dailySnap&&dailySnap.val();if(dailyVal&&typeof dailyVal==='object'){Object.entries(dailyVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&e&&typeof e==='object'){jHist[dk]={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,spendRed:e.spendRed||0,seedsActive:e.seedsActive||0,seedsDone:e.seedsDone||0,};}});}}let monthlyData={};if(foundUid){try{const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+foundUid+'/monthly/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}catch(e){}}const cacheData={jHist,monthlyData,mid};window._adminLeaderJHistCache=window._adminLeaderJHistCache||{};window._adminLeaderJHistCache[mid]=cacheData;loadingModal.remove();openMemberDetailPopup(memberName,cacheData,type);}catch(e){loadingModal.remove();showToast('⚠️ Lỗi tải dữ liệu: '+(e.message||''));}};}
+buildReportDetail(a)+'</div>'+'<div id="admin-card-note-'+midSafe+'" style="display:'+(isExpanded?'block':'none')+';padding:6px 12px 6px;border-top:0.5px solid var(--border)">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+'<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark)">📝 Ghi chú đồng hành</div>'+'<div style="display:flex;gap:5px">'+'<button onclick="adminToggleStreak(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📅 Chuỗi rèn luyện</button>'+'<button onclick="adminToggleReport(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:1px solid rgba(133,79,11,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📊 Xem báo cáo</button>'+'</div>'+'</div>'+'<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" '+'placeholder="Ghi bối cảnh, lịch sử, kế hoạch hỗ trợ..." '+'style="width:100%;min-height:44px;font-size:11.5px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box">'+escHtml(a.savedNote)+'</textarea>'+'</div>'+'</div>');}).join('');window._adminCardExpanded=window._adminCardExpanded||{};window.adminToggleCard=function(mid){window._adminCardExpanded[mid]=!window._adminCardExpanded[mid];const body=document.getElementById('admin-card-body-'+mid);const note=document.getElementById('admin-card-note-'+mid);const arrow=document.getElementById('admin-card-arrow-'+mid);const streak=document.getElementById('admin-card-streak-'+mid);const report=document.getElementById('admin-card-report-'+mid);const open=window._adminCardExpanded[mid];if(body)body.style.display=open?'flex':'none';if(note)note.style.display=open?'block':'none';if(arrow)arrow.textContent=open?'▲':'▼';if(!open){if(streak)streak.style.display='none';if(report)report.style.display='none';}};window.adminToggleStreak=function(mid){adminOpenLeaderPopup(mid,'streak');};window.adminToggleReport=function(mid){adminOpenLeaderPopup(mid,'report');};window.adminOpenLeaderPopup=async function(mid,type){
+  const memberName=window._adminMemberNames&&window._adminMemberNames[mid]?window._adminMemberNames[mid]:mid;
+  if(window._adminLeaderJHistCache&&window._adminLeaderJHistCache[mid]){openMemberDetailPopup(memberName,window._adminLeaderJHistCache[mid],type);return;}
+  var loadingModal=document.createElement('div');
+  loadingModal.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(26,20,16,0.4);display:flex;align-items:center;justify-content:center;';
+  loadingModal.innerHTML='<div style="background:var(--card);border-radius:14px;padding:20px 28px;font-size:13px;font-weight:700;color:var(--ink-muted)">⏳ Đang tải...</div>';
+  document.body.appendChild(loadingModal);
+  try{
+    const database=await loadFirebase();
+    if(!database)throw new Error('No DB');
+
+    // Find groupCode from members node
+    let rawGC=null;
+    try{const mSnap=await database.ref('members/'+mid).once('value');const mVal=mSnap&&mSnap.val();if(mVal&&mVal.groupCode)rawGC=mVal.groupCode;}catch(e){}
+    // Fallback: scan _adminGroupsAll
+    if(!rawGC&&window._adminGroupsAll){for(const[gKey,gData]of Object.entries(window._adminGroupsAll)){if(gData&&gData[mid]){rawGC=gKey;break;}}}
+
+    // Find UID
+    const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);
+    const uidMapV=(uidMapSnap&&uidMapSnap.val())||{};
+    let foundUid=Object.keys(uidMapV).find(u=>uidMapV[u]&&uidMapV[u].memberId===mid)||null;
+    // Also check members.firebaseUid
+    if(!foundUid){try{const mSnap2=await database.ref('members/'+mid).once('value');const mv=mSnap2&&mSnap2.val();if(mv&&mv.firebaseUid)foundUid=mv.firebaseUid;}catch(e){}}
+
+    // Build jHist from ALL possible paths
+    const jHist={};
+    const gcK=rawGC?fbKey(rawGC):null;
+
+    // Read journal paths
+    const jPromises=[];
+    if(gcK){
+      jPromises.push(database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null));
+      jPromises.push(database.ref('journals/'+gcK+'/'+fbKey(mid)).once('value').catch(()=>null));
+      if(rawGC!==gcK)jPromises.push(database.ref('journals/'+rawGC+'/'+mid).once('value').catch(()=>null));
+    }
+    // Also read users/daily in same batch
+    if(foundUid)jPromises.push(database.ref('users/'+foundUid+'/daily').once('value').catch(()=>null));
+
+    const jSnaps=await Promise.all(jPromises);
+    jSnaps.forEach(snap=>{
+      const val=snap&&snap.val();
+      if(!val||typeof val!=='object')return;
+      // Flat date keys
+      Object.keys(val).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+        if(!jHist[k])jHist[k]=val[k];
+        else{if((!jHist[k].nnEnergy||!Object.keys(jHist[k].nnEnergy||{}).length)&&val[k].nnEnergy)jHist[k].nnEnergy=val[k].nnEnergy;}
+      });
+      // Also try nested under mid
+      if(val[mid]&&typeof val[mid]==='object'){
+        Object.keys(val[mid]).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{if(!jHist[k])jHist[k]=val[mid][k];});
+      }
+    });
+
+    // Load monthly data
+    let monthlyData={};
+    if(foundUid){try{
+      const now=new Date(Date.now()+7*3600000);
+      const cy=now.getUTCFullYear(),cm=now.getUTCMonth();
+      const mks=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}mks.push(y+'_'+m);}
+      const mSnaps=await Promise.all(mks.map(mk=>database.ref('users/'+foundUid+'/monthly/'+mk).once('value').catch(()=>null)));
+      mks.forEach((mk,i)=>{const v=mSnaps[i]&&mSnaps[i].val();if(v)monthlyData[mk]=v;});
+    }catch(e){}}
+
+    const cacheData={jHist,monthlyData,mid};
+    window._adminLeaderJHistCache=window._adminLeaderJHistCache||{};
+    window._adminLeaderJHistCache[mid]=cacheData;
+    loadingModal.remove();
+    openMemberDetailPopup(memberName,cacheData,type);
+  }catch(e){loadingModal.remove();showToast('⚠️ Lỗi: '+(e.message||''));}
+};}
 async function adminLazyLoadLeaderStreak(mid,type){const elStreak=document.getElementById('admin-card-streak-'+mid);const elReport=document.getElementById('admin-card-report-'+mid);const targetEl=type==='streak'?elStreak:elReport;if(!targetEl)return;if(!window._adminLeaderJHistCache)window._adminLeaderJHistCache={};if(window._adminLeaderJHistCache[mid]){const cached=window._adminLeaderJHistCache[mid];if(elStreak)elStreak.innerHTML=buildStreakDetail(cached);if(elReport)elReport.innerHTML=buildReportDetail(cached);return;}
 targetEl.innerHTML='<div style="font-size:10px;color:var(--ink-muted);text-align:center;padding:6px">Đang tải...</div>';try{const database=await loadFirebase();if(!database)throw new Error('No DB');let gc=null;if(window._adminGroupsAll){for(const[gKey,gData]of Object.entries(window._adminGroupsAll)){if(gData&&gData[mid]){gc=gKey;break;}}}
 if(!gc){try{const mSnap=await database.ref('members/'+mid).once('value');const mVal=mSnap.val();if(mVal&&mVal.groupCode)gc=typeof fbKey==='function'?fbKey(mVal.groupCode):mVal.groupCode;}catch(e){}}
@@ -3604,23 +3768,48 @@ return'<div>'+'<div style="font-size:10px;font-weight:700;color:var(--ink-muted)
 (housesWithData.length>0?'<div style="background:rgba(245,237,224,0.4);border-radius:8px;padding:10px 12px">'+'<div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px">Tiến độ theo Ngôi Nhà</div>'+
 houseHtml+'</div>':'')+'</div>';};const tabsHtml=milestones.map((ms,i)=>'<button id="rpt-tab-'+midSafe+'-'+ms.id+'" onclick="adminReportTab(\''+midSafe+'\',\''+ms.id+'\')" '+'style="font-size:10px;font-weight:500;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;cursor:pointer;font-family:inherit;'+
 (i===0?'background:var(--sky-light);color:var(--sky);border-color:rgba(74,127,168,0.3)':'background:rgba(245,237,224,0.4);color:var(--ink-muted)')+'">'+ms.label+'</button>').join('');window._adminReportCache=window._adminReportCache||{};window._adminReportCache[a.mid]={milestones,getMonths,getDaysInRange,calcStats,buildMilestoneHtml};window.adminReportTab=function(mid,msId){const cache=window._adminReportCache[mid];if(!cache)return;const ms=cache.milestones.find(x=>x.id===msId);if(!ms)return;const contentEl=document.getElementById('rpt-content-'+mid);if(contentEl)contentEl.innerHTML='<div style="font-size:11px;color:var(--ink-muted);text-align:center;padding:12px">Đang tính toán...</div>';setTimeout(()=>{if(contentEl){contentEl.innerHTML=cache.buildMilestoneHtml(ms);setTimeout(function(){renderAllReportCharts(contentEl);},80);}cache.milestones.forEach(m=>{const tab=document.getElementById('rpt-tab-'+mid+'-'+m.id);if(!tab)return;if(m.id===msId){tab.style.background='var(--sky-light)';tab.style.color='var(--sky)';tab.style.borderColor='rgba(74,127,168,0.3)';}else{tab.style.background='rgba(245,237,224,0.4)';tab.style.color='var(--ink-muted)';tab.style.borderColor='var(--border)';}});},50);};const firstMs=milestones[0];const firstContent=buildMilestoneHtml(firstMs);return'<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">Báo cáo tổng kết</div>'+'<div style="display:flex;gap:5px;margin-bottom:10px">'+tabsHtml+'</div>'+'<div id="rpt-content-'+midSafe+'">'+firstContent+'</div>';}
-window._adminMemberCache=window._adminMemberCache||{};window._adminMemberNames=window._adminMemberNames||{};async function adminMemberToggle(type,memberId,groupCode,memberName){if(!memberId)return;
-// Always use popup - hide any inline divs
-var streakEl=document.getElementById('ms-streak-'+memberId);var reportEl=document.getElementById('ms-report-'+memberId);if(streakEl)streakEl.style.display='none';if(reportEl)reportEl.style.display='none';
-if(memberName)window._adminMemberNames[memberId]=memberName;
-if(!window._adminMemberCache)window._adminMemberCache={};
-if(window._adminMemberCache[memberId]){_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);return;}
-// Use leaderAllData if available (same as leaderMemberToggle)
-const existingEntry=typeof leaderAllData!=='undefined'?leaderAllData[memberId]:null;
-const existingJHist=existingEntry?existingEntry.entries||{}:{};
-try{const database=await loadFirebase();if(!database)throw new Error('No DB');
-let uid=existingEntry&&existingEntry.firebaseUid?existingEntry.firebaseUid:null;
-if(!uid){const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);const uidMap=(uidMapSnap&&uidMapSnap.val())||{};uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===memberId)||null;}
-let jHist={};if(Object.keys(existingJHist).length>0){Object.keys(existingJHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=existingJHist[k];});}else{const gcKey=typeof fbKey==='function'?fbKey(groupCode):groupCode;const rawGC=groupCode||'';let jSnap=await database.ref('journals/'+gcKey+'/'+memberId).once('value').catch(()=>null);if((!jSnap||!jSnap.val()||Object.keys(jSnap.val()||{}).length===0)&&rawGC!==gcKey){try{const jSnap2=await database.ref('journals/'+rawGC+'/'+memberId).once('value');if(jSnap2&&jSnap2.val()&&Object.keys(jSnap2.val()).length>0)jSnap=jSnap2;}catch(e2){}}
-const jRaw=(jSnap&&jSnap.val())||{};Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});}
-let monthlyData={};if(uid){try{const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}
-const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}catch(e){}}
-window._adminMemberCache[memberId]={jHist,monthlyData,mid:memberId};_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);}catch(e){console.warn('adminMemberToggle error:',e);}}
+window._adminMemberCache=window._adminMemberCache||{};window._adminMemberNames=window._adminMemberNames||{};
+async function adminMemberToggle(type,memberId,groupCode,memberName){
+  if(!memberId)return;
+  var streakEl=document.getElementById('ms-streak-'+memberId);var reportEl=document.getElementById('ms-report-'+memberId);
+  if(streakEl)streakEl.style.display='none';if(reportEl)reportEl.style.display='none';
+  if(memberName)window._adminMemberNames[memberId]=memberName;
+  if(!window._adminMemberCache)window._adminMemberCache={};
+  if(window._adminMemberCache[memberId]){_adminMemberRender(type,memberId,window._adminMemberCache[memberId]);return;}
+  try{
+    const database=await loadFirebase();if(!database)throw new Error('No DB');
+    // Find UID
+    const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);
+    const uidMapV=(uidMapSnap&&uidMapSnap.val())||{};
+    let uid=Object.keys(uidMapV).find(u=>uidMapV[u]&&uidMapV[u].memberId===memberId)||null;
+    if(!uid){try{const ms=await database.ref('members/'+memberId).once('value');const mv=ms&&ms.val();if(mv&&mv.firebaseUid)uid=mv.firebaseUid;}catch(e){}}
+    // Build jHist from all paths
+    const jHist={};
+    const gcK=typeof fbKey==='function'?fbKey(groupCode||''):groupCode||'';
+    const rawGC=groupCode||'';
+    const jSnaps=await Promise.all([
+      gcK?database.ref('journals/'+gcK+'/'+memberId).once('value').catch(()=>null):null,
+      (rawGC&&rawGC!==gcK)?database.ref('journals/'+rawGC+'/'+memberId).once('value').catch(()=>null):null,
+      uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
+    ].filter(Boolean));
+    jSnaps.forEach(snap=>{
+      const val=snap&&snap.val();if(!val||typeof val!=='object')return;
+      Object.keys(val).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+        if(!jHist[k])jHist[k]=val[k];
+        else{if((!jHist[k].nnEnergy||!Object.keys(jHist[k].nnEnergy||{}).length)&&val[k]&&val[k].nnEnergy)jHist[k].nnEnergy=val[k].nnEnergy;}
+      });
+    });
+    let monthlyData={};
+    if(uid){try{
+      const now=new Date(Date.now()+7*3600000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();
+      const mks=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}mks.push(y+'_'+m);}
+      const ms=await Promise.all(mks.map(mk=>database.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));
+      mks.forEach((mk,i)=>{const v=ms[i]&&ms[i].val();if(v)monthlyData[mk]=v;});
+    }catch(e){}}
+    window._adminMemberCache[memberId]={jHist,monthlyData,mid:memberId};
+    _adminMemberRender(type,memberId,window._adminMemberCache[memberId]);
+  }catch(e){console.warn('adminMemberToggle error:',e);}
+}
 function _adminMemberRender(type,memberId,data){
   var memberName=data.name||(window._adminMemberNames&&window._adminMemberNames[memberId])||memberId;
   openMemberDetailPopup(memberName,data,type);
@@ -4707,6 +4896,216 @@ window.runAdminDebug = async function() {
     console.error(e);
   }
 };
+</script>
+
+
+<script>
+// ===== ADMIN DEBUG SCAN =====
+window._debugScanResults = [];
+window._debugScanDone = false;
+
+function initDebugTab() {
+  const btn = document.getElementById('debug-scan-btn');
+  if (btn) btn.disabled = false;
+}
+
+async function runAdminDebugScan() {
+  const btn = document.getElementById('debug-scan-btn');
+  const progEl = document.getElementById('debug-scan-progress');
+  const sumEl = document.getElementById('debug-scan-summary');
+  const resEl = document.getElementById('debug-scan-results');
+  const cpBtn = document.getElementById('debug-copy-btn');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang quét...';
+  progEl.textContent = '';
+  sumEl.style.display = 'none';
+  resEl.innerHTML = '';
+  cpBtn.style.display = 'none';
+  window._debugScanResults = [];
+
+  function prog(t) { progEl.textContent = t; }
+
+  function fbKey(s) {
+    return (s||'').replace(/\./g,'_dot_').replace(/#/g,'_hash_').replace(/\$/g,'_dollar_').replace(/\[/g,'_lb_').replace(/\]/g,'_rb_').replace(/\//g,'_sl_');
+  }
+  function todayK() { return new Date(Date.now()+7*3600000).toISOString().split('T')[0]; }
+  async function tryR(path) {
+    try { const s = await database.ref(path).once('value'); return s.val(); } catch(e) { return null; }
+  }
+
+  try {
+    const database = await loadFirebase();
+    if (!database) { prog('❌ Không kết nối được Firebase'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
+
+    prog('📥 Đang tải dữ liệu...');
+    const [rVal, mVal, uVal] = await Promise.all([
+      tryR('leader_requests'),
+      tryR('members'),
+      tryR('uid_to_member'),
+    ]);
+
+    if (!mVal) { prog('❌ Không đọc được /members'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
+
+    const mbrs = mVal || {};
+    const uidMap = uVal || {};
+    const reqs = rVal || {};
+
+    // mid → uid
+    const m2u = {};
+    Object.entries(uidMap).forEach(([uid, v]) => { if (v && v.memberId) m2u[v.memberId] = uid; });
+
+    // build leaders list
+    const lbg = {};
+    Object.entries(reqs).forEach(([, r]) => { if (r && r.status === 'approved' && r.groupCode) lbg[r.groupCode] = {...r}; });
+    Object.entries(mbrs).forEach(([k, m]) => {
+      if (!m || !m.groupCode || !m.isLeader) return;
+      const mid = m.memberId || k;
+      if (!lbg[m.groupCode]) lbg[m.groupCode] = { memberId: mid, name: m.name || '–', groupCode: m.groupCode, approvedAt: m.registeredAt || '' };
+      else if (!lbg[m.groupCode].memberId) lbg[m.groupCode].memberId = mid;
+    });
+
+    const leaders = Object.entries(lbg);
+    const todayStr = todayK();
+    let nOk = 0, nWarn = 0, nErr = 0;
+
+    prog('🔍 Tìm thấy ' + leaders.length + ' trưởng nhóm. Đang quét từng người...');
+
+    for (let i = 0; i < leaders.length; i++) {
+      const [gc, lr] = leaders[i];
+      const mid = (lr.memberId || lr.id || '').trim();
+      const name = lr.name || '–';
+      prog('🔍 (' + (i+1) + '/' + leaders.length + '): ' + name + '...');
+
+      const R = { name, gc, mid, uid: null, jDays: 0, dDays: 0, todayOk: false, todayFromDaily: false, issues: [], paths: {}, todayRit: 0, jLast: null, dLast: null, groupsDate: null };
+
+      if (!mid) { R.issues.push('❌ Không có memberId'); nErr++; addDebugCard(R, 'err'); window._debugScanResults.push(R); continue; }
+
+      // Find UID (3 ways)
+      R.uid = m2u[mid] || null;
+      if (!R.uid) { const mDat = Object.values(mbrs).find(m => (m.memberId||'') === mid); if (mDat && mDat.firebaseUid) R.uid = mDat.firebaseUid; }
+      if (!R.uid) { const found = Object.entries(uidMap).find(([uid, v]) => v && v.memberId === mid); if (found) R.uid = found[0]; }
+      if (!R.uid) R.issues.push('❌ Không tìm được firebaseUid → users/daily không đọc được');
+
+      // Check journals (3 paths)
+      const gcK = fbKey(gc);
+      let foundJ = false;
+      for (const p of ['journals/'+gcK+'/'+mid, 'journals/'+gcK+'/'+fbKey(mid), 'journals/'+gc+'/'+mid]) {
+        const v = await tryR(p);
+        const dk = v ? Object.keys(v).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) : [];
+        R.paths[p] = dk.length ? dk.length + ' ngày' : 'null';
+        if (dk.length > 0 && !foundJ) {
+          dk.sort(); R.jDays = dk.length; R.jLast = dk[dk.length-1]; foundJ = true;
+          const te = v[todayStr];
+          if (te) { R.todayOk = true; R.todayRit = te.rituals ? Object.values(te.rituals).filter(Boolean).length : 0; }
+        }
+      }
+
+      // Check users/daily
+      if (R.uid) {
+        const v = await tryR('users/' + R.uid + '/daily');
+        const dk = v ? Object.keys(v).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) : [];
+        R.paths['users/'+R.uid+'/daily'] = dk.length ? dk.length + ' ngày' : 'null';
+        if (dk.length > 0) {
+          dk.sort(); R.dDays = dk.length; R.dLast = dk[dk.length-1];
+          if (!R.todayOk) { const te = v[todayStr]; if (te) { R.todayOk = true; R.todayFromDaily = true; R.todayRit = te.rituals ? Object.values(te.rituals).filter(Boolean).length : 0; } }
+        }
+      }
+
+      // Check groups (today)
+      const gv = await tryR('groups/' + gcK + '/' + mid);
+      if (gv) { R.groupsDate = gv.date; R.paths['groups/'+gcK+'/'+mid] = 'date=' + gv.date + (gv.date === todayStr ? ' ✅' : ' ⚠️ cũ'); }
+      else R.paths['groups/'+gcK+'/'+mid] = 'null';
+
+      // Classify
+      if (R.jDays === 0 && R.dDays === 0) {
+        R.issues.push('❌ Không có dữ liệu ở cả hai nguồn');
+        nErr++; addDebugCard(R, 'err');
+      } else if (R.jDays === 0 && R.dDays > 0) {
+        R.issues.push('⚠️ Chỉ có users/daily (' + R.dDays + ' ngày) — journals rỗng → code không đọc được');
+        nWarn++; addDebugCard(R, 'warn');
+      } else if (R.jDays > 0 && R.dDays > R.jDays + 5) {
+        R.issues.push('⚠️ journal=' + R.jDays + ' ngày nhưng daily=' + R.dDays + ' ngày — lệch lớn');
+        nWarn++; addDebugCard(R, 'warn');
+      } else {
+        R.issues.push('✅ journal=' + R.jDays + ' ngày' + (R.dDays ? ', daily=' + R.dDays + ' ngày' : ''));
+        nOk++; addDebugCard(R, 'ok');
+      }
+      window._debugScanResults.push(R);
+    }
+
+    // Summary
+    sumEl.style.display = 'block';
+    sumEl.innerHTML = '<strong>📊 Kết quả ' + leaders.length + ' trưởng nhóm</strong><br>'
+      + '<span style="color:var(--jade)">✅ OK: ' + nOk + '</span> &nbsp;·&nbsp; '
+      + '<span style="color:var(--gold-dark)">⚠️ Cần fix: ' + nWarn + '</span> &nbsp;·&nbsp; '
+      + '<span style="color:var(--rose)">❌ Lỗi: ' + nErr + '</span><br>'
+      + '<span style="color:var(--sky)">Ghi hôm nay (' + todayStr + '): ' + window._debugScanResults.filter(r=>r.todayOk).length + '/' + leaders.length + '</span>';
+
+    cpBtn.style.display = 'block';
+    prog('✅ Quét xong ' + leaders.length + ' trưởng nhóm');
+    window._debugScanDone = true;
+
+  } catch(e) {
+    prog('❌ Lỗi: ' + e.message);
+    console.error(e);
+  }
+  btn.disabled = false;
+  btn.textContent = '🔎 Quét lại';
+}
+
+function addDebugCard(R, level) {
+  const resEl = document.getElementById('debug-scan-results');
+  if (!resEl) return;
+  const id = 'dbg_' + (R.mid||'x').replace(/[^a-z0-9]/gi,'_') + '_' + Math.random().toString(36).slice(2,6);
+
+  let det = 'mid        : ' + R.mid + '\n';
+  det += 'uid        : ' + (R.uid || '❌ NULL') + '\n';
+  det += 'journalDays: ' + R.jDays + (R.jLast ? ' (cuối: '+R.jLast+')' : '') + '\n';
+  det += 'dailyDays  : ' + R.dDays + (R.dLast ? ' (cuối: '+R.dLast+')' : '') + '\n';
+  det += 'hôm nay    : ' + (R.todayOk ? '✅ CÓ — ' + R.todayRit + '/9 nghi thức' + (R.todayFromDaily?' [từ daily]':'[từ journal]') : '❌ KHÔNG') + '\n';
+  if (R.groupsDate) det += 'groups.date: ' + R.groupsDate + (R.groupsDate === new Date(Date.now()+7*3600000).toISOString().split('T')[0] ? ' ✅ hôm nay' : ' ⚠️ cũ') + '\n';
+  det += '\n— Paths —\n';
+  Object.entries(R.paths).forEach(([k,v]) => { det += '  ' + k + '\n    → ' + v + '\n'; });
+  det += '\n— Kết luận —\n' + R.issues.join('\n');
+
+  const col = level==='ok' ? 'rgba(74,140,111,0.15)' : level==='warn' ? 'rgba(201,168,76,0.12)' : 'rgba(192,96,106,0.12)';
+  const border = level==='ok' ? 'rgba(74,140,111,0.3)' : level==='warn' ? 'rgba(201,168,76,0.3)' : 'rgba(192,96,106,0.3)';
+  const badge = level==='ok' ? '✅ OK' : level==='warn' ? '⚠️ Cần fix' : '❌ Lỗi';
+  const badgeCol = level==='ok' ? 'var(--jade)' : level==='warn' ? 'var(--gold-dark)' : 'var(--rose)';
+
+  const div = document.createElement('div');
+  div.style.cssText = 'border:1px solid '+border+';border-radius:10px;margin-bottom:8px;overflow:hidden;background:'+col;
+  div.innerHTML = '<div onclick="document.getElementById(\''+id+'\').style.display=document.getElementById(\''+id+'\').style.display===\'none\'?\'block\':\'none\'" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px">'
+    + '<div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--ink)">'+escHtml(R.name)+'</div><div style="font-size:10px;color:var(--ink-muted);margin-top:1px">'+escHtml(R.gc)+'</div></div>'
+    + '<span style="font-size:10px;font-weight:800;color:'+badgeCol+';background:rgba(0,0,0,0.06);padding:2px 8px;border-radius:5px;flex-shrink:0">'+badge+'</span>'
+    + '</div>'
+    + '<div id="'+id+'" style="display:none;padding:10px 14px;border-top:1px solid '+border+';font-size:11px;font-family:monospace;white-space:pre-wrap;background:rgba(0,0,0,0.15);color:#d0e0c0;line-height:1.7">'+escHtml(det)+'</div>';
+  resEl.appendChild(div);
+}
+
+function debugCopyResult() {
+  const R = window._debugScanResults || [];
+  let t = '=== DEBUG REPORT ===\nNgày: ' + new Date().toLocaleString('vi') + '\nTổng: ' + R.length + '\n\n';
+  R.forEach(r => {
+    t += '[' + r.name + '] ' + r.gc + '\n';
+    t += '  mid=' + r.mid + ' | uid=' + (r.uid||'NULL') + '\n';
+    t += '  journal=' + r.jDays + ' ngày | daily=' + r.dDays + ' ngày\n';
+    t += '  hôm nay=' + (r.todayOk ? 'CÓ (rit='+r.todayRit+(r.todayFromDaily?'/daily':'')+')'  : 'KHÔNG') + '\n';
+    t += '  groups.date=' + (r.groupsDate||'null') + '\n';
+    t += '  → ' + r.issues.join(' | ') + '\n\n';
+  });
+  try {
+    navigator.clipboard.writeText(t).then(() => showToast('✅ Đã copy! Paste vào chat gửi developer.'));
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ Đã copy kết quả!');
+  }
+}
 </script>
 
 </body>
