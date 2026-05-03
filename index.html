@@ -4925,7 +4925,6 @@ async function runAdminDebugScan() {
   function todayK() { return new Date(Date.now()+7*3600000).toISOString().split('T')[0]; }
   function fbKeyD(s) { return (s||'').replace(/\./g,'_dot_').replace(/#/g,'_hash_').replace(/\$/g,'_dollar_').replace(/\[/g,'_lb_').replace(/\]/g,'_rb_').replace(/\//g,'_sl_'); }
 
-  // Dùng kết nối Firebase đã có sẵn
   const database = await loadFirebase();
   if (!database) { prog('❌ Không kết nối được Firebase'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
 
@@ -4934,134 +4933,153 @@ async function runAdminDebugScan() {
   }
 
   try {
-    prog('📥 Đang lấy dữ liệu...');
-
-    // Dùng cache từ loadAdminData() nếu đã có — không cần đọc Firebase lại
     let mbrs = window._adminMembersAll || null;
-    let uidMap = window._adminUidMap || null;
-    let reqs = window._adminRequests || null;
-
-    // Nếu chưa có cache thì đọc Firebase trực tiếp
-    if (!mbrs) {
-      prog('📥 Chưa có cache — đang đọc Firebase...');
-      const [rV, mV, uV] = await Promise.all([
-        tryR('leader_requests'),
-        tryR('members'),
-        tryR('uid_to_member'),
-      ]);
-      if (!mV) {
-        prog('❌ Không đọc được /members. Hãy vào tab "Trưởng Nhóm" trước để load data, rồi quay lại đây.');
-        btn.disabled=false; btn.textContent='🔎 Thử lại'; return;
-      }
-      mbrs = mV; uidMap = uV || {}; reqs = rV || {};
-    } else {
-      prog('✅ Dùng cache sẵn có (' + Object.keys(mbrs).length + ' members)');
-      uidMap = uidMap || {};
-      reqs = reqs || {};
-    }
-
-    // mid → uid
-    const m2u = window._adminMidToUid || {};
-    if (!Object.keys(m2u).length) {
-      Object.entries(uidMap).forEach(([uid, v]) => { if (v && v.memberId) m2u[v.memberId] = uid; });
-    }
-
-    // Build leaders từ cache hoặc tính lại
+    let uidMap = window._adminUidMap || {};
     let lbg = window._adminLeaderByGroup || null;
-    if (!lbg) {
+    const m2u = window._adminMidToUid || {};
+
+    if (!mbrs) {
+      prog('📥 Đang đọc Firebase...');
+      const [rV, mV, uV] = await Promise.all([tryR('leader_requests'), tryR('members'), tryR('uid_to_member')]);
+      if (!mV) { prog('❌ Vào tab Trưởng Nhóm trước rồi quay lại'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
+      mbrs = mV; uidMap = uV||{};
+      Object.entries(uidMap).forEach(([uid,v])=>{ if(v&&v.memberId) m2u[v.memberId]=uid; });
       lbg = {};
-      Object.entries(reqs).forEach(([, r]) => { if (r && r.status === 'approved' && r.groupCode) lbg[r.groupCode] = {...r}; });
-      Object.entries(mbrs).forEach(([k, m]) => {
-        if (!m || !m.groupCode || !m.isLeader) return;
-        const mid = m.memberId || k;
-        if (!lbg[m.groupCode]) lbg[m.groupCode] = { memberId: mid, name: m.name || '–', groupCode: m.groupCode };
-        else if (!lbg[m.groupCode].memberId) lbg[m.groupCode].memberId = mid;
+      Object.entries(rV||{}).forEach(([,r])=>{ if(r&&r.status==='approved'&&r.groupCode) lbg[r.groupCode]={...r}; });
+      Object.entries(mbrs).forEach(([k,m])=>{
+        if(!m||!m.groupCode||!m.isLeader) return;
+        const mid=m.memberId||k;
+        if(!lbg[m.groupCode]) lbg[m.groupCode]={memberId:mid,name:m.name||'–',groupCode:m.groupCode};
+        else if(!lbg[m.groupCode].memberId) lbg[m.groupCode].memberId=mid;
       });
     }
 
     const leaders = Object.entries(lbg);
     const todayStr = todayK();
-    prog('🔍 Tìm thấy ' + leaders.length + ' trưởng nhóm. Đang quét...');
-    let nOk = 0, nWarn = 0, nErr = 0;
+    prog('🔍 ' + leaders.length + ' trưởng nhóm. Đang quét sâu...');
+    let nOk=0, nWarn=0, nErr=0;
 
-    for (let i = 0; i < leaders.length; i++) {
+    for (let i=0; i<leaders.length; i++) {
       const [gc, lr] = leaders[i];
-      const mid = (lr.memberId || lr.id || '').trim();
-      const name = lr.name || '–';
-      prog('🔍 (' + (i+1) + '/' + leaders.length + '): ' + name);
+      const mid = (lr.memberId||lr.id||'').trim();
+      const name = lr.name||'–';
+      prog('🔍 ('+( i+1)+'/'+leaders.length+'): '+name);
 
-      const R = { name, gc, mid, uid: null, jDays: 0, dDays: 0, todayOk: false, todayFromDaily: false, issues: [], paths: {}, todayRit: 0, jLast: null, dLast: null, groupsDate: null };
+      const R = {name,gc,mid,uid:null,jDays:0,dDays:0,todayOk:false,todayFromDaily:false,
+                 issues:[],paths:{},todayRit:0,jLast:null,dLast:null,groupsDate:null,
+                 userKeys:null, extraPaths:{}};
 
       if (!mid) { R.issues.push('❌ Không có memberId'); nErr++; addDebugCard(R,'err'); window._debugScanResults.push(R); continue; }
 
-      // Tìm UID — 3 cách
-      R.uid = m2u[mid] || null;
-      if (!R.uid) { const mD = Object.values(mbrs).find(m => (m.memberId||'') === mid); if (mD && mD.firebaseUid) R.uid = mD.firebaseUid; }
-      if (!R.uid) { const found = Object.entries(uidMap).find(([, v]) => v && v.memberId === mid); if (found) R.uid = found[0]; }
-      if (!R.uid) R.issues.push('❌ Không tìm được firebaseUid → users/daily không đọc được');
+      // Tìm UID
+      R.uid = m2u[mid]||null;
+      if (!R.uid) { const mD=Object.values(mbrs).find(m=>(m.memberId||'')===mid); if(mD&&mD.firebaseUid) R.uid=mD.firebaseUid; }
+      if (!R.uid) { const f=Object.entries(uidMap).find(([,v])=>v&&v.memberId===mid); if(f) R.uid=f[0]; }
+      if (!R.uid) R.issues.push('❌ Không tìm được firebaseUid');
 
-      // Kiểm tra journals (3 paths)
       const gcK = fbKeyD(gc);
+
+      // Kiểm tra journals
       let foundJ = false;
-      for (const p of ['journals/'+gcK+'/'+mid, 'journals/'+gcK+'/'+fbKeyD(mid), 'journals/'+gc+'/'+mid]) {
+      for (const p of ['journals/'+gcK+'/'+mid, 'journals/'+gcK+'/'+fbKeyD(mid)]) {
         const v = await tryR(p);
-        const dk = v ? Object.keys(v).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) : [];
-        R.paths[p] = dk.length ? dk.length + ' ngày' : 'null';
-        if (dk.length > 0 && !foundJ) {
-          dk.sort(); R.jDays = dk.length; R.jLast = dk[dk.length-1]; foundJ = true;
-          const te = v[todayStr];
-          if (te) { R.todayOk = true; R.todayRit = te.rituals ? Object.values(te.rituals).filter(Boolean).length : 0; }
+        const dk = v?Object.keys(v).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)):[];
+        R.paths[p] = dk.length?dk.length+' ngày':'null';
+        if (dk.length>0&&!foundJ) {
+          dk.sort(); R.jDays=dk.length; R.jLast=dk[dk.length-1]; foundJ=true;
+          const te=v[todayStr]; if(te){R.todayOk=true;R.todayRit=te.rituals?Object.values(te.rituals).filter(Boolean).length:0;}
         }
       }
 
       // Kiểm tra users/daily
       if (R.uid) {
-        const v = await tryR('users/' + R.uid + '/daily');
-        const dk = v ? Object.keys(v).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) : [];
-        R.paths['users/'+R.uid+'/daily'] = dk.length ? dk.length + ' ngày' : 'null';
-        if (dk.length > 0) {
-          dk.sort(); R.dDays = dk.length; R.dLast = dk[dk.length-1];
-          if (!R.todayOk) { const te = v[todayStr]; if (te) { R.todayOk = true; R.todayFromDaily = true; R.todayRit = te.rituals ? Object.values(te.rituals).filter(Boolean).length : 0; } }
+        // Trước tiên xem users/{uid} có những key gì
+        const uTop = await tryR('users/'+R.uid);
+        if (uTop && typeof uTop==='object') {
+          R.userKeys = Object.keys(uTop).join(', ');
+        }
+
+        const v = await tryR('users/'+R.uid+'/daily');
+        const dk = v?Object.keys(v).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)):[];
+        R.paths['users/'+R.uid+'/daily'] = dk.length?dk.length+' ngày':'null';
+        if (dk.length>0) {
+          dk.sort(); R.dDays=dk.length; R.dLast=dk[dk.length-1];
+          if(!R.todayOk){const te=v[todayStr];if(te){R.todayOk=true;R.todayFromDaily=true;R.todayRit=te.rituals?Object.values(te.rituals).filter(Boolean).length:0;}}
+        }
+
+        // Nếu không có daily — thử các key khác trong users/{uid}
+        if (R.dDays===0 && uTop && typeof uTop==='object') {
+          for (const uKey of Object.keys(uTop)) {
+            if (uKey==='daily'||uKey==='profile'||uKey==='monthly'||uKey==='settings') continue;
+            const uSub = uTop[uKey];
+            if (uSub && typeof uSub==='object') {
+              const dk2 = Object.keys(uSub).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
+              if (dk2.length>0) R.extraPaths['users/'+R.uid+'/'+uKey] = dk2.length+' ngày';
+            }
+          }
         }
       }
 
-      // Kiểm tra groups (stats hôm nay)
-      const gv = await tryR('groups/' + gcK + '/' + mid);
-      if (gv) { R.groupsDate = gv.date; R.paths['groups/'+gcK+'/'+mid] = 'date=' + gv.date + (gv.date === todayStr ? ' ✅' : ' ⚠️ cũ'); }
-      else R.paths['groups/'+gcK+'/'+mid] = 'null';
+      // Kiểm tra groups
+      const gv = await tryR('groups/'+gcK+'/'+mid);
+      if (gv) {
+        R.groupsDate=gv.date;
+        R.paths['groups/'+gcK+'/'+mid]='date='+gv.date+(gv.date===todayStr?' ✅':' ⚠️ cũ');
+        // Lấy thêm thông tin: groups có history không?
+        const gvKeys = Object.keys(gv).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
+        if (gvKeys.length>0) R.paths['groups/'+gcK+'/'+mid]+=' | +'+gvKeys.length+' date-keys trong groups';
+      } else {
+        R.paths['groups/'+gcK+'/'+mid]='null';
+      }
+
+      // Thử thêm: xem journals/{gcK} có key gì (có thể mid bị encode khác)
+      if (!foundJ && R.jDays===0) {
+        const jParent = await tryR('journals/'+gcK);
+        if (jParent && typeof jParent==='object') {
+          const jKeys = Object.keys(jParent);
+          R.extraPaths['journals/'+gcK+'/ (keys)'] = jKeys.slice(0,5).join(', ')+(jKeys.length>5?' ...':'');
+        } else {
+          R.extraPaths['journals/'+gcK] = 'null (không có nhóm này)';
+          // Thử tìm trong tất cả journals
+          const jAll = await tryR('journals');
+          if (jAll) {
+            const matchKey = Object.keys(jAll).find(k=>k.toLowerCase().includes((gc||'').toLowerCase().slice(0,6)));
+            if (matchKey) R.extraPaths['journals (tìm thấy key gần giống)'] = matchKey;
+            else R.extraPaths['journals (all keys)'] = Object.keys(jAll).slice(0,8).join(', ');
+          }
+        }
+      }
 
       // Phân loại
-      if (R.jDays === 0 && R.dDays === 0) {
-        R.issues.push('❌ Không có dữ liệu ở cả hai nguồn (journal + daily)');
-        nErr++; addDebugCard(R, 'err');
-      } else if (R.jDays === 0 && R.dDays > 0) {
-        R.issues.push('⚠️ Chỉ có users/daily (' + R.dDays + ' ngày) — journals rỗng hoàn toàn');
-        nWarn++; addDebugCard(R, 'warn');
-      } else if (R.jDays > 0 && R.dDays > R.jDays + 5) {
-        R.issues.push('⚠️ journal=' + R.jDays + ' ngày nhưng daily=' + R.dDays + ' ngày — lệch nhiều');
-        nWarn++; addDebugCard(R, 'warn');
+      if (R.jDays===0&&R.dDays===0) {
+        const hasGroups = R.groupsDate?true:false;
+        R.issues.push('❌ journal=0, daily=0' + (hasGroups?' nhưng groups.date='+R.groupsDate+' → dữ liệu nằm ở chỗ khác!':''));
+        nErr++; addDebugCard(R,'err');
+      } else if (R.jDays===0&&R.dDays>0) {
+        R.issues.push('⚠️ Chỉ có users/daily ('+R.dDays+' ngày) — journals rỗng');
+        nWarn++; addDebugCard(R,'warn');
+      } else if (R.jDays>0&&R.dDays>R.jDays+5) {
+        R.issues.push('⚠️ journal='+R.jDays+' nhưng daily='+R.dDays+' — lệch lớn');
+        nWarn++; addDebugCard(R,'warn');
       } else {
-        R.issues.push('✅ journal=' + R.jDays + ' ngày' + (R.dDays ? ', daily=' + R.dDays + ' ngày' : ''));
-        nOk++; addDebugCard(R, 'ok');
+        R.issues.push('✅ journal='+R.jDays+(R.dDays?', daily='+R.dDays:''));
+        nOk++; addDebugCard(R,'ok');
       }
       window._debugScanResults.push(R);
     }
 
-    sumEl.style.display = 'block';
-    sumEl.innerHTML = '<strong style="font-size:13px">📊 Kết quả: ' + leaders.length + ' trưởng nhóm</strong><br><br>'
-      + '✅ OK: <strong style="color:var(--jade)">' + nOk + '</strong> &nbsp;·&nbsp; '
-      + '⚠️ Cần fix: <strong style="color:var(--gold-dark)">' + nWarn + '</strong> &nbsp;·&nbsp; '
-      + '❌ Lỗi: <strong style="color:var(--rose)">' + nErr + '</strong><br>'
-      + '<span style="font-size:11px;color:var(--ink-muted)">Ghi hôm nay (' + todayStr + '): ' + window._debugScanResults.filter(r=>r.todayOk).length + '/' + leaders.length + ' người</span>';
+    sumEl.style.display='block';
+    sumEl.innerHTML='<strong style="font-size:13px">📊 Kết quả: '+leaders.length+' trưởng nhóm</strong><br><br>'
+      +'✅ OK: <strong style="color:var(--jade)">'+nOk+'</strong> &nbsp;·&nbsp; '
+      +'⚠️ Cần fix: <strong style="color:var(--gold-dark)">'+nWarn+'</strong> &nbsp;·&nbsp; '
+      +'❌ Lỗi: <strong style="color:var(--rose)">'+nErr+'</strong><br>'
+      +'<span style="font-size:11px;color:var(--ink-muted)">Ghi hôm nay ('+todayStr+'): '+window._debugScanResults.filter(r=>r.todayOk).length+'/'+leaders.length+'</span>';
 
-    cpBtn.style.display = 'block';
-    prog('✅ Quét xong ' + leaders.length + ' trưởng nhóm — bấm Copy để gửi kết quả');
+    cpBtn.style.display='block';
+    prog('✅ Xong! Bấm Copy để gửi kết quả.');
 
-  } catch(e) {
-    prog('❌ Lỗi: ' + e.message);
-    console.error(e);
-  }
-  btn.disabled = false; btn.textContent = '🔎 Quét lại';
+  } catch(e) { prog('❌ Lỗi: '+e.message); console.error(e); }
+  btn.disabled=false; btn.textContent='🔎 Quét lại';
 }
 
 function addDebugCard(R, level) {
@@ -5103,6 +5121,8 @@ function debugCopyResult() {
     t += '  journal=' + r.jDays + ' ngày | daily=' + r.dDays + ' ngày\n';
     t += '  hôm nay=' + (r.todayOk ? 'CÓ (rit='+r.todayRit+(r.todayFromDaily?'/daily':'')+')'  : 'KHÔNG') + '\n';
     t += '  groups.date=' + (r.groupsDate||'null') + '\n';
+    if (r.userKeys) t += '  userKeys=' + r.userKeys + '\n';
+    if (r.extraPaths && Object.keys(r.extraPaths).length) { Object.entries(r.extraPaths).forEach(([k,v])=>{ t+='  extra: '+k+' → '+v+'\n'; }); }
     t += '  → ' + r.issues.join(' | ') + '\n\n';
   });
   try {
