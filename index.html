@@ -3478,7 +3478,7 @@ const database=await loadFirebase();if(!database){document.getElementById('admin
 if(typeof auth!=='undefined'&&auth){try{if(!auth.currentUser){await new Promise(resolve=>{const timer=setTimeout(resolve,2000);const unsub=auth.onAuthStateChanged(user=>{clearTimeout(timer);unsub();resolve(user);});});}
 if(!auth.currentUser){try{await auth.signInAnonymously();}catch(e){console.warn('Admin anon auth:',e.message);}}
 if(auth.currentUser){await auth.currentUser.getIdToken(true).catch(()=>{});}}catch(e){console.warn('Auth wait admin:',e.message);}}
-try{const[reqSnap,membersSnap,groupsSnap,deletedSnap]=await Promise.all([database.ref('leader_requests').once('value'),database.ref('members').once('value'),database.ref('groups').once('value'),database.ref('deleted_groups').once('value'),]);const requests=reqSnap.val()||{};const membersAll=membersSnap.val()||{};const groupsAll=groupsSnap.val()||{};const deletedAll=deletedSnap.val()||{};window._adminGroupsAll=groupsAll;const deletedCodes=new Set(Object.values(deletedAll).map(d=>d.groupCode).filter(Boolean));const pending=Object.entries(requests).filter(([,r])=>r.status==='pending');const approved=Object.entries(requests).filter(([,r])=>r.status==='approved'&&!deletedCodes.has(r.groupCode));const badge=document.getElementById('pending-count-badge');if(badge)badge.textContent=pending.length;const expiryCount=Object.values(membersAll).filter(m=>{const exp=getExpiryInfo(m.expiryDate||m.approvedAt);return exp.daysLeft!==null&&exp.daysLeft<=30;}).length;const expiryBadge=document.getElementById('expiry-count-badge');if(expiryBadge){expiryBadge.textContent=expiryCount;expiryBadge.style.display=expiryCount>0?'inline':'none';}
+try{const[reqSnap,membersSnap,groupsSnap,deletedSnap]=await Promise.all([database.ref('leader_requests').once('value'),database.ref('members').once('value'),database.ref('groups').once('value'),database.ref('deleted_groups').once('value'),]);const requests=reqSnap.val()||{};const membersAll=membersSnap.val()||{};const groupsAll=groupsSnap.val()||{};const deletedAll=deletedSnap.val()||{};window._adminGroupsAll=groupsAll;window._adminMembersAll=membersAll;window._adminRequests=requests;const deletedCodes=new Set(Object.values(deletedAll).map(d=>d.groupCode).filter(Boolean));const pending=Object.entries(requests).filter(([,r])=>r.status==='pending');const approved=Object.entries(requests).filter(([,r])=>r.status==='approved'&&!deletedCodes.has(r.groupCode));const badge=document.getElementById('pending-count-badge');if(badge)badge.textContent=pending.length;const expiryCount=Object.values(membersAll).filter(m=>{const exp=getExpiryInfo(m.expiryDate||m.approvedAt);return exp.daysLeft!==null&&exp.daysLeft<=30;}).length;const expiryBadge=document.getElementById('expiry-count-badge');if(expiryBadge){expiryBadge.textContent=expiryCount;expiryBadge.style.display=expiryCount>0?'inline':'none';}
 renderAdminPending(pending);const leaderByGroup={};approved.forEach(([id,r])=>{leaderByGroup[r.groupCode]={id,...r};});Object.entries(membersAll).forEach(([mKey,m])=>{if(!m||!m.groupCode)return;if(m.isLeader){if(!leaderByGroup[m.groupCode]){leaderByGroup[m.groupCode]={id:m.memberId||mKey,memberId:m.memberId||mKey,name:m.name||'–',phone:m.phone||'',email:m.email||'',groupCode:m.groupCode,approvedAt:m.registeredAt||'',status:'approved',};}else{const existing=leaderByGroup[m.groupCode];const existingMid=existing.memberId||existing.id||'';const realMid=m.memberId||mKey;if(!existing.memberId)existing.memberId=realMid;const lrName=(existing.name||'').toLowerCase().trim();const lrPhone=(existing.phone||'').replace(/\D/g,'');const mName=(m.name||'').toLowerCase().trim();const mPhone=(m.phone||'').replace(/\D/g,'');if((lrName&&mName&&lrName===mName)||(lrPhone&&mPhone&&lrPhone===mPhone)){existing.memberId=realMid;}}}});const membersByGroup={};Object.values(membersAll).forEach(m=>{const g=m.groupCode;if(!g||deletedCodes.has(g))return;if(!isMemberApproved(m))return;if(!membersByGroup[g])membersByGroup[g]=[];membersByGroup[g].push(m);});const allGroupCodes=new Set([...Object.keys(membersByGroup),...Object.keys(leaderByGroup),].filter(g=>!deletedCodes.has(g)));try{const notesSnap=await database.ref('admin_notes').once('value');window._adminLeaderNotes={};window._adminLeaderNotesUpdatedAt={};Object.entries(notesSnap.val()||{}).forEach(([k,v])=>{const mid=k.replace(/^leader_/,'');window._adminLeaderNotes[mid]=v.note||'';window._adminLeaderNotesUpdatedAt[mid]=v.updatedAt||null;});}catch(e){window._adminLeaderNotes=window._adminLeaderNotes||{};window._adminLeaderNotesUpdatedAt=window._adminLeaderNotesUpdatedAt||{};}
 // ── Load all leader data: UID map + journal history + training stats ──────
 const uidMapAll=(await database.ref('uid_to_member').once('value').catch(()=>null))?.val()||{};
@@ -3633,7 +3633,7 @@ if(!krs.length)return;const isKrDone=kr=>kr.done===true||(kr.done===undefined&&(
 const leaderMonthlyData={};try{const now2=new Date(Date.now()+7*60*60*1000);const cy2=now2.getUTCFullYear(),cm2=now2.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy2,m=cm2-i;while(m<0){m+=12;y--;}
 monthKeys.push({y,m,key:y+'_'+m});}
 await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;const uid=midToUidAll[mid];if(!uid)return;try{const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk.key).once('value').catch(()=>null)));const monthHistory={};monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthHistory[mk.key]=v;});leaderMonthlyData[mid]=monthHistory;}catch(e){}}));}catch(e){console.warn('Load leader monthly data:',e);}
-renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// Cache leader journal data for popup use
+window._adminLeaderByGroup=leaderByGroup;renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// Cache leader journal data for popup use
 window._adminLeaderJHistCache=window._adminLeaderJHistCache||{};window._adminMemberNames=window._adminMemberNames||{};Object.entries(leaderJournalHistory).forEach(([mid,jHist])=>{const lr=Object.values(leaderByGroup).find(lr=>(lr.memberId||lr.id)===mid);if(lr&&lr.name)window._adminMemberNames[mid]=lr.name;window._adminLeaderJHistCache[mid]={jHist,monthlyData:leaderMonthlyData[mid]||{},mid};});renderAdminGroups(groupsAll,membersAll,leaderByGroup,allGroupCodes);}catch(e){console.error('Admin load error:',e);const errMsg=e.message||String(e);const isPerm=errMsg.includes('PERMISSION_DENIED')||errMsg.includes('permission');const hint=isPerm?'⚠️ Firebase từ chối quyền truy cập. Vui lòng tải lại trang và thử lại.':'⚠️ Lỗi: '+errMsg;['admin-pending-list','admin-leaders-list','admin-groups-list'].forEach(id=>{const el=document.getElementById(id);if(el&&el.innerHTML.includes('Đang tải')){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${hint}</p><button onclick="adminRefresh()" style="margin-top:8px;padding:6px 14px;background:var(--jade);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Thử lại</button></div>`;}});}}
 function getExpiryInfo(approvedAt){if(!approvedAt)return{label:'–',color:'var(--ink-muted)',daysLeft:null,expired:false};const start=new Date(approvedAt);const expiry=new Date(start.getTime()+365*24*60*60*1000);const now=new Date();const daysLeft=Math.ceil((expiry-now)/(24*60*60*1000));const expiryStr=expiry.toLocaleDateString('vi');if(daysLeft<0)return{label:`Hết hạn ${expiryStr}`,color:'var(--rose)',daysLeft,expired:true};if(daysLeft<=30)return{label:`⚠️ Còn ${daysLeft} ngày (${expiryStr})`,color:'#d4872a',daysLeft,expired:false};return{label:`✅ Còn ${daysLeft} ngày (${expiryStr})`,color:'var(--jade)',daysLeft,expired:false};}
 async function adminRenewMember(memberId,memberName){if(!confirm(`Gia hạn thêm 1 năm cho ${memberName}?`))return;const database=await loadFirebase();if(!database)return;try{const snap=await database.ref('members/'+memberId).once('value');const m=snap.val();if(!m){showToast('⚠️ Không tìm thấy thành viên');return;}
@@ -4916,79 +4916,91 @@ async function runAdminDebugScan() {
   const resEl = document.getElementById('debug-scan-results');
   const cpBtn = document.getElementById('debug-copy-btn');
 
-  btn.disabled = true;
-  btn.textContent = '⏳ Đang quét...';
-  progEl.textContent = '';
-  sumEl.style.display = 'none';
-  resEl.innerHTML = '';
-  cpBtn.style.display = 'none';
+  btn.disabled = true; btn.textContent = '⏳ Đang quét...';
+  progEl.textContent = ''; sumEl.style.display = 'none';
+  resEl.innerHTML = ''; cpBtn.style.display = 'none';
   window._debugScanResults = [];
 
   function prog(t) { progEl.textContent = t; }
+  function todayK() { return new Date(Date.now()+7*3600000).toISOString().split('T')[0]; }
+  function fbKeyD(s) { return (s||'').replace(/\./g,'_dot_').replace(/#/g,'_hash_').replace(/\$/g,'_dollar_').replace(/\[/g,'_lb_').replace(/\]/g,'_rb_').replace(/\//g,'_sl_'); }
 
-  // Dùng lại kết nối Firebase đã có trong app (user đã đăng nhập)
+  // Dùng kết nối Firebase đã có sẵn
   const database = await loadFirebase();
   if (!database) { prog('❌ Không kết nối được Firebase'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
 
-  function fbKeyD(s) {
-    return (s||'').replace(/\./g,'_dot_').replace(/#/g,'_hash_').replace(/\$/g,'_dollar_').replace(/\[/g,'_lb_').replace(/\]/g,'_rb_').replace(/\//g,'_sl_');
-  }
-  function todayK() { return new Date(Date.now()+7*3600000).toISOString().split('T')[0]; }
   async function tryR(path) {
-    try { const s = await database.ref(path).once('value'); return s.val(); } catch(e) { return null; }
+    try { return (await database.ref(path).once('value')).val(); } catch(e) { return null; }
   }
 
   try {
-    prog('📥 Đang tải dữ liệu...');
-    const [rVal, mVal, uVal] = await Promise.all([
-      tryR('leader_requests'),
-      tryR('members'),
-      tryR('uid_to_member'),
-    ]);
+    prog('📥 Đang lấy dữ liệu...');
 
-    if (!mVal) { prog('❌ Không đọc được /members'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
+    // Dùng cache từ loadAdminData() nếu đã có — không cần đọc Firebase lại
+    let mbrs = window._adminMembersAll || null;
+    let uidMap = window._adminUidMap || null;
+    let reqs = window._adminRequests || null;
 
-    const mbrs = mVal || {};
-    const uidMap = uVal || {};
-    const reqs = rVal || {};
+    // Nếu chưa có cache thì đọc Firebase trực tiếp
+    if (!mbrs) {
+      prog('📥 Chưa có cache — đang đọc Firebase...');
+      const [rV, mV, uV] = await Promise.all([
+        tryR('leader_requests'),
+        tryR('members'),
+        tryR('uid_to_member'),
+      ]);
+      if (!mV) {
+        prog('❌ Không đọc được /members. Hãy vào tab "Trưởng Nhóm" trước để load data, rồi quay lại đây.');
+        btn.disabled=false; btn.textContent='🔎 Thử lại'; return;
+      }
+      mbrs = mV; uidMap = uV || {}; reqs = rV || {};
+    } else {
+      prog('✅ Dùng cache sẵn có (' + Object.keys(mbrs).length + ' members)');
+      uidMap = uidMap || {};
+      reqs = reqs || {};
+    }
 
     // mid → uid
-    const m2u = {};
-    Object.entries(uidMap).forEach(([uid, v]) => { if (v && v.memberId) m2u[v.memberId] = uid; });
+    const m2u = window._adminMidToUid || {};
+    if (!Object.keys(m2u).length) {
+      Object.entries(uidMap).forEach(([uid, v]) => { if (v && v.memberId) m2u[v.memberId] = uid; });
+    }
 
-    // build leaders list
-    const lbg = {};
-    Object.entries(reqs).forEach(([, r]) => { if (r && r.status === 'approved' && r.groupCode) lbg[r.groupCode] = {...r}; });
-    Object.entries(mbrs).forEach(([k, m]) => {
-      if (!m || !m.groupCode || !m.isLeader) return;
-      const mid = m.memberId || k;
-      if (!lbg[m.groupCode]) lbg[m.groupCode] = { memberId: mid, name: m.name || '–', groupCode: m.groupCode, approvedAt: m.registeredAt || '' };
-      else if (!lbg[m.groupCode].memberId) lbg[m.groupCode].memberId = mid;
-    });
+    // Build leaders từ cache hoặc tính lại
+    let lbg = window._adminLeaderByGroup || null;
+    if (!lbg) {
+      lbg = {};
+      Object.entries(reqs).forEach(([, r]) => { if (r && r.status === 'approved' && r.groupCode) lbg[r.groupCode] = {...r}; });
+      Object.entries(mbrs).forEach(([k, m]) => {
+        if (!m || !m.groupCode || !m.isLeader) return;
+        const mid = m.memberId || k;
+        if (!lbg[m.groupCode]) lbg[m.groupCode] = { memberId: mid, name: m.name || '–', groupCode: m.groupCode };
+        else if (!lbg[m.groupCode].memberId) lbg[m.groupCode].memberId = mid;
+      });
+    }
 
     const leaders = Object.entries(lbg);
     const todayStr = todayK();
+    prog('🔍 Tìm thấy ' + leaders.length + ' trưởng nhóm. Đang quét...');
     let nOk = 0, nWarn = 0, nErr = 0;
-
-    prog('🔍 Tìm thấy ' + leaders.length + ' trưởng nhóm. Đang quét từng người...');
 
     for (let i = 0; i < leaders.length; i++) {
       const [gc, lr] = leaders[i];
       const mid = (lr.memberId || lr.id || '').trim();
       const name = lr.name || '–';
-      prog('🔍 (' + (i+1) + '/' + leaders.length + '): ' + name + '...');
+      prog('🔍 (' + (i+1) + '/' + leaders.length + '): ' + name);
 
       const R = { name, gc, mid, uid: null, jDays: 0, dDays: 0, todayOk: false, todayFromDaily: false, issues: [], paths: {}, todayRit: 0, jLast: null, dLast: null, groupsDate: null };
 
-      if (!mid) { R.issues.push('❌ Không có memberId'); nErr++; addDebugCard(R, 'err'); window._debugScanResults.push(R); continue; }
+      if (!mid) { R.issues.push('❌ Không có memberId'); nErr++; addDebugCard(R,'err'); window._debugScanResults.push(R); continue; }
 
-      // Find UID (3 ways)
+      // Tìm UID — 3 cách
       R.uid = m2u[mid] || null;
-      if (!R.uid) { const mDat = Object.values(mbrs).find(m => (m.memberId||'') === mid); if (mDat && mDat.firebaseUid) R.uid = mDat.firebaseUid; }
-      if (!R.uid) { const found = Object.entries(uidMap).find(([uid, v]) => v && v.memberId === mid); if (found) R.uid = found[0]; }
+      if (!R.uid) { const mD = Object.values(mbrs).find(m => (m.memberId||'') === mid); if (mD && mD.firebaseUid) R.uid = mD.firebaseUid; }
+      if (!R.uid) { const found = Object.entries(uidMap).find(([, v]) => v && v.memberId === mid); if (found) R.uid = found[0]; }
       if (!R.uid) R.issues.push('❌ Không tìm được firebaseUid → users/daily không đọc được');
 
-      // Check journals (3 paths)
+      // Kiểm tra journals (3 paths)
       const gcK = fbKeyD(gc);
       let foundJ = false;
       for (const p of ['journals/'+gcK+'/'+mid, 'journals/'+gcK+'/'+fbKeyD(mid), 'journals/'+gc+'/'+mid]) {
@@ -5002,7 +5014,7 @@ async function runAdminDebugScan() {
         }
       }
 
-      // Check users/daily
+      // Kiểm tra users/daily
       if (R.uid) {
         const v = await tryR('users/' + R.uid + '/daily');
         const dk = v ? Object.keys(v).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) : [];
@@ -5013,20 +5025,20 @@ async function runAdminDebugScan() {
         }
       }
 
-      // Check groups (today)
+      // Kiểm tra groups (stats hôm nay)
       const gv = await tryR('groups/' + gcK + '/' + mid);
       if (gv) { R.groupsDate = gv.date; R.paths['groups/'+gcK+'/'+mid] = 'date=' + gv.date + (gv.date === todayStr ? ' ✅' : ' ⚠️ cũ'); }
       else R.paths['groups/'+gcK+'/'+mid] = 'null';
 
-      // Classify
+      // Phân loại
       if (R.jDays === 0 && R.dDays === 0) {
-        R.issues.push('❌ Không có dữ liệu ở cả hai nguồn');
+        R.issues.push('❌ Không có dữ liệu ở cả hai nguồn (journal + daily)');
         nErr++; addDebugCard(R, 'err');
       } else if (R.jDays === 0 && R.dDays > 0) {
-        R.issues.push('⚠️ Chỉ có users/daily (' + R.dDays + ' ngày) — journals rỗng → code không đọc được');
+        R.issues.push('⚠️ Chỉ có users/daily (' + R.dDays + ' ngày) — journals rỗng hoàn toàn');
         nWarn++; addDebugCard(R, 'warn');
       } else if (R.jDays > 0 && R.dDays > R.jDays + 5) {
-        R.issues.push('⚠️ journal=' + R.jDays + ' ngày nhưng daily=' + R.dDays + ' ngày — lệch lớn');
+        R.issues.push('⚠️ journal=' + R.jDays + ' ngày nhưng daily=' + R.dDays + ' ngày — lệch nhiều');
         nWarn++; addDebugCard(R, 'warn');
       } else {
         R.issues.push('✅ journal=' + R.jDays + ' ngày' + (R.dDays ? ', daily=' + R.dDays + ' ngày' : ''));
@@ -5035,24 +5047,21 @@ async function runAdminDebugScan() {
       window._debugScanResults.push(R);
     }
 
-    // Summary
     sumEl.style.display = 'block';
-    sumEl.innerHTML = '<strong>📊 Kết quả ' + leaders.length + ' trưởng nhóm</strong><br>'
-      + '<span style="color:var(--jade)">✅ OK: ' + nOk + '</span> &nbsp;·&nbsp; '
-      + '<span style="color:var(--gold-dark)">⚠️ Cần fix: ' + nWarn + '</span> &nbsp;·&nbsp; '
-      + '<span style="color:var(--rose)">❌ Lỗi: ' + nErr + '</span><br>'
-      + '<span style="color:var(--sky)">Ghi hôm nay (' + todayStr + '): ' + window._debugScanResults.filter(r=>r.todayOk).length + '/' + leaders.length + '</span>';
+    sumEl.innerHTML = '<strong style="font-size:13px">📊 Kết quả: ' + leaders.length + ' trưởng nhóm</strong><br><br>'
+      + '✅ OK: <strong style="color:var(--jade)">' + nOk + '</strong> &nbsp;·&nbsp; '
+      + '⚠️ Cần fix: <strong style="color:var(--gold-dark)">' + nWarn + '</strong> &nbsp;·&nbsp; '
+      + '❌ Lỗi: <strong style="color:var(--rose)">' + nErr + '</strong><br>'
+      + '<span style="font-size:11px;color:var(--ink-muted)">Ghi hôm nay (' + todayStr + '): ' + window._debugScanResults.filter(r=>r.todayOk).length + '/' + leaders.length + ' người</span>';
 
     cpBtn.style.display = 'block';
-    prog('✅ Quét xong ' + leaders.length + ' trưởng nhóm');
-    window._debugScanDone = true;
+    prog('✅ Quét xong ' + leaders.length + ' trưởng nhóm — bấm Copy để gửi kết quả');
 
   } catch(e) {
     prog('❌ Lỗi: ' + e.message);
     console.error(e);
   }
-  btn.disabled = false;
-  btn.textContent = '🔎 Quét lại';
+  btn.disabled = false; btn.textContent = '🔎 Quét lại';
 }
 
 function addDebugCard(R, level) {
