@@ -4926,7 +4926,11 @@ async function runAdminDebugScan() {
 
   function prog(t) { progEl.textContent = t; }
 
-  function fbKey(s) {
+  // Dùng lại kết nối Firebase đã có trong app (user đã đăng nhập)
+  const database = await loadFirebase();
+  if (!database) { prog('❌ Không kết nối được Firebase'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
+
+  function fbKeyD(s) {
     return (s||'').replace(/\./g,'_dot_').replace(/#/g,'_hash_').replace(/\$/g,'_dollar_').replace(/\[/g,'_lb_').replace(/\]/g,'_rb_').replace(/\//g,'_sl_');
   }
   function todayK() { return new Date(Date.now()+7*3600000).toISOString().split('T')[0]; }
@@ -4935,9 +4939,6 @@ async function runAdminDebugScan() {
   }
 
   try {
-    const database = await loadFirebase();
-    if (!database) { prog('❌ Không kết nối được Firebase'); btn.disabled=false; btn.textContent='🔎 Thử lại'; return; }
-
     prog('📥 Đang tải dữ liệu...');
     const [rVal, mVal, uVal] = await Promise.all([
       tryR('leader_requests'),
@@ -4988,9 +4989,9 @@ async function runAdminDebugScan() {
       if (!R.uid) R.issues.push('❌ Không tìm được firebaseUid → users/daily không đọc được');
 
       // Check journals (3 paths)
-      const gcK = fbKey(gc);
+      const gcK = fbKeyD(gc);
       let foundJ = false;
-      for (const p of ['journals/'+gcK+'/'+mid, 'journals/'+gcK+'/'+fbKey(mid), 'journals/'+gc+'/'+mid]) {
+      for (const p of ['journals/'+gcK+'/'+mid, 'journals/'+gcK+'/'+fbKeyD(mid), 'journals/'+gc+'/'+mid]) {
         const v = await tryR(p);
         const dk = v ? Object.keys(v).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) : [];
         R.paths[p] = dk.length ? dk.length + ' ngày' : 'null';
