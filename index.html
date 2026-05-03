@@ -3543,75 +3543,57 @@ Object.keys(midToUidAll).forEach(mid=>{
 const leaderGroupCodes=Object.keys(leaderByGroup);
 const todayKAdmin=todayKey();
 
-// ── Load journal history: simple & direct (same logic as adminMemberToggle) ──
+// ── Load journal history: fetch directly per leader (same as adminMemberToggle) ──
 const leaderJournalHistory={};
-
-// Load all journals node once to get available group keys
-const allJournalsSnap=await database.ref('journals').once('value').catch(()=>null);
-const allJournalsVal=(allJournalsSnap&&allJournalsSnap.val())||{};
 
 await Promise.all(leaderGroupCodes.map(async gc=>{
   const lr=leaderByGroup[gc];
   const mid=lr.memberId||lr.id;
   if(!mid)return;
 
-  // Find UID — check uid_to_member first, then members node directly
+  // Find UID
   let uid=midToUidAll[mid]||null;
   if(!uid){
-    // Try reading members/{mid} directly for firebaseUid
     try{
       const mSnap=await database.ref('members/'+mid).once('value').catch(()=>null);
       const mVal=mSnap&&mSnap.val();
       if(mVal&&mVal.firebaseUid)uid=mVal.firebaseUid;
     }catch(e){}
   }
-  if(uid)midToUidAll[mid]=uid;// cache it
+  if(uid)midToUidAll[mid]=uid;
 
   const jHist={};
   const gcK=fbKey(gc);
 
-  // Step 1: Try to find this leader's entry in journals/
-  // Find the right bucket key (journals may store group with spaces, underscores, or fbKey encoded)
-  let journalBucket=allJournalsVal[gcK]||allJournalsVal[gc]||allJournalsVal[gc.replace(/ /g,'_')]||allJournalsVal[gc.replace(/_/g,' ')]||null;
+  // Fetch journal paths in parallel — EXACTLY like adminMemberToggle
+  const paths=[
+    database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
+    (gc!==gcK)?database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null):null,
+    uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
+  ].filter(Boolean);
 
-  if(journalBucket){
-    // Try leader's mid directly
-    const entry=journalBucket[mid]||journalBucket[fbKey(mid)]||null;
-    if(entry&&typeof entry==='object'){
-      Object.keys(entry).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=entry[k];});
-    }
-    // Try leader's uid
-    if(!Object.keys(jHist).length&&uid){
-      const uidEntry=journalBucket[uid]||null;
-      if(uidEntry&&typeof uidEntry==='object'){
-        Object.keys(uidEntry).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=uidEntry[k];});
+  const snaps=await Promise.all(paths);
+  snaps.forEach(snap=>{
+    const val=snap&&snap.val();
+    if(!val||typeof val!=='object')return;
+    Object.keys(val).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+      const e=val[k];
+      if(!e||typeof e!=='object')return;
+      if(!jHist[k]){
+        jHist[k]={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{}};
+      } else {
+        if(!jHist[k].nnEnergy||!Object.keys(jHist[k].nnEnergy||{}).length)jHist[k].nnEnergy=e.nnEnergy||{};
+        if(!jHist[k].rituals||!Object.keys(jHist[k].rituals||{}).length)jHist[k].rituals=e.rituals||{};
+        if(!jHist[k].energy)jHist[k].energy=e.energy||5;
       }
-    }
-  }
-
-  // Step 2: ALWAYS also try users/{uid}/daily (most reliable, works for adminMemberToggle)
-  if(uid){
-    try{
-      const dailySnap=await database.ref('users/'+uid+'/daily').once('value').catch(()=>null);
-      const dailyVal=dailySnap&&dailySnap.val();
-      if(dailyVal&&typeof dailyVal==='object'){
-        Object.keys(dailyVal).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
-          const e=dailyVal[k];
-          if(!e||typeof e!=='object')return;
-          if(!jHist[k]){
-            jHist[k]={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{}};
-          } else {
-            // Merge missing fields
-            if(!jHist[k].nnEnergy||!Object.keys(jHist[k].nnEnergy||{}).length)jHist[k].nnEnergy=e.nnEnergy||{};
-            if(!jHist[k].energy)jHist[k].energy=e.energy||5;
-          }
-        });
-      }
-    }catch(e){}
-  }
+    });
+  });
 
   if(Object.keys(jHist).length>0){
     leaderJournalHistory[mid]=jHist;
+    console.log('[JOURNAL OK] '+lr.name+' ('+gc+'): '+Object.keys(jHist).length+' ngày');
+  } else {
+    console.warn('[JOURNAL EMPTY] '+lr.name+' ('+gc+') uid='+uid);
   }
 }));
 
