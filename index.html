@@ -3483,8 +3483,26 @@ renderAdminPending(pending);const leaderByGroup={};approved.forEach(([id,r])=>{l
 // ── Load all leader data: UID map + journal history + training stats ──────
 const uidMapAll=(await database.ref('uid_to_member').once('value').catch(()=>null))?.val()||{};
 const midToUidAll={};
-// Build mid→uid AND uid→mid maps
+// Primary: uid_to_member map
 Object.entries(uidMapAll).forEach(([uid,v])=>{if(v&&v.memberId)midToUidAll[v.memberId]=uid;});
+// Fallback: scan members node for firebaseUid field
+Object.entries(membersAll).forEach(([mKey,m])=>{
+  if(!m||!m.memberId)return;
+  const mid=m.memberId;
+  if(!midToUidAll[mid]){
+    // members sometimes store uid directly
+    if(m.firebaseUid)midToUidAll[mid]=m.firebaseUid;
+    // Or the key itself is the uid for some legacy accounts
+    else if(mKey&&mKey!==mid&&mKey.length>10&&!mKey.startsWith('u_'))midToUidAll[mid]=mKey;
+  }
+});
+// Also: uid may equal mid without the 'u_' prefix
+Object.keys(midToUidAll).forEach(mid=>{
+  if(!midToUidAll[mid]&&mid.startsWith('u_')){
+    const possibleUid=mid.slice(2);
+    if(uidMapAll[possibleUid])midToUidAll[mid]=possibleUid;
+  }
+});
 const leaderGroupCodes=Object.keys(leaderByGroup);
 const todayKAdmin=todayKey();
 
@@ -3518,6 +3536,11 @@ function mergeDailyIntoHist(jHist,dailyVal){
 
 // ── Load journal history for every leader ────────────────────────────────
 const leaderJournalHistory={};
+
+// Load ALL journal keys once — avoids N separate parent reads
+const allJournalsSnap=await database.ref('journals').once('value').catch(()=>null);
+const allJournalsVal=(allJournalsSnap&&allJournalsSnap.val())||{};
+
 await Promise.all(leaderGroupCodes.map(async gc=>{
   const lr=leaderByGroup[gc];
   const mid=lr.memberId||lr.id;
@@ -3526,50 +3549,89 @@ await Promise.all(leaderGroupCodes.map(async gc=>{
   const jHist={};
   const gcK=fbKey(gc);
 
-  // Try every possible journal path in parallel
-  const jPaths=[
-    database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
-    database.ref('journals/'+gcK+'/'+fbKey(mid)).once('value').catch(()=>null),
-  ];
-  // Also try raw group code if different from fbKey
-  if(gc!==gcK) jPaths.push(database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null));
+  // Find the right journal bucket for this group
+  // journals/ may use: fbKey(gc), raw gc, or a space→underscore variant
+  const gcVariants=[gcK, gc, gc.replace(/ /g,'_'), gc.replace(/_/g,' ')];
+  const uniqueVariants=[...new Set(gcVariants)];
 
-  const snaps=await Promise.all(jPaths);
-  snaps.forEach(snap=>{
-    const val=snap&&snap.val();
-    if(!val)return;
-    // Handle both flat date-keyed and nested structures
-    const flat=extractDateEntries(val);
-    Object.assign(jHist,flat); // merge all found
-    // If nested under mid key
-    if(val[mid])Object.assign(jHist,extractDateEntries(val[mid]));
-    if(val[fbKey(mid)])Object.assign(jHist,extractDateEntries(val[fbKey(mid)]));
-  });
+  let journalBucket=null;
+  for(const v of uniqueVariants){
+    if(allJournalsVal[v]){journalBucket=allJournalsVal[v];break;}
+  }
 
-  // ALWAYS also read users/{uid}/daily and merge — this is the most reliable source
+  if(journalBucket){
+    // The bucket exists — now find this leader's entry
+    // Try mid directly first
+    const directEntry=journalBucket[mid]||journalBucket[fbKey(mid)]||null;
+    if(directEntry&&typeof directEntry==='object'){
+      Object.keys(directEntry).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=directEntry[k];});
+    }
+
+    // If not found by mid, try matching by uid (some entries stored under uid)
+    if(Object.keys(jHist).length===0&&uid){
+      const uidEntry=journalBucket[uid]||null;
+      if(uidEntry&&typeof uidEntry==='object'){
+        Object.keys(uidEntry).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=uidEntry[k];});
+      }
+    }
+
+    // If still not found — check ALL members in this bucket, find entry by name/phone match
+    if(Object.keys(jHist).length===0){
+      const lrName=(lr.name||'').toLowerCase().trim();
+      const lrPhone=(lr.phone||'').replace(/\D/g,'');
+      for(const[bKey,bVal]of Object.entries(journalBucket)){
+        if(!bVal||typeof bVal!=='object')continue;
+        // Check if this member entry belongs to the leader
+        // by looking at the groups node data we already have
+        const groupEntry=(window._adminGroupsAll&&(window._adminGroupsAll[gcK]||window._adminGroupsAll[gc]))||{};
+        const gMember=groupEntry[bKey]||null;
+        if(gMember){
+          const gName=(gMember.name||'').toLowerCase().trim();
+          const gPhone=(gMember.phone||'').replace(/\D/g,'');
+          if((lrName&&gName&&gName===lrName)||(lrPhone&&gPhone&&gPhone===lrPhone)){
+            Object.keys(bVal).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=bVal[k];});
+            if(Object.keys(jHist).length>0)break;
+          }
+        }
+        // Also try: if bVal itself has date keys and the parent has only 1 entry → it's the leader
+        const dateKeys=Object.keys(bVal).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
+        if(dateKeys.length>0&&Object.keys(journalBucket).length===1){
+          dateKeys.forEach(k=>{jHist[k]=bVal[k];});
+          break;
+        }
+      }
+    }
+  }
+
+  // ALWAYS merge users/{uid}/daily — most reliable secondary source
   if(uid){
     try{
       const dailySnap=await database.ref('users/'+uid+'/daily').once('value').catch(()=>null);
-      mergeDailyIntoHist(jHist,dailySnap&&dailySnap.val());
-    }catch(e){}
-  }
-
-  // If still nothing, try uid as a path directly (some old accounts stored under uid)
-  if(Object.keys(jHist).length===0&&uid){
-    try{
-      const oldSnap=await database.ref('journals/'+gcK+'/'+uid).once('value').catch(()=>null);
-      const oldVal=oldSnap&&oldSnap.val();
-      if(oldVal)Object.assign(jHist,extractDateEntries(oldVal));
+      const dailyVal=dailySnap&&dailySnap.val();
+      if(dailyVal&&typeof dailyVal==='object'){
+        Object.entries(dailyVal).forEach(([dk,e])=>{
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)||!e||typeof e!=='object')return;
+          const entry={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},
+            recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,
+            spendRed:e.spendRed||0,seedsActive:e.seedsActive||0,seedsDone:e.seedsDone||0};
+          if(!jHist[dk]){
+            jHist[dk]=entry;
+          } else {
+            if(!jHist[dk].nnEnergy||!Object.keys(jHist[dk].nnEnergy||{}).length)jHist[dk].nnEnergy=entry.nnEnergy;
+            if(!jHist[dk].rituals||!Object.keys(jHist[dk].rituals||{}).length)jHist[dk].rituals=entry.rituals;
+            if(!jHist[dk].energy)jHist[dk].energy=entry.energy;
+          }
+        });
+      }
     }catch(e){}
   }
 
   if(Object.keys(jHist).length>0){
     leaderJournalHistory[mid]=jHist;
-    // Migrate back to canonical path for future reads
+    // Write to canonical path so future reads are instant
     try{database.ref('journals/'+gcK+'/'+mid).update(jHist).catch(()=>{});}catch(e){}
   }
 }));
-
 // ── Build leaderTrainingStats from groups node OR derive from jHist ───────
 const leaderTrainingStats={};
 try{
@@ -3640,7 +3702,31 @@ async function adminRenewMember(memberId,memberName){if(!confirm(`Gia hạn thê
 const oldExpiry=m.expiryDate?new Date(m.expiryDate):new Date(m.approvedAt||Date.now());const base=oldExpiry<new Date()?new Date():oldExpiry;const newExpiry=new Date(base.getTime()+365*24*60*60*1000);await database.ref('members/'+memberId).update({expiryDate:newExpiry.toISOString()});showToast(`✅ Đã gia hạn ${memberName} đến ${newExpiry.toLocaleDateString('vi')}`);loadAdminData();}catch(e){showToast('⚠️ Lỗi: '+e.message);}}
 function renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,filterNeedCare,targetEl,leaderMonthlyData){leaderTrainingStats=leaderTrainingStats||{};leaderJournalHistory=leaderJournalHistory||{};leaderOkrStats=leaderOkrStats||{};leaderMonthlyData=leaderMonthlyData||{};if(filterNeedCare===undefined)filterNeedCare=true;const sectionEl=targetEl?null:document.getElementById('admin-leader-monitor-section');const listEl=targetEl||document.getElementById('admin-leader-alerts-list');const badgeEl=targetEl?null:document.getElementById('admin-leader-alert-badge');if(!listEl)return;const leaderEntries=[];Object.entries(leaderByGroup).forEach(([groupCode,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;let mData=membersAll[mid];if(!mData){const lrName=(lr.name||'').toLowerCase().trim();const lrPhone=(lr.phone||'').replace(/\D/g,'');for(const[,m]of Object.entries(membersAll)){if(!m||typeof m!=='object')continue;const mName=(m.name||'').toLowerCase().trim();const mPhone=(m.phone||'').replace(/\D/g,'');const mMid=m.memberId||'';if((mMid&&mMid===mid)||(lrName&&mName&&mName===lrName)||(lrPhone&&mPhone&&mPhone===lrPhone)){mData=m;break;}}}
 if(!mData)mData={name:lr.name||'–',phone:lr.phone||'',email:lr.email||'',groupCode,memberId:mid};leaderEntries.push({groupCode,lr,mid,mData});});if(!leaderEntries.length){if(sectionEl)sectionEl.style.display='none';return;}
-if(sectionEl)sectionEl.style.display='block';const todayK=todayKey();const alerts=[];leaderEntries.forEach(({groupCode,lr,mid,mData})=>{const groupMembers=(membersByGroup[groupCode]||[]).filter(m=>!m.isLeader);const groupCount=groupMembers.length;const recentJoin=groupMembers.filter(m=>m.registeredAt&&(Date.now()-new Date(m.registeredAt).getTime())/86400000<=14).length;const expiredCount=groupMembers.filter(m=>getExpiryInfo(m.expiryDate||m.approvedAt).expired).length;const lrExp=getExpiryInfo(lr.approvedAt);const lrExpiringSoon=lrExp.daysLeft!==null&&lrExp.daysLeft<=30&&!lrExp.expired;const lrExpired=lrExp.expired;const tStats=leaderTrainingStats[mid]||null;const trainedToday=tStats&&tStats.date===todayK;const ritualsToday=trainedToday?(tStats.rituals||0):null;const nnToday=trainedToday?(tStats.nn||[]):null;const avgNN=nnToday&&nnToday.length?Math.round(nnToday.reduce((a,b)=>a+b,0)/nnToday.length*10)/10:null;const lowEnergy=avgNN!==null&&avgNN<5;const criticalNN=avgNN!==null&&avgNN<=3;const notTrainedToday=!trainedToday;const jHist=leaderJournalHistory[mid]||{};const jKeys7=Object.keys(jHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0,7);const trend7=jKeys7.map(dk=>{const je=jHist[dk]||{};let ritDone=0;if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;else if(typeof je.rituals==='number')ritDone=je.rituals;let nnVals=[];if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))nnVals=Object.values(je.nnEnergy).map(Number).filter(v=>!isNaN(v)&&v>0);else if(Array.isArray(je.nnEnergy))nnVals=je.nnEnergy.map(Number).filter(v=>!isNaN(v)&&v>0);const avgNNDay=nnVals.length?Math.round(nnVals.reduce((a,b)=>a+b,0)/nnVals.length*10)/10:null;return{dk,ritPct:Math.round((ritDone/9)*100),avgNN:avgNNDay,trained:ritDone>0||nnVals.length>0};}).reverse();const recentInactiveDays=(()=>{let cnt=0;for(let i=0;i<14;i++){const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);const dk=d.toISOString().split('T')[0];const je=jHist[dk];const trained=je&&((je.rituals&&(typeof je.rituals==='object'?Object.values(je.rituals).some(Boolean):je.rituals>0))||(je.nnEnergy&&(Array.isArray(je.nnEnergy)?je.nnEnergy.some(v=>v>0):Object.values(je.nnEnergy||{}).some(v=>v>0))));if(!trained)cnt++;else break;}
+if(sectionEl)sectionEl.style.display='block';const todayK=todayKey();const alerts=[];leaderEntries.forEach(({groupCode,lr,mid,mData})=>{const groupMembers=(membersByGroup[groupCode]||[]).filter(m=>!m.isLeader);const groupCount=groupMembers.length;const recentJoin=groupMembers.filter(m=>m.registeredAt&&(Date.now()-new Date(m.registeredAt).getTime())/86400000<=14).length;const expiredCount=groupMembers.filter(m=>getExpiryInfo(m.expiryDate||m.approvedAt).expired).length;const lrExp=getExpiryInfo(lr.approvedAt);const lrExpiringSoon=lrExp.daysLeft!==null&&lrExp.daysLeft<=30&&!lrExp.expired;const lrExpired=lrExp.expired;const tStats=leaderTrainingStats[mid]||null;const trainedToday=tStats&&tStats.date===todayK;const ritualsToday=trainedToday?(tStats.rituals||0):null;const nnToday=trainedToday?(tStats.nn||[]):null;const avgNN=nnToday&&nnToday.length?Math.round(nnToday.reduce((a,b)=>a+b,0)/nnToday.length*10)/10:null;const lowEnergy=avgNN!==null&&avgNN<5;const criticalNN=avgNN!==null&&avgNN<=3;const notTrainedToday=!trainedToday;const jHist=leaderJournalHistory[mid]||{};const jKeys7=Object.keys(jHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0,7);const trend7=jKeys7.map(dk=>{const je=jHist[dk]||{};let ritDone=0;if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;else if(typeof je.rituals==='number')ritDone=je.rituals;let nnVals=[];if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))nnVals=Object.values(je.nnEnergy).map(Number).filter(v=>!isNaN(v)&&v>0);else if(Array.isArray(je.nnEnergy))nnVals=je.nnEnergy.map(Number).filter(v=>!isNaN(v)&&v>0);const avgNNDay=nnVals.length?Math.round(nnVals.reduce((a,b)=>a+b,0)/nnVals.length*10)/10:null;return{dk,ritPct:Math.round((ritDone/9)*100),avgNN:avgNNDay,trained:ritDone>0||nnVals.length>0};}).reverse();const recentInactiveDays=(()=>{
+  // If we have jHist, count from it
+  if(Object.keys(jHist).length>0){
+    let cnt=0;
+    for(let i=0;i<14;i++){
+      const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);
+      const dk=d.toISOString().split('T')[0];
+      const je=jHist[dk];
+      const trained=je&&((je.rituals&&(typeof je.rituals==='object'?Object.values(je.rituals).some(Boolean):je.rituals>0))||(je.nnEnergy&&(Array.isArray(je.nnEnergy)?je.nnEnergy.some(v=>v>0):Object.values(je.nnEnergy||{}).some(v=>v>0))));
+      if(!trained)cnt++;else break;
+    }
+    return cnt;
+  }
+  // Fallback: if groups.date exists, calculate days since last training from that date
+  const gDate=tStats&&tStats.date;
+  if(gDate){
+    const today=new Date(Date.now()+7*60*60*1000);
+    const last=new Date(gDate);
+    const diff=Math.floor((today-last)/86400000);
+    return Math.max(0,diff);
+  }
+  // No data at all — unknown, show 0 instead of 14
+  return 0;
+  // old dead code below kept for structure:
+  let cnt=0;for(let i=0;i<14;i++){const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);const dk=d.toISOString().split('T')[0];const je=jHist[dk];const trained=je&&((je.rituals&&(typeof je.rituals==='object'?Object.values(je.rituals).some(Boolean):je.rituals>0))||(je.nnEnergy&&(Array.isArray(je.nnEnergy)?je.nnEnergy.some(v=>v>0):Object.values(je.nnEnergy||{}).some(v=>v>0))));if(!trained)cnt++;else break;}
 return cnt;})();const nnAvg7=(()=>{const vals=trend7.map(d=>d.avgNN).filter(v=>v!==null);return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10:null;})();const lowHouseAvg7=nnAvg7!==null&&nnAvg7<5;const nnAvg7PerHouse=(()=>{if(typeof NN_LIST==='undefined')return[];const sums=NN_LIST.map(()=>({sum:0,count:0}));jKeys7.forEach(dk=>{const je=jHist[dk];if(!je||!je.nnEnergy)return;NN_LIST.forEach((nn,i)=>{let val=null;if(typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))val=Number(je.nnEnergy[nn.key]);else if(Array.isArray(je.nnEnergy))val=Number(je.nnEnergy[i]);if(!isNaN(val)&&val>0){sums[i].sum+=val;sums[i].count++;}});});return NN_LIST.map((nn,i)=>({key:nn.key,label:nn.label.split('·')[0].trim(),shortName:nn.label.split('·')[1]?nn.label.split('·')[1].trim().split(' ')[0]:nn.key,avg:sums[i].count?Math.round(sums[i].sum/sums[i].count*10)/10:null,}));})();const latestSeedsActive=(()=>{for(const dk of jKeys7){const je=jHist[dk];if(je&&je.seedsActive!=null)return je.seedsActive;}return null;})();const oldSeedsActive=(()=>{if(jKeys7.length<2)return null;for(let i=jKeys7.length-1;i>=1;i--){const je=jHist[jKeys7[i]];if(je&&je.seedsActive!=null)return je.seedsActive;}return null;})();const latestSeedsDone=(()=>{for(const dk of jKeys7){const je=jHist[dk];if(je&&je.seedsDone!=null)return je.seedsDone;}return null;})();const gcEncoded=fbKey?fbKey(groupCode):groupCode;const cachedGroupData=window._adminGroupsAll?(window._adminGroupsAll[gcEncoded]||window._adminGroupsAll[groupCode]||{}):{};let _groupActiveToday=0,_groupAvgNL=null;let _groupCountRed=0,_groupCountYellow=0,_groupCountGreen=0,_groupCountNoLog=0;let _groupMemberNeedCare=[];if(Object.keys(cachedGroupData).length>0){const memberStats=Object.entries(cachedGroupData).filter(([k])=>k!=='__meta__');const activeStats=memberStats.filter(([,s])=>s&&s.date===todayK);_groupActiveToday=activeStats.length;const nlVals=activeStats.map(([,s])=>{const nn=s.nn||[];return nn.length?Math.round(nn.reduce((a,b)=>a+b,0)/nn.length*10)/10:null;}).filter(v=>v!==null);if(nlVals.length){_groupAvgNL=Math.round(nlVals.reduce((a,b)=>a+b,0)/nlVals.length*10)/10;_groupCountRed=nlVals.filter(v=>v<5).length;_groupCountYellow=nlVals.filter(v=>v>=5&&v<=7).length;_groupCountGreen=nlVals.filter(v=>v>7).length;}
 _groupCountNoLog=Math.max(0,groupMembers.length-_groupActiveToday);_groupMemberNeedCare=groupMembers.map(m=>{const mStat=cachedGroupData[m.memberId]||null;const isActive=mStat&&mStat.date===todayK;const nn=isActive?(mStat.nn||[]):[];const nlToday=nn.length?Math.round(nn.reduce((a,b)=>a+b,0)/nn.length*10)/10:null;return{name:m.name||'–',nlToday,isActive,memberId:m.memberId||'',groupCode};}).filter(m=>!m.isActive||(m.nlToday!==null&&m.nlToday<5)).sort((a,b)=>{if(!a.isActive&&b.isActive)return-1;if(a.isActive&&!b.isActive)return 1;if(a.nlToday===null)return 1;if(b.nlToday===null)return-1;return a.nlToday-b.nlToday;}).slice(0,5);}else{_groupCountNoLog=groupMembers.length;_groupMemberNeedCare=groupMembers.slice(0,5).map(m=>({name:m.name||'–',nlToday:null,isActive:false,memberId:m.memberId||'',groupCode}));}
 let _groupRate7=[],_groupRateTrend='';const groupJournalCache=window._adminGroupJournals?(window._adminGroupJournals[gcEncoded]||window._adminGroupJournals[groupCode]||null):null;if(groupJournalCache&&groupMembers.length>0){for(let i=6;i>=0;i--){const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);const dk=d.toISOString().split('T')[0];const countWrote=groupMembers.filter(m=>{const mj=groupJournalCache[m.memberId]||{};const je=mj[dk];return je&&(Object.values(je.rituals||{}).some(Boolean)||je.energy);}).length;_groupRate7.push(Math.round((countWrote/groupMembers.length)*100));}
