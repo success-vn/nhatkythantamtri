@@ -3632,6 +3632,44 @@ await Promise.all(leaderGroupCodes.map(async gc=>{
     try{database.ref('journals/'+gcK+'/'+mid).update(jHist).catch(()=>{});}catch(e){}
   }
 }));
+
+// Second pass: for leaders still missing jHist, try raw groupCode + uid/daily directly
+// (same logic as adminMemberToggle which is known to work)
+await Promise.all(leaderGroupCodes.map(async gc=>{
+  const lr=leaderByGroup[gc];
+  const mid=lr.memberId||lr.id;
+  if(!mid)return;
+  if(leaderJournalHistory[mid]&&Object.keys(leaderJournalHistory[mid]).length>0)return;// already have data
+
+  const uid=midToUidAll[mid]||null;
+  const jHist={};
+  const gcK=fbKey(gc);
+  const rawGC=gc;
+
+  // Try both encoded and raw group code paths — same as adminMemberToggle
+  const pathsToTry=[
+    database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
+    (rawGC!==gcK)?database.ref('journals/'+rawGC+'/'+mid).once('value').catch(()=>null):null,
+    uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
+  ].filter(Boolean);
+
+  const snaps=await Promise.all(pathsToTry);
+  snaps.forEach(snap=>{
+    const val=snap&&snap.val();if(!val||typeof val!=='object')return;
+    Object.keys(val).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+      if(!jHist[k])jHist[k]=val[k];
+      else{
+        if((!jHist[k].nnEnergy||!Object.keys(jHist[k].nnEnergy||{}).length)&&val[k]&&val[k].nnEnergy)jHist[k].nnEnergy=val[k].nnEnergy;
+        if((!jHist[k].rituals||!Object.keys(jHist[k].rituals||{}).length)&&val[k]&&val[k].rituals)jHist[k].rituals=val[k].rituals;
+      }
+    });
+  });
+
+  if(Object.keys(jHist).length>0){
+    leaderJournalHistory[mid]=jHist;
+    try{database.ref('journals/'+gcK+'/'+mid).update(jHist).catch(()=>{});}catch(e){}
+  }
+}));
 // ── Build leaderTrainingStats from groups node OR derive from jHist ───────
 const leaderTrainingStats={};
 try{
@@ -3695,7 +3733,31 @@ if(!krs.length)return;const isKrDone=kr=>kr.done===true||(kr.done===undefined&&(
 const leaderMonthlyData={};try{const now2=new Date(Date.now()+7*60*60*1000);const cy2=now2.getUTCFullYear(),cm2=now2.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy2,m=cm2-i;while(m<0){m+=12;y--;}
 monthKeys.push({y,m,key:y+'_'+m});}
 await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;const uid=midToUidAll[mid];if(!uid)return;try{const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk.key).once('value').catch(()=>null)));const monthHistory={};monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthHistory[mk.key]=v;});leaderMonthlyData[mid]=monthHistory;}catch(e){}}));}catch(e){console.warn('Load leader monthly data:',e);}
-window._adminLeaderByGroup=leaderByGroup;renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// Cache leader journal data for popup use
+window._adminLeaderByGroup=leaderByGroup;renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// After all data loaded, re-derive leaderTrainingStats for leaders now having jHist from second pass
+leaderGroupCodes.forEach(gc=>{
+  const lr=leaderByGroup[gc];const mid=lr.memberId||lr.id;if(!mid)return;
+  if(leaderTrainingStats[mid])return;// already have stats
+  const jHist=leaderJournalHistory[mid]||{};
+  const je=jHist[todayKAdmin];
+  if(je){
+    let ritDone=0;
+    if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;
+    else if(typeof je.rituals==='number')ritDone=je.rituals;
+    let nnArr=[];
+    if(typeof NN_LIST!=='undefined'){
+      NN_LIST.forEach((nn,idx2)=>{
+        let v=null;
+        if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[nn.key]);
+        else if(Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[idx2]);
+        nnArr.push((!isNaN(v)&&v>0)?v:5);
+      });
+    } else nnArr=[5,5,5,5,5];
+    leaderTrainingStats[mid]={date:todayKAdmin,rituals:ritDone,nn:nnArr,energy:je.energy||5};
+  }
+});
+// Re-render monitor with updated data after second pass
+renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);
+// Cache leader journal data for popup use
 window._adminLeaderJHistCache=window._adminLeaderJHistCache||{};window._adminMemberNames=window._adminMemberNames||{};Object.entries(leaderJournalHistory).forEach(([mid,jHist])=>{const lr=Object.values(leaderByGroup).find(lr=>(lr.memberId||lr.id)===mid);if(lr&&lr.name)window._adminMemberNames[mid]=lr.name;window._adminLeaderJHistCache[mid]={jHist,monthlyData:leaderMonthlyData[mid]||{},mid};});renderAdminGroups(groupsAll,membersAll,leaderByGroup,allGroupCodes);}catch(e){console.error('Admin load error:',e);const errMsg=e.message||String(e);const isPerm=errMsg.includes('PERMISSION_DENIED')||errMsg.includes('permission');const hint=isPerm?'⚠️ Firebase từ chối quyền truy cập. Vui lòng tải lại trang và thử lại.':'⚠️ Lỗi: '+errMsg;['admin-pending-list','admin-leaders-list','admin-groups-list'].forEach(id=>{const el=document.getElementById(id);if(el&&el.innerHTML.includes('Đang tải')){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>${hint}</p><button onclick="adminRefresh()" style="margin-top:8px;padding:6px 14px;background:var(--jade);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Thử lại</button></div>`;}});}}
 function getExpiryInfo(approvedAt){if(!approvedAt)return{label:'–',color:'var(--ink-muted)',daysLeft:null,expired:false};const start=new Date(approvedAt);const expiry=new Date(start.getTime()+365*24*60*60*1000);const now=new Date();const daysLeft=Math.ceil((expiry-now)/(24*60*60*1000));const expiryStr=expiry.toLocaleDateString('vi');if(daysLeft<0)return{label:`Hết hạn ${expiryStr}`,color:'var(--rose)',daysLeft,expired:true};if(daysLeft<=30)return{label:`⚠️ Còn ${daysLeft} ngày (${expiryStr})`,color:'#d4872a',daysLeft,expired:false};return{label:`✅ Còn ${daysLeft} ngày (${expiryStr})`,color:'var(--jade)',daysLeft,expired:false};}
 async function adminRenewMember(memberId,memberName){if(!confirm(`Gia hạn thêm 1 năm cho ${memberName}?`))return;const database=await loadFirebase();if(!database)return;try{const snap=await database.ref('members/'+memberId).once('value');const m=snap.val();if(!m){showToast('⚠️ Không tìm thấy thành viên');return;}
