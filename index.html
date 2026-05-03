@@ -3733,7 +3733,7 @@ if(!krs.length)return;const isKrDone=kr=>kr.done===true||(kr.done===undefined&&(
 const leaderMonthlyData={};try{const now2=new Date(Date.now()+7*60*60*1000);const cy2=now2.getUTCFullYear(),cm2=now2.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy2,m=cm2-i;while(m<0){m+=12;y--;}
 monthKeys.push({y,m,key:y+'_'+m});}
 await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;const uid=midToUidAll[mid];if(!uid)return;try{const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk.key).once('value').catch(()=>null)));const monthHistory={};monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthHistory[mk.key]=v;});leaderMonthlyData[mid]=monthHistory;}catch(e){}}));}catch(e){console.warn('Load leader monthly data:',e);}
-window._adminLeaderByGroup=leaderByGroup;renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// After all data loaded, re-derive leaderTrainingStats for leaders now having jHist from second pass
+window._adminLeaderByGroup=leaderByGroup;window._adminLeaderTrainingStats=leaderTrainingStats;window._adminLeaderOkrStats=leaderOkrStats;window._adminLeaderMonthlyData=leaderMonthlyData;window._adminMembersByGroup=membersByGroup;renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// After all data loaded, re-derive leaderTrainingStats for leaders now having jHist from second pass
 leaderGroupCodes.forEach(gc=>{
   const lr=leaderByGroup[gc];const mid=lr.memberId||lr.id;if(!mid)return;
   if(leaderTrainingStats[mid])return;// already have stats
@@ -3809,21 +3809,46 @@ _groupCountNoLog=Math.max(0,groupMembers.length-_groupActiveToday);_groupMemberN
 let _groupRate7=[],_groupRateTrend='';const groupJournalCache=window._adminGroupJournals?(window._adminGroupJournals[gcEncoded]||window._adminGroupJournals[groupCode]||null):null;if(groupJournalCache&&groupMembers.length>0){for(let i=6;i>=0;i--){const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);const dk=d.toISOString().split('T')[0];const countWrote=groupMembers.filter(m=>{const mj=groupJournalCache[m.memberId]||{};const je=mj[dk];return je&&(Object.values(je.rituals||{}).some(Boolean)||je.energy);}).length;_groupRate7.push(Math.round((countWrote/groupMembers.length)*100));}
 if(_groupRate7.length===7){const prev3=Math.round(_groupRate7.slice(0,3).reduce((a,b)=>a+b,0)/3);const cur3=Math.round(_groupRate7.slice(-3).reduce((a,b)=>a+b,0)/3);const diff=cur3-prev3;if(diff<-5)_groupRateTrend='<span style="color:var(--rose);font-size:10px;font-weight:700">▼'+cur3+'%</span>';else if(diff>5)_groupRateTrend='<span style="color:var(--jade);font-size:10px;font-weight:700">▲'+cur3+'%</span>';else _groupRateTrend='<span style="color:var(--ink-muted);font-size:10px">≈'+cur3+'%</span>';}}
 const savedNote=window._adminLeaderNotes?(window._adminLeaderNotes[mid]||''):'';const noteKey='admin_leader_note_'+mid;const okr=leaderOkrStats[mid]||null;// Có dữ liệu rèn luyện không (journal hoặc groups)
-const hasAnyData=Object.keys(jHist).length>0||(tStats&&tStats.date);
-// Chỉ cảnh báo notTrainedToday nếu thực sự có dữ liệu và không rèn hôm nay
-const notTrainedAlert=notTrainedToday&&hasAnyData&&recentInactiveDays>=3;
-const hasAlert=lrExpired||criticalNN||lowEnergy||lrExpiringSoon||expiredCount>0||groupCount===0;
-// hasWatch: bỏ notTrainedToday riêng lẻ, chỉ cảnh báo khi không rèn nhiều ngày liên tiếp
-const hasWatch=recentJoin>=3||groupCount>=8||notTrainedAlert||recentInactiveDays>=5||lowHouseAvg7;
+// ── Phân loại mức độ cần đồng hành ─────────────────────────────────────
+// hasAlert: vấn đề nghiêm trọng cần xử lý ngay
+const hasAlert=lrExpired||criticalNN||lowEnergy||lrExpiringSoon||(expiredCount>0&&expiredCount>=Math.ceil(groupCount*0.3));
+// Tính số ngày không rèn THỰC TẾ: ưu tiên jHist, fallback groups.date
+const realInactiveDays=(()=>{
+  if(Object.keys(jHist).length>0){
+    // Có jHist → đếm ngày không rèn liên tiếp từ hôm nay
+    let cnt=0;
+    for(let i=0;i<30;i++){
+      const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);
+      const dk=d.toISOString().split('T')[0];
+      const je=jHist[dk];
+      const trained=je&&((je.rituals&&(typeof je.rituals==='object'?Object.values(je.rituals).some(Boolean):je.rituals>0))||(je.nnEnergy&&(Array.isArray(je.nnEnergy)?je.nnEnergy.some(v=>v>0):Object.values(je.nnEnergy||{}).some(v=>v>0))));
+      if(!trained)cnt++;else break;
+    }
+    return cnt;
+  }
+  // Không có jHist → dùng groups.date
+  const gDate=tStats&&tStats.date;
+  if(gDate){
+    const diff=Math.floor((Date.now()+7*3600000-new Date(gDate).getTime())/86400000);
+    return Math.max(0,diff);
+  }
+  // Không có bất kỳ dữ liệu nào → không rõ, không cảnh báo sai
+  return -1;// -1 = unknown
+})();
+// hasWatch: đáng chú ý nhưng chưa nghiêm trọng
+// Chỉ cảnh báo không rèn khi BIẾT CHẮC (realInactiveDays >= 0) và >= 5 ngày
+const knownInactive=realInactiveDays>=0;
+const hasWatch=(knownInactive&&realInactiveDays>=5)||lowHouseAvg7||(expiredCount>0&&expiredCount<Math.ceil(groupCount*0.3));
 const level=hasAlert?(lrExpired||criticalNN?'red':'amber'):hasWatch?'blue':'green';
-const priority=lrExpired?1:criticalNN?2:lowEnergy?3:lrExpiringSoon?4:recentInactiveDays>=5?5:expiredCount>0?6:7;
-const label=lrExpired?'Hết hạn':criticalNN?'NL rất thấp':lowEnergy?'NL thấp':lrExpiringSoon?'Sắp hết hạn':recentInactiveDays>=5?recentInactiveDays+' ngày không rèn':expiredCount>0?'TV hết hạn':level==='green'?'✅ Đang tốt':'👀 Theo dõi';alerts.push({level,priority,label,name:lr.name||mData.name||'–',groupCode,mid,groupCount,recentJoin,expiredCount,lrExp,lrExpiringSoon,lrExpired,noteKey,savedNote,tStats,trainedToday,ritualsToday,nnToday,avgNN,lowEnergy,criticalNN,notTrainedToday,trend7,jHist,jKeys7,nnAvg7,nnAvg7PerHouse,lowHouseAvg7,recentInactiveDays,latestSeedsActive,oldSeedsActive,latestSeedsDone,okr,_groupActiveToday,_groupAvgNL,_groupCountRed,_groupCountYellow,_groupCountGreen,_groupCountNoLog,_groupMemberNeedCare,_groupRate7,_groupRateTrend,monthlyData:leaderMonthlyData[mid]||{},});});alerts.sort((a,b)=>a.priority-b.priority);const displayAlerts=filterNeedCare?alerts.filter(a=>a.level!=='green'):alerts;if(badgeEl){const urgentCount=alerts.filter(a=>a.level==='red'||a.level==='amber').length;badgeEl.style.display=urgentCount>0?'inline-block':'none';badgeEl.textContent=urgentCount;}
+const displayInactiveDays=knownInactive?realInactiveDays:recentInactiveDays;
+const priority=lrExpired?1:criticalNN?2:lowEnergy?3:lrExpiringSoon?4:(knownInactive&&realInactiveDays>=5)?5:expiredCount>0?6:7;
+const label=lrExpired?'Hết hạn':criticalNN?'NL rất thấp':lowEnergy?'NL thấp':lrExpiringSoon?'Sắp hết hạn':(knownInactive&&realInactiveDays>=5)?realInactiveDays+' ngày không rèn':expiredCount>0?'TV hết hạn':level==='green'?'✅ Đang tốt':'👀 Theo dõi';alerts.push({level,priority,label,name:lr.name||mData.name||'–',groupCode,mid,groupCount,recentJoin,expiredCount,lrExp,lrExpiringSoon,lrExpired,noteKey,savedNote,tStats,trainedToday,ritualsToday,nnToday,avgNN,lowEnergy,criticalNN,notTrainedToday,trend7,jHist,jKeys7,nnAvg7,nnAvg7PerHouse,lowHouseAvg7,recentInactiveDays,displayInactiveDays,latestSeedsActive,oldSeedsActive,latestSeedsDone,okr,_groupActiveToday,_groupAvgNL,_groupCountRed,_groupCountYellow,_groupCountGreen,_groupCountNoLog,_groupMemberNeedCare,_groupRate7,_groupRateTrend,monthlyData:leaderMonthlyData[mid]||{},});});alerts.sort((a,b)=>a.priority-b.priority);const displayAlerts=filterNeedCare?alerts.filter(a=>a.level!=='green'):alerts;if(badgeEl){const urgentCount=alerts.filter(a=>a.level==='red'||a.level==='amber').length;badgeEl.style.display=urgentCount>0?'inline-block':'none';badgeEl.textContent=urgentCount;}
 if(filterNeedCare&&displayAlerts.length===0){if(sectionEl)sectionEl.style.display='none';return;}
 if(sectionEl)sectionEl.style.display='block';window._adminCardExpanded=window._adminCardExpanded||{};// Store leader names for popup lookup
-window._adminMemberNames=window._adminMemberNames||{};displayAlerts.forEach(a=>{if(a.mid&&a.name)window._adminMemberNames[a.mid]=a.name;});const colMap={red:{border:'rgba(192,96,106,0.35)',bg:'rgba(192,96,106,0.08)',badge:'background:rgba(192,96,106,0.18);color:var(--rose)',name:'var(--rose)'},amber:{border:'rgba(201,168,76,0.4)',bg:'rgba(201,168,76,0.08)',badge:'background:rgba(201,168,76,0.18);color:var(--gold-dark)',name:'var(--gold-dark)'},blue:{border:'rgba(74,127,168,0.3)',bg:'rgba(74,127,168,0.07)',badge:'background:rgba(74,127,168,0.15);color:var(--sky)',name:'var(--sky)'},green:{border:'rgba(74,140,111,0.25)',bg:'rgba(74,140,111,0.06)',badge:'background:rgba(74,140,111,0.18);color:var(--jade)',name:'var(--jade)'},};listEl.innerHTML=displayAlerts.map(a=>{const col=colMap[a.level]||colMap.blue;const midSafe=escHtml(a.mid);const displayLabel=a.label==='✅ Đang tốt'?'✅ Tốt':a.label;if(window._adminCardExpanded[a.mid]===undefined)window._adminCardExpanded[a.mid]=false;const isExpanded=window._adminCardExpanded[a.mid];const lrDaysLeft=a.lrExp?a.lrExp.daysLeft:null;const expiryTxt=a.lrExpired?'<span style="color:var(--rose);font-weight:700">Hết hạn</span>':lrDaysLeft!==null?'<span style="color:'+(lrDaysLeft<=30?'var(--gold-dark)':'var(--jade)')+';font-weight:700">'+lrDaysLeft+' ngày</span>':'–';const trainedDays7=a.trend7.filter(d=>d.trained).length;const ritAvg7=trainedDays7?Math.round(a.trend7.filter(d=>d.trained).reduce((s,d)=>s+d.ritPct,0)/trainedDays7):0;const nnAvg7Color=a.nnAvg7===null?'var(--ink-muted)':a.nnAvg7>=7?'var(--jade)':a.nnAvg7>=5?'var(--gold-dark)':'var(--rose)';const streakDots7=a.trend7.map(d=>'<div style="width:9px;height:9px;border-radius:50%;background:'+(d.trained?'var(--jade)':'rgba(0,0,0,0.12)')+'"></div>').join('');let seedTxt='';if(a.latestSeedsActive!==null){const seedDiff=a.oldSeedsActive!==null?a.latestSeedsActive-a.oldSeedsActive:null;const seedTrend=seedDiff===null?'':seedDiff>0?' <span style="color:var(--rose);font-size:9px">▲+'+seedDiff+'</span>':seedDiff<0?' <span style="color:var(--jade);font-size:9px">▼'+Math.abs(seedDiff)+'</span>':'';seedTxt=a.latestSeedsActive+seedTrend+(a.latestSeedsActive>=10?' <span style="color:var(--rose);font-size:9px">⚠️</span>':'');}
+window._adminMemberNames=window._adminMemberNames||{};window._adminAlertData=window._adminAlertData||{};displayAlerts.forEach(a=>{if(a.mid&&a.name)window._adminMemberNames[a.mid]=a.name;window._adminAlertData[a.mid]=a;});const colMap={red:{border:'rgba(192,96,106,0.35)',bg:'rgba(192,96,106,0.08)',badge:'background:rgba(192,96,106,0.18);color:var(--rose)',name:'var(--rose)'},amber:{border:'rgba(201,168,76,0.4)',bg:'rgba(201,168,76,0.08)',badge:'background:rgba(201,168,76,0.18);color:var(--gold-dark)',name:'var(--gold-dark)'},blue:{border:'rgba(74,127,168,0.3)',bg:'rgba(74,127,168,0.07)',badge:'background:rgba(74,127,168,0.15);color:var(--sky)',name:'var(--sky)'},green:{border:'rgba(74,140,111,0.25)',bg:'rgba(74,140,111,0.06)',badge:'background:rgba(74,140,111,0.18);color:var(--jade)',name:'var(--jade)'},};listEl.innerHTML=displayAlerts.map(a=>{const col=colMap[a.level]||colMap.blue;const midSafe=escHtml(a.mid);const displayLabel=a.label==='✅ Đang tốt'?'✅ Tốt':a.label;if(window._adminCardExpanded[a.mid]===undefined)window._adminCardExpanded[a.mid]=false;const isExpanded=window._adminCardExpanded[a.mid];const lrDaysLeft=a.lrExp?a.lrExp.daysLeft:null;const expiryTxt=a.lrExpired?'<span style="color:var(--rose);font-weight:700">Hết hạn</span>':lrDaysLeft!==null?'<span style="color:'+(lrDaysLeft<=30?'var(--gold-dark)':'var(--jade)')+';font-weight:700">'+lrDaysLeft+' ngày</span>':'–';const trainedDays7=a.trend7.filter(d=>d.trained).length;const ritAvg7=trainedDays7?Math.round(a.trend7.filter(d=>d.trained).reduce((s,d)=>s+d.ritPct,0)/trainedDays7):0;const nnAvg7Color=a.nnAvg7===null?'var(--ink-muted)':a.nnAvg7>=7?'var(--jade)':a.nnAvg7>=5?'var(--gold-dark)':'var(--rose)';const streakDots7=a.trend7.map(d=>'<div style="width:9px;height:9px;border-radius:50%;background:'+(d.trained?'var(--jade)':'rgba(0,0,0,0.12)')+'"></div>').join('');let seedTxt='';if(a.latestSeedsActive!==null){const seedDiff=a.oldSeedsActive!==null?a.latestSeedsActive-a.oldSeedsActive:null;const seedTrend=seedDiff===null?'':seedDiff>0?' <span style="color:var(--rose);font-size:9px">▲+'+seedDiff+'</span>':seedDiff<0?' <span style="color:var(--jade);font-size:9px">▼'+Math.abs(seedDiff)+'</span>':'';seedTxt=a.latestSeedsActive+seedTrend+(a.latestSeedsActive>=10?' <span style="color:var(--rose);font-size:9px">⚠️</span>':'');}
 const lowHousesList=(a.nnAvg7PerHouse||[]).filter(h=>h.avg!==null&&h.avg<5);const houseWarnTxt=lowHousesList.length?'<div style="margin-top:4px;margin-bottom:2px">'+'<div style="font-size:9px;color:var(--rose);font-weight:700;margin-bottom:3px">⚠ Ngôi nhà &lt;5 (TB 7 ngày):</div>'+'<div style="display:flex;flex-wrap:wrap;gap:3px">'+
 lowHousesList.map(h=>'<span style="background:rgba(163,45,45,0.1);color:var(--rose);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap">'
-+h.label+' '+h.avg+'/10</span>').join('')+'</div></div>':(a.lowHouseAvg7?'<div style="font-size:10px;color:var(--rose);font-weight:700;margin-top:3px">⚠ TB NL tuần: '+a.nnAvg7+'/10 — thấp</div>':'');const summaryItems=[];if(a.recentInactiveDays>=2)summaryItems.push({c:'var(--rose)',t:a.recentInactiveDays+' ngày không rèn liên tiếp'});if(lowHousesList.length)summaryItems.push({c:'var(--rose)',t:lowHousesList.map(h=>h.label+' '+h.avg+'/10').join(', ')+' — thấp'});else if(a.lowHouseAvg7&&a.nnAvg7!==null)summaryItems.push({c:'var(--rose)',t:'NL ngôi nhà TB tuần: '+a.nnAvg7+'/10 thấp'});if(a.criticalNN)summaryItems.push({c:'var(--rose)',t:'NL hôm nay rất thấp: '+a.avgNN+'/10'});else if(a.lowEnergy)summaryItems.push({c:'var(--gold-dark)',t:'NL hôm nay thấp: '+a.avgNN+'/10'});if(a.lrExpired)summaryItems.push({c:'var(--rose)',t:'Tài khoản đã hết hạn'});if(a.lrExpiringSoon)summaryItems.push({c:'var(--gold-dark)',t:'Còn '+lrDaysLeft+' ngày đến hết hạn'});const summaryHTML=summaryItems.length?summaryItems.map(s=>'<div style="display:flex;align-items:center;gap:5px;font-size:10.5px;padding:2px 0">'+'<span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:'+s.c+'"></span>'+'<span style="color:var(--ink-soft)">'+s.t+'</span></div>').join(''):'<div style="font-size:10.5px;color:var(--jade)">✅ Không có vấn đề đáng lo — đang tốt</div>';const leftCol='<div style="flex:1;min-width:0">'+'<div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--sky);margin-bottom:7px">👤 Cá nhân TN</div>'+'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px">'+'<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">'+'<div style="font-size:14px;font-weight:700;color:var(--sky)">'+trainedDays7+'/7</div>'+'<div style="font-size:9px;color:var(--ink-muted)">ngày rèn</div>'+'</div>'+'<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">'+'<div style="font-size:14px;font-weight:700;color:'+(ritAvg7>=78?'var(--jade)':ritAvg7>=44?'var(--gold-dark)':'var(--rose)')+'">'+ritAvg7+'%</div>'+'<div style="font-size:9px;color:var(--ink-muted)">nghi thức</div>'+'</div>'+'<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">'+
++h.label+' '+h.avg+'/10</span>').join('')+'</div></div>':(a.lowHouseAvg7?'<div style="font-size:10px;color:var(--rose);font-weight:700;margin-top:3px">⚠ TB NL tuần: '+a.nnAvg7+'/10 — thấp</div>':'');const summaryItems=[];const _inactD=typeof a.displayInactiveDays!=='undefined'?a.displayInactiveDays:a.recentInactiveDays;if(_inactD>=5)summaryItems.push({c:'var(--rose)',t:_inactD+' ngày không rèn liên tiếp'});else if(_inactD>=2&&_inactD<5)summaryItems.push({c:'var(--gold-dark)',t:_inactD+' ngày chưa ghi nhật ký'});if(lowHousesList.length)summaryItems.push({c:'var(--rose)',t:lowHousesList.map(h=>h.label+' '+h.avg+'/10').join(', ')+' — thấp'});else if(a.lowHouseAvg7&&a.nnAvg7!==null)summaryItems.push({c:'var(--rose)',t:'NL ngôi nhà TB tuần: '+a.nnAvg7+'/10 thấp'});if(a.criticalNN)summaryItems.push({c:'var(--rose)',t:'NL hôm nay rất thấp: '+a.avgNN+'/10'});else if(a.lowEnergy)summaryItems.push({c:'var(--gold-dark)',t:'NL hôm nay thấp: '+a.avgNN+'/10'});if(a.lrExpired)summaryItems.push({c:'var(--rose)',t:'Tài khoản đã hết hạn'});if(a.lrExpiringSoon)summaryItems.push({c:'var(--gold-dark)',t:'Còn '+lrDaysLeft+' ngày đến hết hạn'});const summaryHTML=summaryItems.length?summaryItems.map(s=>'<div style="display:flex;align-items:center;gap:5px;font-size:10.5px;padding:2px 0">'+'<span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:'+s.c+'"></span>'+'<span style="color:var(--ink-soft)">'+s.t+'</span></div>').join(''):'<div style="font-size:10.5px;color:var(--jade)">✅ Không có vấn đề đáng lo — đang tốt</div>';const leftCol='<div style="flex:1;min-width:0">'+'<div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--sky);margin-bottom:7px">👤 Cá nhân TN</div>'+'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px">'+'<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">'+'<div style="font-size:14px;font-weight:700;color:var(--sky)">'+trainedDays7+'/7</div>'+'<div style="font-size:9px;color:var(--ink-muted)">ngày rèn</div>'+'</div>'+'<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">'+'<div style="font-size:14px;font-weight:700;color:'+(ritAvg7>=78?'var(--jade)':ritAvg7>=44?'var(--gold-dark)':'var(--rose)')+'">'+ritAvg7+'%</div>'+'<div style="font-size:9px;color:var(--ink-muted)">nghi thức</div>'+'</div>'+'<div style="background:rgba(74,127,168,0.07);border-radius:7px;padding:5px 6px;text-align:center">'+
 (a.nnAvg7!==null?'<div style="font-size:14px;font-weight:700;color:'+nnAvg7Color+'">'+a.nnAvg7+'</div><div style="font-size:9px;color:var(--ink-muted)">TB NL/10</div>':'<div style="font-size:13px;color:var(--ink-muted)">–</div><div style="font-size:9px;color:var(--ink-muted)">NL/10</div>')+'</div>'+'</div>'+'<div style="display:flex;gap:4px;align-items:center;margin-bottom:7px">'+'<div style="font-size:9px;color:var(--ink-muted);flex-shrink:0">7 ngày:</div>'+'<div style="display:flex;gap:3px">'+streakDots7+'</div>'+'</div>'+'<div style="display:flex;gap:6px;margin-bottom:7px">'+
 (a.latestSeedsActive!==null?'<div style="flex:1;background:rgba(201,168,76,0.07);border-radius:6px;padding:4px 8px">'+'<div style="font-size:9px;color:var(--gold-dark);font-weight:700;margin-bottom:1px">🌱 Hạt giống</div>'+'<div style="font-size:12px;font-weight:700;color:var(--gold-dark)">'+seedTxt+'</div>'+
 (a.latestSeedsDone!==null?'<div style="font-size:9px;color:var(--jade)">✅ '+a.latestSeedsDone+' chuyển hóa</div>':'')+'</div>':'')+
@@ -3839,7 +3864,129 @@ careRows+'</div>':'<div style="font-size:10px;color:var(--jade);text-align:cente
 leftCol+
 rightCol+'</div>'+'<div id="admin-card-streak-'+midSafe+'" style="display:none;padding:8px 12px 10px;border-top:0.5px solid var(--border)">'+
 buildStreakDetail(a)+'</div>'+'<div id="admin-card-report-'+midSafe+'" style="display:none;padding:8px 12px 10px;border-top:0.5px solid var(--border)">'+
-buildReportDetail(a)+'</div>'+'<div id="admin-card-note-'+midSafe+'" style="display:'+(isExpanded?'block':'none')+';padding:6px 12px 6px;border-top:0.5px solid var(--border)">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+'<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark)">📝 Ghi chú đồng hành</div>'+'<div style="display:flex;gap:5px">'+'<button onclick="adminToggleStreak(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📅 Chuỗi rèn luyện</button>'+'<button onclick="adminToggleReport(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:1px solid rgba(133,79,11,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📊 Xem báo cáo</button>'+'</div>'+'</div>'+'<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" '+'placeholder="Ghi bối cảnh, lịch sử, kế hoạch hỗ trợ..." '+'style="width:100%;min-height:44px;font-size:11.5px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box">'+escHtml(a.savedNote)+'</textarea>'+'</div>'+'</div>');}).join('');window._adminCardExpanded=window._adminCardExpanded||{};window.adminToggleCard=function(mid){window._adminCardExpanded[mid]=!window._adminCardExpanded[mid];const body=document.getElementById('admin-card-body-'+mid);const note=document.getElementById('admin-card-note-'+mid);const arrow=document.getElementById('admin-card-arrow-'+mid);const streak=document.getElementById('admin-card-streak-'+mid);const report=document.getElementById('admin-card-report-'+mid);const open=window._adminCardExpanded[mid];if(body)body.style.display=open?'flex':'none';if(note)note.style.display=open?'block':'none';if(arrow)arrow.textContent=open?'▲':'▼';if(!open){if(streak)streak.style.display='none';if(report)report.style.display='none';}};window.adminToggleStreak=function(mid){adminOpenLeaderPopup(mid,'streak');};window.adminToggleReport=function(mid){adminOpenLeaderPopup(mid,'report');};window.adminOpenLeaderPopup=async function(mid,type){
+buildReportDetail(a)+'</div>'+'<div id="admin-card-note-'+midSafe+'" style="display:'+(isExpanded?'block':'none')+';padding:6px 12px 6px;border-top:0.5px solid var(--border)">'+'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+'<div style="font-size:9.5px;font-weight:700;color:var(--gold-dark)">📝 Ghi chú đồng hành</div>'+'<div style="display:flex;gap:5px">'+'<button onclick="adminToggleStreak(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--sky);background:rgba(74,127,168,0.08);border:1px solid rgba(74,127,168,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📅 Chuỗi rèn luyện</button>'+'<button onclick="adminToggleReport(\''+midSafe+'\')" style="font-size:10px;font-weight:700;color:var(--gold-dark);background:rgba(133,79,11,0.07);border:1px solid rgba(133,79,11,0.2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">📊 Xem báo cáo</button>'+'</div>'+'</div>'+'<textarea id="admin-ln-'+midSafe+'" oninput="adminSaveLeaderNote(\''+midSafe+'\',\''+escHtml(a.noteKey)+'\')" '+'placeholder="Ghi bối cảnh, lịch sử, kế hoạch hỗ trợ..." '+'style="width:100%;min-height:44px;font-size:11.5px;font-family:Nunito,-apple-system,BlinkMacSystemFont,sans-serif;resize:none;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box">'+escHtml(a.savedNote)+'</textarea>'+'</div>'+'</div>');}).join('');window._adminCardExpanded=window._adminCardExpanded||{};window.adminToggleCard=function(mid){
+  window._adminCardExpanded[mid]=!window._adminCardExpanded[mid];
+  const body=document.getElementById('admin-card-body-'+mid);
+  const note=document.getElementById('admin-card-note-'+mid);
+  const arrow=document.getElementById('admin-card-arrow-'+mid);
+  const open=window._adminCardExpanded[mid];
+  if(body)body.style.display=open?'flex':'none';
+  if(note)note.style.display=open?'block':'none';
+  if(arrow)arrow.textContent=open?'▲':'▼';
+  if(!open)return;
+  // Lazy load: if jHist is empty for this leader, load it now
+  adminEnsureLeaderData(mid);
+};
+
+window.adminEnsureLeaderData=async function(mid){
+  // Check if we already have real data
+  const cached=window._adminLeaderJHistCache&&window._adminLeaderJHistCache[mid];
+  const jHistSize=cached&&cached.jHist?Object.keys(cached.jHist).length:0;
+  if(jHistSize>0)return;// already have data
+
+  // Find this leader's card alert data
+  const alertData=window._adminAlertData&&window._adminAlertData[mid];
+  if(!alertData)return;
+
+  const body=document.getElementById('admin-card-body-'+mid);
+  if(body)body.innerHTML='<div style="width:100%;text-align:center;padding:20px;font-size:12px;color:var(--ink-muted)">⏳ Đang tải dữ liệu...</div>';
+
+  try{
+    const database=await loadFirebase();
+    if(!database)return;
+
+    const gc=alertData.groupCode||'';
+    const gcK=typeof fbKey==='function'?fbKey(gc):gc;
+
+    // Find UID — same as adminMemberToggle
+    let uid=window._adminMidToUid&&window._adminMidToUid[mid]||null;
+    if(!uid){
+      const uidSnap=await database.ref('uid_to_member').once('value').catch(()=>null);
+      const uidMap=(uidSnap&&uidSnap.val())||{};
+      uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===mid)||null;
+    }
+
+    const jHist={};
+    // Try all paths — same as adminMemberToggle (which is known to work)
+    const pathSnaps=await Promise.all([
+      database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
+      (gc!==gcK)?database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null):null,
+      uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
+    ].filter(Boolean));
+
+    pathSnaps.forEach(snap=>{
+      const val=snap&&snap.val();if(!val||typeof val!=='object')return;
+      Object.keys(val).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+        if(!jHist[k])jHist[k]=val[k];
+        else{
+          if((!jHist[k].nnEnergy||!Object.keys(jHist[k].nnEnergy||{}).length)&&val[k]&&val[k].nnEnergy)jHist[k].nnEnergy=val[k].nnEnergy;
+          if((!jHist[k].rituals||!Object.keys(jHist[k].rituals||{}).length)&&val[k]&&val[k].rituals)jHist[k].rituals=val[k].rituals;
+        }
+      });
+    });
+
+    if(Object.keys(jHist).length===0)return;// still no data
+
+    // Update caches
+    window._adminLeaderJHistCache=window._adminLeaderJHistCache||{};
+    window._adminLeaderJHistCache[mid]={jHist,monthlyData:{},mid};
+    if(window._adminAlertData&&window._adminAlertData[mid]){
+      window._adminAlertData[mid].jHist=jHist;
+      // Recompute trend7
+      const todayK=todayKey();
+      const jKeys7=Object.keys(jHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse().slice(0,7);
+      const trend7=jKeys7.map(dk=>{
+        const je=jHist[dk]||{};
+        let ritDone=0;
+        if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;
+        else if(typeof je.rituals==='number')ritDone=je.rituals;
+        let nnVals=[];
+        if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))nnVals=Object.values(je.nnEnergy).map(Number).filter(v=>!isNaN(v)&&v>0);
+        else if(Array.isArray(je.nnEnergy))nnVals=je.nnEnergy.map(Number).filter(v=>!isNaN(v)&&v>0);
+        const avgNNDay=nnVals.length?Math.round(nnVals.reduce((a,b)=>a+b,0)/nnVals.length*10)/10:null;
+        return{dk,ritPct:Math.round((ritDone/9)*100),avgNN:avgNNDay,trained:ritDone>0||nnVals.length>0};
+      }).reverse();
+      window._adminAlertData[mid].trend7=trend7;
+      window._adminAlertData[mid].jKeys7=jKeys7;
+
+      // Recompute recentInactiveDays
+      let cnt=0;
+      for(let i=0;i<14;i++){
+        const d=new Date(Date.now()+7*60*60*1000);d.setUTCDate(d.getUTCDate()-i);
+        const dk=d.toISOString().split('T')[0];
+        const je=jHist[dk];
+        const trained=je&&((je.rituals&&(typeof je.rituals==='object'?Object.values(je.rituals).some(Boolean):je.rituals>0))||(je.nnEnergy&&(Array.isArray(je.nnEnergy)?je.nnEnergy.some(v=>v>0):Object.values(je.nnEnergy||{}).some(v=>v>0))));
+        if(!trained)cnt++;else break;
+      }
+      window._adminAlertData[mid].recentInactiveDays=cnt;
+
+      // Re-render the full monitor with updated data
+      setTimeout(function(){adminRefreshCardBody(mid);// Re-open this card after re-render
+        setTimeout(function(){if(window._adminCardExpanded[mid]){const b=document.getElementById('admin-card-body-'+mid);const n=document.getElementById('admin-card-note-'+mid);if(b)b.style.display='flex';if(n)n.style.display='block';}},100);},50);
+    }
+  }catch(e){console.warn('adminEnsureLeaderData:',e);}
+};
+
+// Re-render just the card body for one leader after data loads
+window.adminRefreshCardBody=function(mid){
+  if(!window._adminAlertData||!window._adminAlertData[mid])return;
+  // Re-render the full monitor — this rebuilds all cards with updated data
+  if(window._adminLeaderByGroup&&window._adminMembersAll){
+    const lbg=window._adminLeaderByGroup;
+    const mbrs=window._adminMembersAll;
+    // Rebuild leaderJournalHistory from cache
+    const jHistMap={};
+    Object.entries(window._adminLeaderJHistCache||{}).forEach(([m,c])=>{if(c&&c.jHist)jHistMap[m]=c.jHist;});
+    // Re-render monitor with updated jHist
+    if(typeof renderAdminLeaderMonitor==='function'){
+      const lts=window._adminLeaderTrainingStats||{};
+      const los=window._adminLeaderOkrStats||{};
+      const lmd=window._adminLeaderMonthlyData||{};
+      const mbyg=window._adminMembersByGroup||{};
+      renderAdminLeaderMonitor(lbg,mbyg,mbrs,lts,jHistMap,los,true,null,lmd);
+    }
+  }
+};window.adminToggleStreak=function(mid){adminOpenLeaderPopup(mid,'streak');};window.adminToggleReport=function(mid){adminOpenLeaderPopup(mid,'report');};window.adminOpenLeaderPopup=async function(mid,type){
   const memberName=window._adminMemberNames&&window._adminMemberNames[mid]?window._adminMemberNames[mid]:mid;
   if(window._adminLeaderJHistCache&&window._adminLeaderJHistCache[mid]){openMemberDetailPopup(memberName,window._adminLeaderJHistCache[mid],type);return;}
   var loadingModal=document.createElement('div');
