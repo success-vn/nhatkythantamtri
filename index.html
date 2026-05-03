@@ -3565,12 +3565,15 @@ await Promise.all(leaderGroupCodes.map(async gc=>{
   const jHist={};
   const gcK=fbKey(gc);
 
-  // Fetch journal paths in parallel — EXACTLY like adminMemberToggle
-  const paths=[
-    database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
-    (gc!==gcK)?database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null):null,
-    uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
-  ].filter(Boolean);
+  // Fetch journal paths in parallel — try ALL variants
+  const gcUnderscore=gc.replace(/ /g,'_');// space→underscore variant
+  const triedPaths=new Set();
+  const pathRefs=[];
+  for(const p of [gcK,gc,gcUnderscore]){
+    if(!triedPaths.has(p)){triedPaths.add(p);pathRefs.push(database.ref('journals/'+p+'/'+mid).once('value').catch(()=>null));}
+  }
+  if(uid)pathRefs.push(database.ref('users/'+uid+'/daily').once('value').catch(()=>null));
+  const paths=pathRefs;
 
   const snaps=await Promise.all(paths);
   snaps.forEach(snap=>{
