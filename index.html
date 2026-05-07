@@ -2324,7 +2324,12 @@ const savedBadge=document.getElementById('today-saved-badge');if(savedBadge)save
 function scheduleMidnightReset(){const ms=msUntilMidnightVN();setTimeout(()=>{doNewDayReset(true);scheduleMidnightReset();},ms+500);}
 function doNewDayReset(showToastMsg){const k=todayKey();if(typeof autosaveTimer!=='undefined'&&autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;if(typeof forceSaveAll==='function')forceSaveAll();}
 try{localStorage.setItem(LAST_RESET_DAY_KEY,k);}catch(e){}
-window._lastRefreshedDay=k;if(!data[k]){data[k]={rituals:{},dims:{},_updatedAt:Date.now()};try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}}
+window._lastRefreshedDay=k;
+// Always create a FRESH entry for today - never carry over yesterday's content
+// Keep only the structural keys (rituals:{}, dims:{}) so sliders etc. start clean
+// Historical data stays in data[yesterdayKey] and is NOT deleted
+data[k]={rituals:{},dims:{},_updatedAt:Date.now()};
+try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
 clearDailyFields();loadTodayFields();renderRituals();renderTasksList();setDateBars();if(showToastMsg&&document.getElementById('toast')){setTimeout(()=>showToast('🌅 Chào ngày mới! Trang nhật ký đã được làm mới.'),500);}}
 function checkNewDay(){const k=todayKey();const lastResetDay=(()=>{try{return localStorage.getItem(LAST_RESET_DAY_KEY)||'';}catch(e){return'';}})();if(lastResetDay===k){window._lastRefreshedDay=k;return;}
 doNewDayReset(false);}
