@@ -1836,7 +1836,7 @@
   <div id="leader-tab-dashboard">
 
     
-    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+    <div class="stats-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
       <div class="stat-box stat-gold">
         <div class="stat-num" id="leader-total-members">0</div>
         <div class="stat-label">Thành viên</div>
@@ -1852,6 +1852,10 @@
       <div class="stat-box stat-sky">
         <div class="stat-num" id="leader-avg-nl">–</div>
         <div class="stat-label">NL TB nhóm</div>
+      </div>
+      <div class="stat-box" style="background:rgba(124,92,191,0.08);border:1px solid rgba(124,92,191,0.2)">
+        <div class="stat-num" id="leader-avg-streak" style="color:#7c5cbf">0</div>
+        <div class="stat-label">TB Ngày Ghi</div>
       </div>
     </div>
 
@@ -2558,7 +2562,7 @@ if(cloudSyncTs>0&&hasRealLocalData&&localSyncTs>cloudSyncTs){
   setTimeout(()=>{if(db&&userInfo)pullLocalFromFirebase().catch(()=>{});},2000);
 }
 if(seedsData.length>0){const uidKey=getUidKey();try{const snap=await db.ref('users/'+uidKey+'/seeds').once('value');const remoteSeeds=snap.val();const remoteArr=Array.isArray(remoteSeeds)?remoteSeeds:[];if(seedsData.length>remoteArr.length){await db.ref('users/'+uidKey+'/seeds').set(seedsData);}}catch(e){console.warn('Seeds push on boot failed:',e.message);}}
-startUserDataRealtimeListener();startLeaderStatusListener();syncJournalHistoryToFirebase();setTimeout(()=>{const todayK=todayKey();const todayEntry=data[todayK];if(todayEntry){const rituals=Object.values(todayEntry.rituals||{}).filter(Boolean).length;const hasNN=todayEntry.nnEnergy&&Object.values(todayEntry.nnEnergy).some(v=>v&&v!==5);if(rituals>0||hasNN){autoSyncMyTeamStats();}}},1500);}
+startUserDataRealtimeListener();startLeaderStatusListener();syncJournalHistoryToFirebase();setTimeout(()=>_migrateMonthlySummaries().catch(()=>{}),5000);setTimeout(()=>{const todayK=todayKey();const todayEntry=data[todayK];if(todayEntry){const rituals=Object.values(todayEntry.rituals||{}).filter(Boolean).length;const hasNN=todayEntry.nnEnergy&&Object.values(todayEntry.nnEnergy).some(v=>v&&v!==5);if(rituals>0||hasNN){autoSyncMyTeamStats();}}},1500);}
 async function pushLocalToFirebase(){if(!db||!userInfo)return;const uidKey=getUidKey();const base='users/'+uidKey;try{_isSyncingToFirebase=true;const hasLocalData=Object.keys(data).length>0||(Object.keys(spData).some(k=>k!=='_updatedAt'&&spData[k]))||kzData.length>0||msData.length>0||seedsData.length>0;if(!hasLocalData){_isSyncingToFirebase=false;return;}
 const dailyBatch={};Object.keys(data).sort().forEach(date=>{dailyBatch[date]=Object.assign({},data[date],{_updatedAt:data[date]._updatedAt||Date.now()});});const nowTs=Date.now();const updatePayload={'meta/syncedAt':nowTs,'meta/name':userInfo.name,};if(Object.keys(dailyBatch).length>0)updatePayload.daily=dailyBatch;if(Object.keys(spData).length>1)updatePayload.sp=spData;if(kzData.length>0)updatePayload.kz=kzData;if(Object.keys(r3mData).length>0)updatePayload.r3m=r3mData;if(msData.length>0)updatePayload.ms=msData;if(seedsData.length>0)updatePayload.seeds=seedsData;await db.ref(base).update(updatePayload);localStorage.setItem(SYNC_TS_KEY,String(nowTs));_syncRetryCount=0;const timeStr=new Date(nowTs).toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',timeStr,'rgba(74,140,111,0.85)');}catch(e){console.error('🔴 Push failed — code:',e.code,'| msg:',e.message);if(e.code==='PERMISSION_DENIED'||e.message?.includes('PERMISSION_DENIED')){_lastSyncError='PERMISSION_DENIED — Firebase Rules chặn. Auth: '+(auth?.currentUser?.email||auth?.currentUser?.uid||'none');setSyncStatus('🔒','Rules chặn','rgba(192,96,106,0.8)');if(auth&&!auth.currentUser){auth.signInAnonymously().then(()=>{setTimeout(()=>pushLocalToFirebase(),2000);}).catch(e2=>console.warn('Re-auth failed:',e2.message));}else if(auth&&auth.currentUser){auth.currentUser.getIdToken(true).then(()=>{setTimeout(()=>pushLocalToFirebase(),2000);}).catch(e2=>console.warn('Token refresh failed:',e2.message));}}else if(e.message?.includes('network')||e.message?.includes('fetch')){_lastSyncError='Mất mạng: '+e.message;setSyncStatus('📶','Mất mạng','rgba(201,168,76,0.7)');}else{_lastSyncError=e.code+': '+e.message;setSyncStatus('⚠️','Lỗi sync','rgba(192,96,106,0.7)');}
 _syncRetryCount++;if(_syncRetryCount<=5){const delay=Math.min(20000*Math.pow(2,_syncRetryCount-1),320000);console.warn('🔄 Retry push #'+_syncRetryCount+' sau '+(delay/1000)+'s');setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},delay);}else{console.error('❌ Push thất bại sau 5 lần thử — dừng retry, chờ user reload');setSyncStatus('⚠️','Sync thất bại','rgba(192,96,106,0.9)');}}finally{setTimeout(()=>{_isSyncingToFirebase=false;},5000);}}
@@ -3182,7 +3186,7 @@ const h=Math.round((val/maxVal)*barH);const bg=val>=7?'var(--jade)':val>=5?'var(
     <div style="font-size:10.5px;color:var(--ink-muted);margin-top:6px;text-align:center">
       🟢 ≥7 · 🟡 ≥5 · 🔴 &lt;5 · Dựa trên dữ liệu thành viên đã đồng bộ
     </div>`;}
-function renderLeaderSeedsSummary(members){const el=document.getElementById('leader-seeds-summary');if(!el)return;const weekAgo=new Date();weekAgo.setDate(weekAgo.getDate()-7);const weekAgoStr=dateToVNKey(weekAgo);let totalActive=0,totalDone=0,totalReappear=0;const memberStats=[];members.forEach(([mid,m])=>{const seeds=m.seeds||[];if(!seeds.length)return;const active=seeds.filter(s=>s.status==='active').length;const done=seeds.filter(s=>s.status==='done').length;const reappear=seeds.filter(s=>s.status==='active'&&(s.checkins||[]).some(c=>c.appeared&&c.date>=weekAgoStr)).length;totalActive+=active;totalDone+=done;totalReappear+=reappear;if(seeds.length>0)memberStats.push({name:m.name,active,done,reappear});});if(totalActive===0&&totalDone===0){el.innerHTML=`<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">
+function renderLeaderSeedsSummary(members){const el=document.getElementById('leader-seeds-summary');if(!el)return;let totalActive=0,totalDone=0;const memberStats=[];members.forEach(([mid,m])=>{const active=m.seedsActive||0;const done=m.seedsDone||0;if(active===0&&done===0)return;totalActive+=active;totalDone+=done;memberStats.push({name:m.name,active,done,reappear:0});});if(totalActive===0&&totalDone===0){el.innerHTML=`<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">
       Chưa có dữ liệu hạt giống từ thành viên. Hạt giống cần được lưu và đồng bộ từ tab 😔 Hạt Giống.
     </div>`;return;}
 let html=`
@@ -3420,10 +3424,11 @@ db=database;if(_leaderGroupListener){_leaderGroupListener.off();_leaderGroupList
 const loadAll=async()=>{const todayK=todayKey();try{const[membersRaw,groupSnap,uidMapSnap]=await Promise.all([getMembersWithCache(db),db.ref('groups/'+fbKey(userInfo.groupCode)).once('value'),db.ref('uid_to_member').once('value')]);const membersData={};Object.entries(membersRaw).forEach(([k,m])=>{if((m.groupCode||'')===userInfo.groupCode)membersData[k]=m;});const stats=groupSnap.val()||{};const memberToUid={};Object.entries(uidMapSnap.val()||{}).forEach(([uid,mapping])=>{if(mapping.memberId)memberToUid[mapping.memberId]=uid;});const allMemberEntries=Object.entries(membersData).filter(([,m])=>isMemberApproved(m));const activeToday=Object.values(stats).filter(m=>m.date===todayK).length;leaderAllData={};const selfInMembers=allMemberEntries.some(([key,m])=>key===userInfo.memberId||(m.memberId||'')===userInfo.memberId||(m.email||'').toLowerCase()===(userInfo.email||'').toLowerCase());if(!selfInMembers&&userInfo.memberId&&userInfo.name){allMemberEntries.push([userInfo.memberId,{memberId:userInfo.memberId,name:userInfo.name,phone:userInfo.phone||'',email:userInfo.email||'',groupCode:userInfo.groupCode,firebaseUid:userInfo.firebaseUid||'',isLeader:true,registeredAt:'',}]);db.ref('members/'+userInfo.memberId).update({groupCode:userInfo.groupCode,isLeader:true,name:userInfo.name,}).catch(()=>{});if(userInfo.firebaseUid){db.ref('uid_to_member/'+userInfo.firebaseUid).update({memberId:userInfo.memberId,groupCode:userInfo.groupCode,}).catch(()=>{});}}
 const totalEl=document.getElementById('leader-total-members');const activeEl=document.getElementById('leader-active-today');if(totalEl)totalEl.textContent=allMemberEntries.length;if(activeEl)activeEl.textContent=activeToday;if(!allMemberEntries.length){if(list)list.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><p>Nhóm chưa có thành viên nào.</p></div>';const avgEl=document.getElementById('leader-avg-streak');if(avgEl)avgEl.textContent='0';return;}
 let loaded=0;allMemberEntries.forEach(([firebaseKey,memberInfo])=>{const mid=memberInfo.memberId||firebaseKey;const mStat=stats[mid]||{};leaderAllData[mid]={name:memberInfo.name||'–',stats:{...mStat,groupCode:memberInfo.groupCode},entries:{},phone:memberInfo.phone||'',email:memberInfo.email||'',referrer:memberInfo.referrer||'',registeredAt:memberInfo.registeredAt||'',firebaseUid:memberToUid[mid]||memberInfo.firebaseUid||null,};const encodedGC=fbKey(userInfo.groupCode);const rawGC=userInfo.groupCode||'';const memberUID=leaderAllData[mid]?.firebaseUid||memberToUid[mid]||null;const jPromise=(async()=>{const fetches=[db.ref('journals/'+encodedGC+'/'+mid).once('value').catch(()=>null),];if(rawGC!==encodedGC){fetches.push(db.ref('journals/'+rawGC+'/'+mid).once('value').catch(()=>null));}
-if(memberUID){fetches.push(db.ref('users/'+memberUID+'/daily').once('value').catch(()=>null));}
+// Note: cannot read other users' users/uid/daily (permission denied by design)
+// Journal data comes from journals/encodedGC/memberId path
 const snaps=await Promise.all(fetches);let merged={};const jEncoded=snaps[0]&&snaps[0].val();if(jEncoded&&typeof jEncoded==='object'){Object.entries(jEncoded).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk))merged[dk]=e;});}
 if(rawGC!==encodedGC&&snaps[1]){const jRaw=snaps[1].val();if(jRaw&&typeof jRaw==='object'){Object.entries(jRaw).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&!merged[dk])merged[dk]=e;});if(Object.keys(jRaw).length>0){db.ref('journals/'+encodedGC+'/'+mid).update(jRaw).catch(()=>{});}}}
-const dailyIdx=memberUID?(rawGC!==encodedGC?2:1):-1;if(dailyIdx>=0&&snaps[dailyIdx]){const dailyVal=snaps[dailyIdx].val();if(dailyVal&&typeof dailyVal==='object'){const converted={};Object.entries(dailyVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&e&&typeof e==='object'){const jEntry={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,spendRed:e.spendRed||0,seedsActive:e.seedsActive!=null?e.seedsActive:(window._selfSeedsActive||0),seedsDone:e.seedsDone!=null?e.seedsDone:(window._selfSeedsDone||0),};if(!merged[dk]){merged[dk]=jEntry;converted[dk]=jEntry;}else{if(!merged[dk].nnEnergy||Object.keys(merged[dk].nnEnergy||{}).length===0){merged[dk].nnEnergy=jEntry.nnEnergy;}}}});if(Object.keys(converted).length>0){db.ref('journals/'+encodedGC+'/'+mid).update(converted).catch(()=>{});}}}
+// users/uid/daily read removed - data comes from journals/ path
 return{val:()=>merged};})().catch(()=>null);const promises=[jPromise];Promise.all(promises).then((results)=>{const jSnap=results[0];const journalData=jSnap?(jSnap.val()||{}):{};if(mid===userInfo.memberId){try{const myStats=JSON.parse(localStorage.getItem('my-team-stats-'+userInfo.memberId)||'null');if(myStats)leaderAllData[mid].stats={...leaderAllData[mid].stats,...myStats};}catch(e){}}
 leaderAllData[mid].entries=journalData;const jKeys=Object.keys(journalData).sort().reverse();let latestSeedsActive=0,latestSeedsDone=0;for(const jk of jKeys){const je=journalData[jk];if(je&&je.seedsActive!=null){latestSeedsActive=je.seedsActive||0;latestSeedsDone=je.seedsDone||0;break;}}
 leaderAllData[mid].seeds=[];leaderAllData[mid].seedsActive=latestSeedsActive;leaderAllData[mid].seedsDone=latestSeedsDone;loaded++;if(loaded===allMemberEntries.length){let totalDays=0;Object.values(leaderAllData).forEach(m=>{totalDays+=Object.keys(m.entries).length;});const avgStreak=allMemberEntries.length?Math.round(totalDays/allMemberEntries.length):0;const avgEl=document.getElementById('leader-avg-streak');if(avgEl)avgEl.textContent=avgStreak;window._lmDetailEntries=window._lmDetailEntries||{};Object.entries(leaderAllData).forEach(([mid,m])=>{window._lmDetailEntries[mid]=m.entries;});renderLeaderMemberList();renderLeaderDashboard();}}).catch(()=>{loaded++;if(loaded===allMemberEntries.length){renderLeaderMemberList();renderLeaderDashboard();}});});}catch(e){if(list)list.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi tải dữ liệu: '+e.message+'</p></div>';}};loadAll();if(window._leaderRefreshTimer)clearInterval(window._leaderRefreshTimer);window._leaderRefreshTimer=setInterval(loadAll,60000);});}
@@ -3603,7 +3608,7 @@ await Promise.all(leaderGroupCodes.map(async gc=>{
   for(const p of [gcK,gc,gcUnderscore]){
     if(!triedPaths.has(p)){triedPaths.add(p);pathRefs.push(database.ref('journals/'+p+'/'+mid).once('value').catch(()=>null));}
   }
-  if(uid)pathRefs.push(database.ref('users/'+uid+'/daily').once('value').catch(()=>null));
+  // users/uid/daily not readable by admin per privacy rules - journals/ is sufficient
   const paths=pathRefs;
 
   const snaps=await Promise.all(paths);
@@ -3684,16 +3689,14 @@ try{
 }catch(e){console.warn('Load leader training stats:',e);}
 
 
-try{const leaderGroupCodes2=Object.keys(leaderByGroup);window._adminGroupJournals={};window._adminGroupWeeklyNN={};await Promise.all(leaderGroupCodes2.map(async gc=>{const nonLeaders=(membersByGroup[gc]||[]).filter(m=>!m.isLeader);if(!nonLeaders.length)return;const memberJournals={};await Promise.all(nonLeaders.map(async m=>{const mid=m.memberId;if(!mid)return;try{const uid=midToUidAll[mid]||null;const fetches=[database.ref('journals/'+fbKey(gc)+'/'+mid).once('value').catch(()=>null),];if(uid)fetches.push(database.ref('users/'+uid+'/daily').once('value').catch(()=>null));const[jSnap,dailySnap]=await Promise.all(fetches);let merged={};const jVal=jSnap&&jSnap.val();if(jVal&&typeof jVal==='object'){Object.entries(jVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk))merged[dk]=e;});}
-if(dailySnap){const dailyVal=dailySnap.val();if(dailyVal&&typeof dailyVal==='object'){const toMigrate={};Object.entries(dailyVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&e&&typeof e==='object'){const jEntry={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,spendRed:e.spendRed||0,};if(!merged[dk]){merged[dk]=jEntry;toMigrate[dk]=jEntry;}else if(!merged[dk].nnEnergy||Object.keys(merged[dk].nnEnergy||{}).length===0){merged[dk].nnEnergy=jEntry.nnEnergy;}}});if(Object.keys(toMigrate).length>0){database.ref('journals/'+fbKey(gc)+'/'+mid).update(toMigrate).catch(()=>{});}}}
+try{const leaderGroupCodes2=Object.keys(leaderByGroup);window._adminGroupJournals={};window._adminGroupWeeklyNN={};await Promise.all(leaderGroupCodes2.map(async gc=>{const nonLeaders=(membersByGroup[gc]||[]).filter(m=>!m.isLeader);if(!nonLeaders.length)return;const memberJournals={};await Promise.all(nonLeaders.map(async m=>{const mid=m.memberId;if(!mid)return;try{const uid=midToUidAll[mid]||null;const fetches=[database.ref('journals/'+fbKey(gc)+'/'+mid).once('value').catch(()=>null),];// users/uid/daily skipped per privacy rules
+const[jSnap]=await Promise.all(fetches);let merged={};const jVal=jSnap&&jSnap.val();if(jVal&&typeof jVal==='object'){Object.entries(jVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk))merged[dk]=e;});}
 if(Object.keys(merged).length>0)memberJournals[mid]=merged;}catch(e){}}));window._adminGroupJournals[gc]=memberJournals;const todayBase=new Date(Date.now()+7*60*60*1000);const makeKeys=(startDay,count)=>{const keys=[];for(let i=startDay;i<startDay+count;i++){const d=new Date(todayBase);d.setUTCDate(d.getUTCDate()-i);keys.push(d.toISOString().split('T')[0]);}
 return keys;};const week1Keys=makeKeys(0,7);const week2Keys=makeKeys(7,7);const calcWeakNNKey=(dayKeys)=>{if(typeof NN_LIST==='undefined'||!NN_LIST.length)return null;const nnSums=NN_LIST.map(()=>({sum:0,count:0}));Object.values(memberJournals).forEach(jData=>{dayKeys.forEach(dk=>{const je=jData[dk];if(!je)return;let nnVals=[];if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy)){nnVals=NN_LIST.map(nn=>Number(je.nnEnergy[nn.key]||0));}else if(Array.isArray(je.nnEnergy)){nnVals=je.nnEnergy.map(Number);}
 nnVals.forEach((v,j)=>{if(v>0&&j<nnSums.length){nnSums[j].sum+=v;nnSums[j].count++;}});});});const avgs=nnSums.map((s,j)=>({key:NN_LIST[j].key,avg:s.count?Math.round(s.sum/s.count*10)/10:null}));const valid=avgs.filter(a=>a.avg!==null);if(!valid.length)return null;valid.sort((a,b)=>a.avg-b.avg);return valid[0].key;};window._adminGroupWeeklyNN[gc]={week1:calcWeakNNKey(week1Keys),week2:calcWeakNNKey(week2Keys),};}));}catch(e){console.warn('Load group journals for admin:',e);}
-const leaderOkrStats={};try{const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;const uid=midToUidAll[mid];if(!uid)return;try{const monthSnap=await database.ref('users/'+uid+'/monthly/'+cy+'_'+cm).once('value');const md=monthSnap.val();if(!md||!md.weekOKR)return;let totalO=0,doneO=0,totalKR=0,doneKR=0;Object.values(md.weekOKR).forEach(w=>{(w.objectives||[]).forEach(o=>{if(!o||!o.text)return;const krs=(o.krs||[]).filter(kr=>kr&&kr.text);// Chỉ đếm O có KR
-if(!krs.length)return;const isKrDone=kr=>kr.done===true||(kr.done===undefined&&(kr.score||0)>=10);const doneCnt=krs.filter(isKrDone).length;const sc=doneCnt/krs.length*10;totalO++;totalKR+=krs.length;doneKR+=doneCnt;if(sc>=7)doneO++;});});leaderOkrStats[mid]={totalO,doneO,totalKR,doneKR,rate:totalO?Math.round(doneO/totalO*100):null};}catch(e){}}));}catch(e){console.warn('Load leader OKR:',e);}
-const leaderMonthlyData={};try{const now2=new Date(Date.now()+7*60*60*1000);const cy2=now2.getUTCFullYear(),cm2=now2.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy2,m=cm2-i;while(m<0){m+=12;y--;}
-monthKeys.push({y,m,key:y+'_'+m});}
-await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;const uid=midToUidAll[mid];if(!uid)return;try{const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk.key).once('value').catch(()=>null)));const monthHistory={};monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthHistory[mk.key]=v;});leaderMonthlyData[mid]=monthHistory;}catch(e){}}));}catch(e){console.warn('Load leader monthly data:',e);}
+const leaderOkrStats={};try{const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const mk=cy+'_'+cm;await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;try{const gcK=typeof fbKey==='function'?fbKey(gc):gc;const summarySnap=await database.ref('journals/'+gcK+'/'+mid+'/monthly_summary/'+mk).once('value').catch(()=>null);const md=summarySnap&&summarySnap.val();if(!md||!md.weekOKR)return;let totalO=0,doneO=0,totalKR=0,doneKR=0;Object.values(md.weekOKR).forEach(w=>{(w.objectives||[]).forEach(o=>{if(!o)return;const krs=(o.krs||[]).filter(kr=>kr);if(!krs.length)return;const isKrDone=kr=>kr.done===true||(kr.score||0)>=10;const doneCnt=krs.filter(isKrDone).length;const sc=krs.length?doneCnt/krs.length*10:0;totalO++;totalKR+=krs.length;doneKR+=doneCnt;if(sc>=7)doneO++;});});leaderOkrStats[mid]={totalO,doneO,totalKR,doneKR,rate:totalO?Math.round(doneO/totalO*100):null};}catch(e){}}));}catch(e){console.warn('Load leader OKR:',e);}
+const leaderMonthlyData={};try{const now2=new Date(Date.now()+7*60*60*1000);const cy2=now2.getUTCFullYear(),cm2=now2.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy2,m=cm2-i;while(m<0){m+=12;y--;}monthKeys.push({y,m,key:y+'_'+m});}
+await Promise.all(Object.entries(leaderByGroup).map(async([gc,lr])=>{const mid=lr.memberId||lr.id;if(!mid)return;try{const gcK=typeof fbKey==='function'?fbKey(gc):gc;const snaps=await Promise.all(monthKeys.map(mk=>database.ref('journals/'+gcK+'/'+mid+'/monthly_summary/'+mk.key).once('value').catch(()=>null)));const monthHistory={};monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthHistory[mk.key]=v;});if(Object.keys(monthHistory).length)leaderMonthlyData[mid]=monthHistory;}catch(e){}}));}catch(e){console.warn('Load leader monthly data:',e);}
 window._adminLeaderByGroup=leaderByGroup;window._adminLeaderTrainingStats=leaderTrainingStats;window._adminLeaderOkrStats=leaderOkrStats;window._adminLeaderMonthlyData=leaderMonthlyData;window._adminMembersByGroup=membersByGroup;renderAdminLeaderMonitor(leaderByGroup,membersByGroup,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,true,null,leaderMonthlyData);renderAdminLeaders(approved,leaderByGroup,membersByGroup,allGroupCodes,membersAll,leaderTrainingStats,leaderJournalHistory,leaderOkrStats,leaderMonthlyData);// After all data loaded, re-derive leaderTrainingStats for leaders now having jHist from second pass
 leaderGroupCodes.forEach(gc=>{
   const lr=leaderByGroup[gc];const mid=lr.memberId||lr.id;if(!mid)return;
@@ -3876,7 +3879,6 @@ window.adminEnsureLeaderData=async function(mid){
     const pathSnaps=await Promise.all([
       database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
       (gc!==gcK)?database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null):null,
-      uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
     ].filter(Boolean));
 
     pathSnaps.forEach(snap=>{
@@ -3986,8 +3988,7 @@ window.adminRefreshCardBody=function(mid){
       jPromises.push(database.ref('journals/'+gcK+'/'+fbKey(mid)).once('value').catch(()=>null));
       if(rawGC!==gcK)jPromises.push(database.ref('journals/'+rawGC+'/'+mid).once('value').catch(()=>null));
     }
-    // Also read users/daily in same batch
-    if(foundUid)jPromises.push(database.ref('users/'+foundUid+'/daily').once('value').catch(()=>null));
+    // users/daily skipped per privacy rules - journals/ is sufficient
 
     const jSnaps=await Promise.all(jPromises);
     jSnaps.forEach(snap=>{
@@ -4004,13 +4005,14 @@ window.adminRefreshCardBody=function(mid){
       }
     });
 
-    // Load monthly data
+    // Load monthly summary from journals/ (text-stripped, admin-readable)
     let monthlyData={};
-    if(foundUid){try{
+    if(gc){try{
+      const gcKM=typeof fbKey==='function'?fbKey(gc):gc;
       const now=new Date(Date.now()+7*3600000);
       const cy=now.getUTCFullYear(),cm=now.getUTCMonth();
       const mks=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}mks.push(y+'_'+m);}
-      const mSnaps=await Promise.all(mks.map(mk=>database.ref('users/'+foundUid+'/monthly/'+mk).once('value').catch(()=>null)));
+      const mSnaps=await Promise.all(mks.map(mk=>database.ref('journals/'+gcKM+'/'+mid+'/monthly_summary/'+mk).once('value').catch(()=>null)));
       mks.forEach((mk,i)=>{const v=mSnaps[i]&&mSnaps[i].val();if(v)monthlyData[mk]=v;});
     }catch(e){}}
 
@@ -4025,10 +4027,9 @@ async function adminLazyLoadLeaderStreak(mid,type){const elStreak=document.getEl
 targetEl.innerHTML='<div style="font-size:10px;color:var(--ink-muted);text-align:center;padding:6px">Đang tải...</div>';try{const database=await loadFirebase();if(!database)throw new Error('No DB');let gc=null;if(window._adminGroupsAll){for(const[gKey,gData]of Object.entries(window._adminGroupsAll)){if(gData&&gData[mid]){gc=gKey;break;}}}
 if(!gc){try{const mSnap=await database.ref('members/'+mid).once('value');const mVal=mSnap.val();if(mVal&&mVal.groupCode)gc=typeof fbKey==='function'?fbKey(mVal.groupCode):mVal.groupCode;}catch(e){}}
 let jHist={};let foundUid=null;const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);const uidMap=(uidMapSnap&&uidMapSnap.val())||{};const uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===mid);foundUid=uid;if(gc){const jSnap=await database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null);const jRaw=(jSnap&&jSnap.val())||{};Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});if(!Object.keys(jHist).length){const jSnap2=await database.ref('journals/'+gc+'/'+(typeof fbKey==='function'?fbKey(mid):mid)).once('value').catch(()=>null);if(jSnap2&&jSnap2.val()){const jRaw2=jSnap2.val();Object.keys(jRaw2).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw2[k];});}}}
-if(!Object.keys(jHist).length&&foundUid){try{const dailySnap=await database.ref('users/'+foundUid+'/daily').once('value').catch(()=>null);const dailyVal=dailySnap&&dailySnap.val();if(dailyVal&&typeof dailyVal==='object'){Object.entries(dailyVal).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&e&&typeof e==='object'){jHist[dk]={rituals:e.rituals||{},energy:e.energy||5,nnEnergy:e.nnEnergy||{},recvGreen:e.recvGreen||0,recvRed:e.recvRed||0,spendGreen:e.spendGreen||0,spendRed:e.spendRed||0,seedsActive:e.seedsActive||0,seedsDone:e.seedsDone||0,};}});if(gc&&Object.keys(jHist).length>0){database.ref('journals/'+gc+'/'+mid).update(jHist).catch(()=>{});}}}catch(eDl){}}
-let monthlyData={};try{if(foundUid){const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}
-monthKeys.push(y+'_'+m);}
-const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+foundUid+'/monthly/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}}catch(e){}
+// users/daily fallback removed per privacy rules
+let monthlyData={};try{if(gc){const gcKLS=typeof fbKey==='function'?fbKey(gc):gc;const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}
+const snaps=await Promise.all(monthKeys.map(mk=>database.ref('journals/'+gcKLS+'/'+mid+'/monthly_summary/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}}catch(e){}
 const cacheData={jHist,monthlyData,mid};window._adminLeaderJHistCache[mid]=cacheData;if(elStreak)elStreak.innerHTML=buildStreakDetail(cacheData);if(elReport){elReport.innerHTML=buildReportDetail(cacheData);setTimeout(function(){renderAllReportCharts(elReport);},80);}}catch(e){targetEl.innerHTML='<div style="font-size:10px;color:var(--rose);padding:4px">Lỗi tải dữ liệu: '+(e.message||'')+'</div>';}}
 function buildStreakDetail(a){const nnLabels=typeof NN_LIST!=='undefined'?NN_LIST.map(n=>n.label.split('·')[0].trim()):['NN1','NN2','NN3','NN4','NN5'];const allKeys=Object.keys(a.jHist||{}).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort();if(!allKeys.length){return'<div style="font-size:11px;color:var(--ink-muted);font-style:italic;text-align:center;padding:6px">Chưa có dữ liệu journal</div>';}
 const rows=allKeys.map(dk=>{const je=(a.jHist||{})[dk]||{};let ritDone=0;if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;else if(typeof je.rituals==='number')ritDone=je.rituals;const ritPct=Math.round((ritDone/9)*100);let nnVals=[];if(typeof NN_LIST!=='undefined'){NN_LIST.forEach((nn,i)=>{let v=null;if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[nn.key]);else if(Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[i]);nnVals.push((!isNaN(v)&&v>0)?v:null);});}
@@ -4039,9 +4040,8 @@ nnHeaders+'</tr></thead>'+'<tbody>'+rows.join('')+'</tbody>'+'</table>'+'</div>'
 function buildReportDetail(a){const jHist=a.jHist||{};const monthlyData=a.monthlyData||{};if(!Object.keys(jHist).length&&!Object.keys(monthlyData).length){return'<div style="font-size:11px;color:var(--ink-muted);font-style:italic;text-align:center;padding:8px">Chưa có dữ liệu</div>';}
 const midSafe=escHtml(a.mid);const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const getMonths=(n)=>{const res=[];for(let i=n-1;i>=0;i--){let y=cy,m=cm-i;while(m<0){m+=12;y--;}res.push({y,m,key:y+'_'+m});}
 return res;};const getDaysInRange=(months)=>{const keys=[];months.forEach(mo=>{const prefix=mo.y+'-'+String(mo.m+1).padStart(2,'0');Object.keys(jHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&k.startsWith(prefix)).forEach(k=>keys.push(k));});return keys.sort();};const calcStats=(months,days)=>{const totalDays=days.length;const daysActive=days.filter(k=>{const e=jHist[k];if(!e)return false;return Object.values(e.rituals||{}).some(Boolean)||(e.nnEnergy&&Object.values(e.nnEnergy||{}).some(v=>v>0));}).length;const totalRituals=days.reduce((s,k)=>s+Object.values(jHist[k]&&jHist[k].rituals||{}).filter(Boolean).length,0);const maxRituals=totalDays*9;const ritualPct=maxRituals>0?Math.round(totalRituals/maxRituals*100):0;let nnSum=0,nnCount=0;days.forEach(k=>{const e=jHist[k];if(!e||!e.nnEnergy)return;const vals=typeof NN_LIST!=='undefined'?NN_LIST.map((nn,i)=>{let v=typeof e.nnEnergy==='object'&&!Array.isArray(e.nnEnergy)?Number(e.nnEnergy[nn.key]):(Array.isArray(e.nnEnergy)?Number(e.nnEnergy[i]):null);return(!isNaN(v)&&v>0)?v:null;}).filter(v=>v!==null):Object.values(e.nnEnergy||{}).map(Number).filter(v=>!isNaN(v)&&v>0);if(vals.length){nnSum+=vals.reduce((a,b)=>a+b,0)/vals.length;nnCount++;}});const avgNL=nnCount>0?Math.round(nnSum/nnCount*10)/10:null;let maxStreak=0,curRun=0,prev=null;const trainedDays=days.filter(k=>Object.values(jHist[k]&&jHist[k].rituals||{}).some(Boolean)).sort();trainedDays.forEach(k=>{if(!prev){curRun=1;}else{const diff=(new Date(k)-new Date(prev))/86400000;curRun=diff===1?curRun+1:1;}
-maxStreak=Math.max(maxStreak,curRun);prev=k;});let totO=0,doneO=0,totKR=0,doneKR=0;const okrByMonth=[];const houseMap={};months.forEach(mo=>{const md=monthlyData[mo.key];const mKey=mo.y+'-'+String(mo.m+1).padStart(2,'0');const mDays=days.filter(k=>k.startsWith(mKey));const ritPctM=mDays.length?Math.round(mDays.reduce((s,k)=>s+Object.values(jHist[k]&&jHist[k].rituals||{}).filter(Boolean).length,0)/(mDays.length*9)*100):0;let mTotO=0,mDoneO=0;if(md&&md.weekOKR){const houses=md.houses||[];Object.values(md.weekOKR).forEach(w=>{if(!w||typeof w!=='object')return;(w.objectives||[]).forEach(obj=>{if(!obj||!obj.text)return;const krs=(obj.krs||[]).filter(kr=>kr&&kr.text);// Chỉ đếm O có KR (giống tab cá nhân)
-if(!krs.length)return;// kr.done có thể undefined trong Firebase — fallback sang kr.score>=10 (giống logic app)
-const isKrDone=kr=>kr.done===true||(kr.done===undefined&&(kr.score||0)>=10);const doneCnt=krs.filter(isKrDone).length;const sc=doneCnt/krs.length*10;totKR+=krs.length;doneKR+=doneCnt;totO++;mTotO++;if(sc>=7){doneO++;mDoneO++;}
+maxStreak=Math.max(maxStreak,curRun);prev=k;});let totO=0,doneO=0,totKR=0,doneKR=0;const okrByMonth=[];const houseMap={};months.forEach(mo=>{const md=monthlyData[mo.key];const mKey=mo.y+'-'+String(mo.m+1).padStart(2,'0');const mDays=days.filter(k=>k.startsWith(mKey));const ritPctM=mDays.length?Math.round(mDays.reduce((s,k)=>s+Object.values(jHist[k]&&jHist[k].rituals||{}).filter(Boolean).length,0)/(mDays.length*9)*100):0;let mTotO=0,mDoneO=0;if(md&&md.weekOKR){const houses=md.houses||[];Object.values(md.weekOKR).forEach(w=>{if(!w||typeof w!=='object')return;(w.objectives||[]).forEach(obj=>{if(!obj)return;const krs=(obj.krs||[]).filter(kr=>kr);// stripped summary has no text - count any obj with KRs
+if(!krs.length)return;const isKrDone=kr=>kr.done===true||(kr.score||0)>=10;const doneCnt=krs.filter(isKrDone).length;const sc=krs.length?doneCnt/krs.length*10:0;totKR+=krs.length;doneKR+=doneCnt;totO++;mTotO++;if(sc>=7){doneO++;mDoneO++;}
 if(obj.houseId){const h=houses.find(h=>h.id===obj.houseId);if(!h)return;const nm=(h.icon||'')+' '+(h.name||'?');if(!houseMap[nm])houseMap[nm]={totKR:0,doneKR:0,objs:0,doneObj:0,sm:h.successMetric||''};houseMap[nm].objs++;if(sc>=7)houseMap[nm].doneObj++;houseMap[nm].totKR+=krs.length;houseMap[nm].doneKR+=doneCnt;}});});}
 const lbl='T'+(mo.m+1)+(months.length>6?'/'+String(mo.y).slice(2):'');okrByMonth.push({label:lbl,ritPct:ritPctM,okrPct:mTotO>0?Math.round(mDoneO/mTotO*100):null});});let seedsActive=null,seedsDone=null;const jHistKeys=Object.keys(jHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse();for(const dk of jHistKeys){const je=jHist[dk];if(!je)continue;if(seedsActive===null&&je.seedsActive!=null)seedsActive=je.seedsActive;if(seedsDone===null&&je.seedsDone!=null)seedsDone=je.seedsDone;if(seedsActive!==null&&seedsDone!==null)break;}
 if(seedsActive===null||seedsDone===null){for(let i=months.length-1;i>=0;i--){const md=monthlyData[months[i].key];if(md){if(seedsActive===null&&md.seedsActive!=null)seedsActive=md.seedsActive;if(seedsDone===null&&md.seedsDone!=null)seedsDone=md.seedsDone;if(seedsActive!==null&&seedsDone!==null)break;}}}
@@ -4074,7 +4074,6 @@ async function adminMemberToggle(type,memberId,groupCode,memberName){
     const jSnaps=await Promise.all([
       gcK?database.ref('journals/'+gcK+'/'+memberId).once('value').catch(()=>null):null,
       (rawGC&&rawGC!==gcK)?database.ref('journals/'+rawGC+'/'+memberId).once('value').catch(()=>null):null,
-      uid?database.ref('users/'+uid+'/daily').once('value').catch(()=>null):null,
     ].filter(Boolean));
     jSnaps.forEach(snap=>{
       const val=snap&&snap.val();if(!val||typeof val!=='object')return;
@@ -4084,10 +4083,12 @@ async function adminMemberToggle(type,memberId,groupCode,memberName){
       });
     });
     let monthlyData={};
-    if(uid){try{
+    // Read monthly summary from journals/ (text-stripped, admin-readable)
+    if(groupCode){try{
+      const gcK2=typeof fbKey==='function'?fbKey(groupCode):groupCode;
       const now=new Date(Date.now()+7*3600000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();
       const mks=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}mks.push(y+'_'+m);}
-      const ms=await Promise.all(mks.map(mk=>database.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));
+      const ms=await Promise.all(mks.map(mk=>database.ref('journals/'+gcK2+'/'+memberId+'/monthly_summary/'+mk).once('value').catch(()=>null)));
       mks.forEach((mk,i)=>{const v=ms[i]&&ms[i].val();if(v)monthlyData[mk]=v;});
     }catch(e){}}
     window._adminMemberCache[memberId]={jHist,monthlyData,mid:memberId};
@@ -4115,9 +4116,9 @@ if(!uid){const uidMapSnap=await database.ref('uid_to_member').once('value').catc
 // Build jHist from existing data or fetch from Firebase
 let jHist={};if(Object.keys(existingJHist).length>0){Object.keys(existingJHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=existingJHist[k];});}else{const gcKey=typeof fbKey==='function'?fbKey(groupCode):groupCode;const rawGC=groupCode||'';let jSnap=await database.ref('journals/'+gcKey+'/'+memberId).once('value').catch(()=>null);let jRaw=(jSnap&&jSnap.val())||{};if(!Object.keys(jRaw).length&&rawGC!==gcKey){try{const jSnap2=await database.ref('journals/'+rawGC+'/'+memberId).once('value');if(jSnap2&&jSnap2.val())jRaw=jSnap2.val();}catch(e2){}}
 Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});}
-// Load monthlyData via UID
-let monthlyData={};if(uid){try{const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}
-const snaps=await Promise.all(monthKeys.map(mk=>database.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}catch(e){}}
+// Load monthlyData from journals/ monthly_summary (text-stripped)
+let monthlyData={};if(groupCode){try{const gcKL=typeof fbKey==='function'?fbKey(groupCode):groupCode;const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}
+const snaps=await Promise.all(monthKeys.map(mk=>database.ref('journals/'+gcKL+'/'+memberId+'/monthly_summary/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}catch(e){}}
 const cacheData={jHist,monthlyData,mid:memberId};window._adminMemberCache[memberId]=cacheData;_leaderMemberRender(type,memberId,cacheData,idPfx,true);}catch(e){console.warn('leaderMemberToggle error:',e);}}
 function _leaderMemberRender(type,memberId,data,pfx,fromUserClick){
   // Only open popup when user explicitly clicked (not during data reload)
@@ -4615,7 +4616,72 @@ function loadMonthData(y,m){try{const raw=localStorage.getItem(storageKey(y,m));
 return null;}
 function saveMonthData(y,m,d){try{localStorage.setItem(storageKey(y,m),JSON.stringify(d));}catch(e){}
 if(!window._monthlyPushTimer)window._monthlyPushTimer={};const key=y+'_'+m;clearTimeout(window._monthlyPushTimer[key]);window._monthlyPushTimer[key]=setTimeout(()=>{_pushMonthToFirebase(y,m,d);},1500);}
-function _pushMonthToFirebase(y,m,d){const path=_monthlyFbPath(y,m);if(!path)return;try{db.ref(path).set(Object.assign({},d,{_syncedAt:Date.now()})).catch(e=>console.warn('Monthly push failed:',e));}catch(e){}}
+
+// One-time migration: push old monthly data as stripped summaries to journals/
+// Runs silently on login so admin/leader can see historical data immediately
+async function _migrateMonthlySummaries(){
+  const MIGRATION_KEY='nk5nn-monthly-migrated-v1';
+  if(localStorage.getItem(MIGRATION_KEY)==='true')return;
+  if(!db||!userInfo||!userInfo.memberId||!userInfo.groupCode)return;
+  try{
+    const uid=userInfo.firebaseUid||userInfo.memberId;
+    if(!uid)return;
+    const now=new Date(Date.now()+7*60*60*1000);
+    const cy=now.getUTCFullYear(),cm=now.getUTCMonth();
+    const monthKeys=[];
+    for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}
+    const snaps=await Promise.all(monthKeys.map(mk=>db.ref('users/'+uid+'/monthly/'+mk).once('value').catch(()=>null)));
+    const gcK=typeof fbKey==='function'?fbKey(userInfo.groupCode):userInfo.groupCode;
+    const batch={};
+    monthKeys.forEach((mk,i)=>{
+      const v=snaps[i]&&snaps[i].val();
+      if(!v)return;
+      const stripped=typeof _monthlyStripText==='function'?_monthlyStripText(v):{_syncedAt:Date.now()};
+      // Only write if has meaningful data (weekOKR or houses)
+      if(stripped.weekOKR||stripped.houses){
+        batch['journals/'+gcK+'/'+userInfo.memberId+'/monthly_summary/'+mk]=stripped;
+      }
+    });
+    if(Object.keys(batch).length>0){
+      await db.ref().update(batch);
+      console.log('[Migration] Pushed '+Object.keys(batch).length+' monthly summaries to journals/');
+    }
+    localStorage.setItem(MIGRATION_KEY,'true');
+  }catch(e){
+    console.warn('[Migration] Monthly summary migration failed:',e.message);
+  }
+}
+function _monthlyStripText(d){
+  // Strip all text fields from monthly data → safe for journals/ (admin/leader readable)
+  if(!d||typeof d!=='object')return {};
+  const stripped={_syncedAt:d._syncedAt||Date.now()};
+  // houses: array of scores (numbers only)
+  if(Array.isArray(d.houses))stripped.houses=d.houses.map(v=>typeof v==='number'?v:0);
+  // seedsActive, seedsDone: counts only
+  if(d.seedsActive!=null)stripped.seedsActive=d.seedsActive;
+  if(d.seedsDone!=null)stripped.seedsDone=d.seedsDone;
+  // weekOKR: keep only done/score per KR, drop all text
+  if(d.weekOKR&&typeof d.weekOKR==='object'){
+    const strippedWOKR={};
+    Object.entries(d.weekOKR).forEach(([wk,w])=>{
+      if(!w||typeof w!=='object')return;
+      const strippedObjs=(w.objectives||[]).map(obj=>{
+        if(!obj)return null;
+        const krs=(obj.krs||[]).map(kr=>{
+          if(!kr)return null;
+          return{done:kr.done===true,score:kr.score||0};
+        }).filter(Boolean);
+        return{krs};
+      }).filter(Boolean);
+      if(strippedObjs.length)strippedWOKR[wk]={objectives:strippedObjs};
+    });
+    if(Object.keys(strippedWOKR).length)stripped.weekOKR=strippedWOKR;
+  }
+  return stripped;
+}
+function _pushMonthToFirebase(y,m,d){const path=_monthlyFbPath(y,m);if(!path)return;try{db.ref(path).set(Object.assign({},d,{_syncedAt:Date.now()})).catch(e=>console.warn('Monthly push failed:',e));}catch(e){}
+// Also push stripped (text-free) summary to journals/ so admin/leader can read stats without text
+try{if(db&&userInfo&&userInfo.groupCode&&userInfo.memberId){const gc=typeof fbKey==='function'?fbKey(userInfo.groupCode):userInfo.groupCode;const summaryPath='journals/'+gc+'/'+userInfo.memberId+'/monthly_summary/'+y+'_'+m;db.ref(summaryPath).set(_monthlyStripText(d)).catch(()=>{});}}catch(e){}}
 function _pullMonthFromFirebase(y,m,onDone){const path=_monthlyFbPath(y,m);if(!path||!db||!userInfo){if(onDone)onDone(null);return;}
 if(window.location.protocol==='file:'){if(onDone)onDone(null);return;}
 try{db.ref(path).once('value').then(snap=>{const remote=snap.val();if(!remote){if(onDone)onDone(null);return;}
