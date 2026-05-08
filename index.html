@@ -2329,7 +2329,21 @@ window._lastRefreshedDay=k;
 // Set _updatedAt = now + 60s so this fresh entry wins against any stale cloud data
 // Historical data stays in data[yesterdayKey] and is NOT deleted
 const _resetTs=Date.now()+60000;
-data[k]={rituals:{},dims:{},_updatedAt:_resetTs};
+// Reset ALL daily fields - text, finance, rituals, energy, tasks
+data[k]={
+  rituals:{},dims:{},
+  lesson:'',seedGreen:'',seedRed:'',
+  gratitude1:'',gratitude2:'',gratitude3:'',
+  selfLetter:'',selfProud:'',
+  recvGreen:0,recvRed:0,spendGreen:0,spendRed:0,
+  moneySeed:'',finNote:'',moneyHumble:'',
+  wishContent:'',wishDeadline:'',wishReceived:'',wishFeeling:'',
+  dailyGood:'',dailyImprove:'',
+  energy:5,nnEnergy:{},
+  tasksV2:{main:[{text:'',done:false},{text:'',done:false},{text:'',done:false},{text:'',done:false}],reject:[{text:'',done:false},{text:'',done:false},{text:'',done:false}],delegate:[{text:'',done:false},{text:'',done:false},{text:'',done:false}],outsource:[{text:'',done:false},{text:'',done:false}],automate:[{text:'',done:false},{text:'',done:false}],extra:[]},
+  savedToday:false,savedEnergy:false,savedGratitude:false,savedWish:false,savedFinance:false,
+  _updatedAt:_resetTs
+};
 try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
 // Mark today as freshly reset so _applyRemoteData won't overwrite with yesterday's cloud data
 try{localStorage.setItem(LAST_RESET_DAY_KEY,k);}catch(e){}
@@ -2591,7 +2605,16 @@ const _justResetToday=(date===_todayKCheck&&(()=>{try{return localStorage.getIte
 const _remoteHasContent=Object.values(remoteEntry.rituals||{}).some(Boolean)||(remoteEntry.nnEnergy&&Object.values(remoteEntry.nnEnergy).some(v=>v&&v!==5))||remoteEntry.lesson||remoteEntry.seedGreen||remoteEntry.seedRed||remoteEntry.energy>5;
 if(_justResetToday&&!_remoteHasContent){return;} // Skip: remote is stale yesterday data
 data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;if(_lEmpty&&_rHas){data[date]=remoteEntry;return;}
-// Removed justReset3 guard - allow merging remote today data from other devices
+// If today was freshly reset (our _updatedAt=now+60 > remote's old timestamp),
+// keep today's entry clean - don't merge yesterday's remote content into it.
+// Only merge if remote has genuinely NEW today data (written on another device TODAY).
+const _todayKMerge=todayKey();
+const _todayFreshReset=(date===_todayKMerge&&lTs>Date.now()&&(()=>{try{return localStorage.getItem(LAST_RESET_DAY_KEY)===_todayKMerge;}catch(e){return false;}})());
+if(_todayFreshReset){
+  // Keep local fresh empty entry - remote is yesterday's stale data
+  data[date]=localEntry;
+  return;
+}
 const base=rTs>lTs?Object.assign({},localEntry,remoteEntry):Object.assign({},remoteEntry,localEntry);base.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});const localTasks=localEntry.tasksV2;const remoteTasks=remoteEntry.tasksV2;if(localTasks||remoteTasks){const mergedTasks=Object.assign({},remoteTasks||{},localTasks||{});if(rTs>lTs&&remoteTasks){['main','reject','delegate','outsource','automate','extra'].forEach(sec=>{const lArr=(localTasks||{})[sec];const rArr=remoteTasks[sec];if(Array.isArray(rArr)&&rArr.some(t=>t.text)){mergedTasks[sec]=rArr;}else if(Array.isArray(lArr)&&lArr.some(t=>t.text)){mergedTasks[sec]=lArr;}else{mergedTasks[sec]=rArr||lArr;}});}
 base.tasksV2=mergedTasks;}
 const localNN=localEntry.nnEnergy||{};const remoteNN=remoteEntry.nnEnergy||{};const mergedNN={};NN_LIST.forEach(nn=>{const lv=localNN[nn.key];const rv=remoteNN[nn.key];if(lv&&rv){mergedNN[nn.key]=rTs>lTs?rv:lv;}else{mergedNN[nn.key]=lv||rv||null;}});const hasAnyNN=Object.values(mergedNN).some(v=>v!==null&&v!==undefined);if(hasAnyNN)base.nnEnergy=mergedNN;else if(localEntry.nnEnergy&&Object.keys(localEntry.nnEnergy).length>0)base.nnEnergy=localEntry.nnEnergy;data[date]=base;}});localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
