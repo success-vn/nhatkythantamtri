@@ -2326,10 +2326,13 @@ function doNewDayReset(showToastMsg){const k=todayKey();if(typeof autosaveTimer!
 try{localStorage.setItem(LAST_RESET_DAY_KEY,k);}catch(e){}
 window._lastRefreshedDay=k;
 // Always create a FRESH entry for today - never carry over yesterday's content
-// Keep only the structural keys (rituals:{}, dims:{}) so sliders etc. start clean
+// Set _updatedAt = now + 60s so this fresh entry wins against any stale cloud data
 // Historical data stays in data[yesterdayKey] and is NOT deleted
-data[k]={rituals:{},dims:{},_updatedAt:Date.now()};
+const _resetTs=Date.now()+60000;
+data[k]={rituals:{},dims:{},_updatedAt:_resetTs};
 try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
+// Mark today as freshly reset so _applyRemoteData won't overwrite with yesterday's cloud data
+try{localStorage.setItem(LAST_RESET_DAY_KEY,k);}catch(e){}
 clearDailyFields();loadTodayFields();renderRituals();renderTasksList();setDateBars();if(showToastMsg&&document.getElementById('toast')){setTimeout(()=>showToast('🌅 Chào ngày mới! Trang nhật ký đã được làm mới.'),500);}}
 function checkNewDay(){const k=todayKey();const lastResetDay=(()=>{try{return localStorage.getItem(LAST_RESET_DAY_KEY)||'';}catch(e){return'';}})();if(lastResetDay===k){window._lastRefreshedDay=k;return;}
 doNewDayReset(false);}
@@ -2581,8 +2584,12 @@ return;}
 if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;const remoteSyncedAt=remote.meta?.syncedAt||0;const localSyncedAt=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteSyncedAt>0&&remoteSyncedAt<=localSyncedAt)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
 async function pullLocalFromFirebase(){if(!db||!userInfo)return;try{const uidKey=getUidKey();const snap=await db.ref('users/'+uidKey).once('value');const remote=snap.val();if(!remote){return;}
 _applyRemoteData(remote);}catch(e){_lastSyncError='Pull failed: '+e.message;console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
-function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Always apply remote entry for new dates, including today from other devices
-// The "just reset" guard was causing data from Device B to not appear on Device A
+function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Apply remote entry for new/past dates
+// But skip today if we just reset AND remote has no real new content
+const _todayKCheck=todayKey();
+const _justResetToday=(date===_todayKCheck&&(()=>{try{return localStorage.getItem(LAST_RESET_DAY_KEY)===_todayKCheck;}catch(e){return false;}})());
+const _remoteHasContent=Object.values(remoteEntry.rituals||{}).some(Boolean)||(remoteEntry.nnEnergy&&Object.values(remoteEntry.nnEnergy).some(v=>v&&v!==5))||remoteEntry.lesson||remoteEntry.seedGreen||remoteEntry.seedRed||remoteEntry.energy>5;
+if(_justResetToday&&!_remoteHasContent){return;} // Skip: remote is stale yesterday data
 data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;if(_lEmpty&&_rHas){data[date]=remoteEntry;return;}
 // Removed justReset3 guard - allow merging remote today data from other devices
 const base=rTs>lTs?Object.assign({},localEntry,remoteEntry):Object.assign({},remoteEntry,localEntry);base.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});const localTasks=localEntry.tasksV2;const remoteTasks=remoteEntry.tasksV2;if(localTasks||remoteTasks){const mergedTasks=Object.assign({},remoteTasks||{},localTasks||{});if(rTs>lTs&&remoteTasks){['main','reject','delegate','outsource','automate','extra'].forEach(sec=>{const lArr=(localTasks||{})[sec];const rArr=remoteTasks[sec];if(Array.isArray(rArr)&&rArr.some(t=>t.text)){mergedTasks[sec]=rArr;}else if(Array.isArray(lArr)&&lArr.some(t=>t.text)){mergedTasks[sec]=lArr;}else{mergedTasks[sec]=rArr||lArr;}});}
