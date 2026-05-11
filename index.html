@@ -3608,9 +3608,8 @@ invalidateMembersCache();['admin-pending-list','admin-leaders-list','admin-group
 async function loadAdminData(){if(!adminAuthed&&localStorage.getItem(ADMIN_KEY)==='true'){adminAuthed=true;}
 if(!adminAuthed){const el=document.getElementById('admin-pending-list');if(el)el.innerHTML='<div class="empty-state"><div class="empty-icon">🔐</div><p>Phiên làm việc hết hạn. Vui lòng tải lại trang.</p></div>';return;}
 const database=await loadFirebase();if(!database){document.getElementById('admin-pending-list').innerHTML='<div class="empty-state"><div class="empty-icon">🔌</div><p>Không kết nối được Firebase</p></div>';return;}
-if(typeof auth!=='undefined'&&auth){try{if(!auth.currentUser){await new Promise(resolve=>{const timer=setTimeout(resolve,2000);const unsub=auth.onAuthStateChanged(user=>{clearTimeout(timer);unsub();resolve(user);});});}
-if(!auth.currentUser){try{await auth.signInAnonymously();}catch(e){console.warn('Admin anon auth:',e.message);}}
-if(auth.currentUser){await auth.currentUser.getIdToken(true).catch(()=>{});
+if(typeof auth!=='undefined'&&auth){try{if(!auth.currentUser){await new Promise(resolve=>{const timer=setTimeout(resolve,5000);const unsub=auth.onAuthStateChanged(user=>{clearTimeout(timer);unsub();resolve(user);});});}
+if(auth.currentUser&&!auth.currentUser.isAnonymous){await auth.currentUser.getIdToken(true).catch(()=>{});
 // Write admin UID to admin/uids so rules allow access
 try{await database.ref('admin/uids/'+auth.currentUser.uid).set(true);}catch(e){}
 }}catch(e){console.warn('Auth wait admin:',e.message);}}
