@@ -3472,7 +3472,17 @@ const snaps=await Promise.all(fetches);let merged={};const jEncoded=snaps[0]&&sn
 if(rawGC!==encodedGC&&snaps[1]){const jRaw=snaps[1].val();if(jRaw&&typeof jRaw==='object'){Object.entries(jRaw).forEach(([dk,e])=>{if(/^\d{4}-\d{2}-\d{2}$/.test(dk)&&!merged[dk])merged[dk]=e;});if(Object.keys(jRaw).length>0){db.ref('journals/'+encodedGC+'/'+mid).update(jRaw).catch(()=>{});}}}
 // users/uid/daily read removed - data comes from journals/ path
 return{val:()=>merged};})().catch(()=>null);const promises=[jPromise];Promise.all(promises).then((results)=>{const jSnap=results[0];const journalData=jSnap?(jSnap.val()||{}):{};if(mid===userInfo.memberId){try{const myStats=JSON.parse(localStorage.getItem('my-team-stats-'+userInfo.memberId)||'null');if(myStats)leaderAllData[mid].stats={...leaderAllData[mid].stats,...myStats};}catch(e){}}
-leaderAllData[mid].entries=journalData;const jKeys=Object.keys(journalData).sort().reverse();let latestSeedsActive=0,latestSeedsDone=0;for(const jk of jKeys){const je=journalData[jk];if(je&&je.seedsActive!=null){latestSeedsActive=je.seedsActive||0;latestSeedsDone=je.seedsDone||0;break;}}
+leaderAllData[mid].entries=journalData;
+// Fallback: if journals/ has no data, synthesize an entry from groups/ stats
+// so leader tab shows correct activity for members who haven't synced journals yet
+if(Object.keys(journalData).length===0&&mStat&&mStat.date){
+  const dk=mStat.date;const nn=mStat.nn||[];const nnEnergy={};
+  if(typeof NN_LIST!=='undefined'){NN_LIST.forEach((n,i)=>{if(nn[i]!=null)nnEnergy[n.key]=nn[i];});}
+  const ritCount=typeof mStat.rituals==='number'?mStat.rituals:0;
+  const rituals={};for(let ri=0;ri<ritCount;ri++){rituals['r'+(ri+1)]=true;}
+  leaderAllData[mid].entries={[dk]:{rituals,nnEnergy,energy:mStat.energy||5,_fromGroupsNode:true}};
+}
+const jKeys=Object.keys(leaderAllData[mid].entries).sort().reverse();let latestSeedsActive=0,latestSeedsDone=0;for(const jk of jKeys){const je=leaderAllData[mid].entries[jk];if(je&&je.seedsActive!=null){latestSeedsActive=je.seedsActive||0;latestSeedsDone=je.seedsDone||0;break;}}
 leaderAllData[mid].seeds=[];leaderAllData[mid].seedsActive=latestSeedsActive;leaderAllData[mid].seedsDone=latestSeedsDone;loaded++;if(loaded===allMemberEntries.length){let totalDays=0;Object.values(leaderAllData).forEach(m=>{totalDays+=Object.keys(m.entries).length;});const avgStreak=allMemberEntries.length?Math.round(totalDays/allMemberEntries.length):0;const avgEl=document.getElementById('leader-avg-streak');if(avgEl)avgEl.textContent=avgStreak;window._lmDetailEntries=window._lmDetailEntries||{};Object.entries(leaderAllData).forEach(([mid,m])=>{window._lmDetailEntries[mid]=m.entries;});renderLeaderMemberList();renderLeaderDashboard();}}).catch(()=>{loaded++;if(loaded===allMemberEntries.length){renderLeaderMemberList();renderLeaderDashboard();}});});}catch(e){if(list)list.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Lỗi tải dữ liệu: '+e.message+'</p></div>';}};loadAll();if(window._leaderRefreshTimer)clearInterval(window._leaderRefreshTimer);window._leaderRefreshTimer=setInterval(loadAll,60000);});}
 function renderLeaderMemberList(){const list=document.getElementById('leader-member-list');if(!list)return;const search=(document.getElementById('leader-search')?.value||'').toLowerCase();const filter=document.getElementById('leader-filter')?.value||'all';const todayK=todayKey();let members=Object.entries(leaderAllData);if(search)members=members.filter(([,m])=>m.name.toLowerCase().includes(search));if(filter==='active')members=members.filter(([,m])=>m.stats?.date===todayK);if(filter==='inactive')members=members.filter(([,m])=>m.stats?.date!==todayK);if(!members.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><p>Chưa có thành viên nào trong nhóm này.</p></div>';const alertsEl=document.getElementById('leader-alerts-list');if(alertsEl&&alertsEl.innerHTML.includes('Đang phân tích')){alertsEl.innerHTML='<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">Chưa có thành viên nào trong nhóm.</div>';}
 return;}
@@ -3687,10 +3697,8 @@ await Promise.all(leaderGroupCodes.map(async gc=>{
 
   if(Object.keys(jHist).length>0){
     leaderJournalHistory[mid]=jHist;
-    console.log('[JOURNAL OK] '+lr.name+' ('+gc+'): '+Object.keys(jHist).length+' ngày');
-  } else {
-    console.warn('[JOURNAL EMPTY] '+lr.name+' ('+gc+') uid='+uid);
   }
+  // Note: if jHist is still empty, fallback will be applied below after groupSnaps are loaded
 }));
 
 // ── Build leaderTrainingStats from groups node OR derive from jHist ───────
@@ -3718,29 +3726,42 @@ try{
       }
     }
 
-    // Only trust groups stats if they're from today
+    // Trust groups stats from today for leaderTrainingStats
     if(lStats&&lStats.date===todayKAdmin){
       leaderTrainingStats[mid]=lStats;
-      return;
     }
 
-    // Fallback: derive today's stats from jHist
-    const jHist=leaderJournalHistory[mid]||{};
-    const je=jHist[todayKAdmin];
-    if(je){
-      let ritDone=0;
-      if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;
-      else if(typeof je.rituals==='number')ritDone=je.rituals;
-      let nnArr=[];
-      if(typeof NN_LIST!=='undefined'){
-        NN_LIST.forEach((nn,idx)=>{
-          let v=null;
-          if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[nn.key]);
-          else if(Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[idx]);
-          nnArr.push((!isNaN(v)&&v>0)?v:5);
-        });
-      } else nnArr=[5,5,5,5,5];
-      leaderTrainingStats[mid]={date:todayKAdmin,rituals:ritDone,nn:nnArr,energy:je.energy||5};
+    // If journals/ has no history for this leader, inject a synthetic entry from groups/
+    // so the admin card streak/activity display is accurate
+    if(!leaderJournalHistory[mid]&&lStats&&lStats.date){
+      const dk=lStats.date;
+      const nn=lStats.nn||[];
+      const nnEnergy={};
+      if(typeof NN_LIST!=='undefined'){NN_LIST.forEach((n,i)=>{if(nn[i]!=null)nnEnergy[n.key]=nn[i];});}
+      const ritCount=typeof lStats.rituals==='number'?lStats.rituals:0;
+      const rituals={};for(let ri=0;ri<ritCount;ri++){rituals['r'+(ri+1)]=true;}
+      leaderJournalHistory[mid]={[dk]:{rituals,nnEnergy,energy:lStats.energy||5,_fromGroupsNode:true}};
+    }
+
+    // Fallback: derive today's stats from jHist (if not already set from groups/)
+    if(!leaderTrainingStats[mid]){
+      const jHist=leaderJournalHistory[mid]||{};
+      const je=jHist[todayKAdmin];
+      if(je){
+        let ritDone=0;
+        if(je.rituals&&typeof je.rituals==='object')ritDone=Object.values(je.rituals).filter(Boolean).length;
+        else if(typeof je.rituals==='number')ritDone=je.rituals;
+        let nnArr=[];
+        if(typeof NN_LIST!=='undefined'){
+          NN_LIST.forEach((nn,idx)=>{
+            let v=null;
+            if(je.nnEnergy&&typeof je.nnEnergy==='object'&&!Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[nn.key]);
+            else if(Array.isArray(je.nnEnergy))v=Number(je.nnEnergy[idx]);
+            nnArr.push((!isNaN(v)&&v>0)?v:5);
+          });
+        } else nnArr=[5,5,5,5,5];
+        leaderTrainingStats[mid]={date:todayKAdmin,rituals:ritDone,nn:nnArr,energy:je.energy||5};
+      }
     }
   });
 }catch(e){console.warn('Load leader training stats:',e);}
@@ -3924,16 +3945,15 @@ window.adminEnsureLeaderData=async function(mid){
     const gc=alertData.groupCode||'';
     const gcK=typeof fbKey==='function'?fbKey(gc):gc;
 
-    // Find UID — same as adminMemberToggle
+    // Use cached UID map from loadAdminData if available — avoid re-fetching uid_to_member
     let uid=window._adminMidToUid&&window._adminMidToUid[mid]||null;
-    if(!uid){
-      const uidSnap=await database.ref('uid_to_member').once('value').catch(()=>null);
-      const uidMap=(uidSnap&&uidSnap.val())||{};
-      uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===mid)||null;
+    if(!uid&&window._adminMembersAll){
+      const mData=window._adminMembersAll[mid];
+      if(mData&&mData.firebaseUid)uid=mData.firebaseUid;
     }
 
     const jHist={};
-    // Try all paths — same as adminMemberToggle (which is known to work)
+    // Try all journal paths
     const pathSnaps=await Promise.all([
       database.ref('journals/'+gcK+'/'+mid).once('value').catch(()=>null),
       (gc!==gcK)?database.ref('journals/'+gc+'/'+mid).once('value').catch(()=>null):null,
@@ -3950,7 +3970,25 @@ window.adminEnsureLeaderData=async function(mid){
       });
     });
 
-    if(Object.keys(jHist).length===0)return;// still no data
+    // Fallback: if journals/ is empty, build synthetic jHist from groups/ node (date+rituals+nn)
+    if(Object.keys(jHist).length===0){
+      const groupsAll=window._adminGroupsAll||{};
+      const groupData=groupsAll[gcK]||groupsAll[gc]||{};
+      const memberStat=groupData[mid]||null;
+      if(memberStat&&memberStat.date){
+        // Build a synthetic entry for the last known date
+        const dk=memberStat.date;
+        const nn=memberStat.nn||[];
+        const nnEnergy={};
+        if(typeof NN_LIST!=='undefined'){NN_LIST.forEach((n,i)=>{if(nn[i]!=null)nnEnergy[n.key]=nn[i];});}
+        const ritCount=memberStat.rituals||0;
+        const rituals={};
+        for(let i=0;i<ritCount;i++){rituals['r'+(i+1)]=true;}
+        jHist[dk]={rituals,nnEnergy,energy:memberStat.energy||5,_fromGroupsNode:true};
+      }
+      // If still empty after fallback, nothing to show
+      if(Object.keys(jHist).length===0)return;
+    }
 
     // Update caches
     window._adminLeaderJHistCache=window._adminLeaderJHistCache||{};
@@ -4192,9 +4230,23 @@ const existingEntry=typeof leaderAllData!=='undefined'?leaderAllData[memberId]:n
 try{const database=await loadFirebase();if(!database)throw new Error('No DB');
 let uid=existingEntry&&existingEntry.firebaseUid?existingEntry.firebaseUid:null;
 if(!uid){const uidMapSnap=await database.ref('uid_to_member').once('value').catch(()=>null);const uidMap=(uidMapSnap&&uidMapSnap.val())||{};uid=Object.keys(uidMap).find(u=>uidMap[u]&&uidMap[u].memberId===memberId)||null;}
-// Build jHist from existing data or fetch from Firebase
-let jHist={};if(Object.keys(existingJHist).length>0){Object.keys(existingJHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=existingJHist[k];});}else{const gcKey=typeof fbKey==='function'?fbKey(groupCode):groupCode;const rawGC=groupCode||'';let jSnap=await database.ref('journals/'+gcKey+'/'+memberId).once('value').catch(()=>null);let jRaw=(jSnap&&jSnap.val())||{};if(!Object.keys(jRaw).length&&rawGC!==gcKey){try{const jSnap2=await database.ref('journals/'+rawGC+'/'+memberId).once('value');if(jSnap2&&jSnap2.val())jRaw=jSnap2.val();}catch(e2){}}
-Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});}
+// Build jHist: use existing entries only if they are real journal data (not synthetic fallback)
+// If all entries are _fromGroupsNode, fetch real data from Firebase for the popup
+const _isSyntheticOnly=Object.keys(existingJHist).length>0&&Object.values(existingJHist).every(e=>e&&e._fromGroupsNode);
+let jHist={};
+if(Object.keys(existingJHist).length>0&&!_isSyntheticOnly){
+  Object.keys(existingJHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=existingJHist[k];});
+}else{
+  const gcKey=typeof fbKey==='function'?fbKey(groupCode):groupCode;const rawGC=groupCode||'';
+  let jSnap=await database.ref('journals/'+gcKey+'/'+memberId).once('value').catch(()=>null);
+  let jRaw=(jSnap&&jSnap.val())||{};
+  if(!Object.keys(jRaw).length&&rawGC!==gcKey){try{const jSnap2=await database.ref('journals/'+rawGC+'/'+memberId).once('value');if(jSnap2&&jSnap2.val())jRaw=jSnap2.val();}catch(e2){}}
+  Object.keys(jRaw).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().forEach(k=>{jHist[k]=jRaw[k];});
+  // If still empty after fetch, use synthetic entry as minimal fallback
+  if(!Object.keys(jHist).length&&_isSyntheticOnly){
+    Object.keys(existingJHist).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{jHist[k]=existingJHist[k];});
+  }
+}
 // Load monthlyData from journals/ monthly_summary (text-stripped)
 let monthlyData={};if(groupCode){try{const gcKL=typeof fbKey==='function'?fbKey(groupCode):groupCode;const now=new Date(Date.now()+7*60*60*1000);const cy=now.getUTCFullYear(),cm=now.getUTCMonth();const monthKeys=[];for(let i=0;i<13;i++){let y=cy,m=cm-i;while(m<0){m+=12;y--;}monthKeys.push(y+'_'+m);}
 const snaps=await Promise.all(monthKeys.map(mk=>database.ref('journals/'+gcKL+'/'+memberId+'/monthly_summary/'+mk).once('value').catch(()=>null)));monthKeys.forEach((mk,i)=>{const v=snaps[i]&&snaps[i].val();if(v)monthlyData[mk]=v;});}catch(e){}}
