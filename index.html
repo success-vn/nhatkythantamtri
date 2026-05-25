@@ -2621,12 +2621,10 @@ if(cloudSyncTs>0&&hasRealLocalData&&localSyncTs>cloudSyncTs){
     setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},2000);
   }
 }else{
-  // localSyncTs >= cloudSyncTs and both > 0: pull ngay để đảm bảo không bỏ sót
-  // (tránh race condition khi thiết bị khác vừa push xong với cùng timestamp)
+  // localSyncTs >= cloudSyncTs and both > 0
+  // Pull để đảm bảo không bỏ sót dữ liệu mới từ thiết bị khác
+  // KHÔNG push lại ngay — tránh ghi đè cloud bằng timestamp mới nhưng nội dung cũ
   await pullLocalFromFirebase().catch(()=>{});
-  if(hasRealLocalData){
-    setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},1500);
-  }
 }
 if(seedsData.length>0){const uidKey=getUidKey();try{const snap=await db.ref('users/'+uidKey+'/seeds').once('value');const remoteSeeds=snap.val();const remoteArr=Array.isArray(remoteSeeds)?remoteSeeds:[];if(seedsData.length>remoteArr.length){await db.ref('users/'+uidKey+'/seeds').set(seedsData);}}catch(e){console.warn('Seeds push on boot failed:',e.message);}}
 startUserDataRealtimeListener();startLeaderStatusListener();syncJournalHistoryToFirebase();setTimeout(()=>_migrateMonthlySummaries().catch(()=>{}),5000);setTimeout(()=>{const todayK=todayKey();const todayEntry=data[todayK];if(todayEntry){const rituals=Object.values(todayEntry.rituals||{}).filter(Boolean).length;const hasNN=todayEntry.nnEnergy&&Object.values(todayEntry.nnEnergy).some(v=>v&&v!==5);if(rituals>0||hasNN){autoSyncMyTeamStats();}}},1500);}
@@ -2641,7 +2639,7 @@ function startUserDataRealtimeListener(){if(!db||!userInfo)return;const uidKey=g
 _userDataListener=ref;let _firstCall=true;ref.on('value',snap=>{if(_firstCall){_firstCall=false;// Still apply first snapshot if it's newer than local
 const remoteFirst=snap.val();if(remoteFirst&&remoteFirst.meta&&remoteFirst.meta.syncedAt){const remoteTs=remoteFirst.meta.syncedAt||0;const localTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteTs>localTs&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}}
 return;}
-if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;const remoteSyncedAt=remote.meta?.syncedAt||0;const localSyncedAt=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteSyncedAt>0&&remoteSyncedAt<=localSyncedAt)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
+if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;const remoteSyncedAt=remote.meta?.syncedAt||0;const localSyncedAt=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteSyncedAt>0&&remoteSyncedAt<localSyncedAt)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
 async function pullLocalFromFirebase(){if(!db||!userInfo)return;try{const uidKey=getUidKey();const snap=await db.ref('users/'+uidKey).once('value');const remote=snap.val();if(!remote){return;}
 _applyRemoteData(remote);}catch(e){_lastSyncError='Pull failed: '+e.message;console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
 function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Apply remote entry for new/past dates
