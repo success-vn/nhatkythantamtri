@@ -2552,12 +2552,52 @@ const SYNC_TS_KEY='nk5nn-sync-ts';function setSyncStatus(icon,msg,color){const e
 function getUidKey(){if(userInfo?.firebaseUid)return userInfo.firebaseUid;if(typeof auth!=='undefined'&&auth?.currentUser?.uid&&!auth.currentUser.isAnonymous){const uid=auth.currentUser.uid;if(userInfo){userInfo.firebaseUid=uid;save(USER_KEY,userInfo);}
 return uid;}
 return userInfo?.memberId||null;}
-let _lastSyncError=null;let _syncRetryCount=0;function showSyncDetail(){const uid=getUidKey()||'?';const authUser=(typeof auth!=='undefined'&&auth?.currentUser)?auth.currentUser.email||auth.currentUser.uid:'Chưa đăng nhập Firebase';const lines=['<strong>📡 Trạng thái đồng bộ</strong>',`👤 User: <b>${userInfo?.name || '?'}</b>`,`🔑 memberId: ${userInfo?.memberId || '?'}`,`🔥 Firebase: ${authUser}`,`🗝 uidKey: ${uid}`,_lastSyncError?`⚠️ Lỗi cuối: ${_lastSyncError}`:'✅ Không có lỗi gần đây',];let el=document.getElementById('_sync-detail-popup');if(!el){el=document.createElement('div');el.id='_sync-detail-popup';el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;box-shadow:var(--shadow-lg);z-index:9999;font-size:12.5px;line-height:1.8;min-width:260px;max-width:90vw;color:var(--ink)';document.body.appendChild(el);}
-el.innerHTML=lines.join('<br>')+'<br><button onclick="document.getElementById(&quot;_sync-detail-popup&quot;).remove()" style="margin-top:8px;padding:4px 12px;border-radius:6px;border:none;background:var(--gold);color:white;font-size:11px;cursor:pointer;font-weight:700">Đóng</button>';el.style.display='block';setTimeout(()=>{if(el.parentNode)el.remove();},8000);}
+let _lastSyncError=null;let _syncRetryCount=0;function showSyncDetail(){
+  const uid=getUidKey()||'?';
+  const authUser=(typeof auth!=='undefined'&&auth?.currentUser)?(auth.currentUser.email||auth.currentUser.uid):'Chưa đăng nhập Firebase';
+  const fbPath='users/'+uid;
+  const localTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');
+  const localTsStr=localTs?new Date(localTs).toLocaleString('vi'):'Chưa push lần nào';
+  const todayKeys=Object.keys(data).sort().slice(-3).join(', ')||'(trống)';
+  const lines=[
+    '<strong>📡 Trạng thái đồng bộ</strong>',
+    `👤 Tên: <b>${userInfo?.name||'?'}</b>`,
+    `🔑 memberId: <code style="font-size:11px">${userInfo?.memberId||'?'}</code>`,
+    `🔥 Email: ${authUser}`,
+    `🗝 Firebase path: <code style="font-size:11px">${fbPath}</code>`,
+    `🕐 Push gần nhất: ${localTsStr}`,
+    `📅 Ngày có data: ${todayKeys}`,
+    `📊 Entries: ${Object.keys(data).length} ngày`,
+    _lastSyncError?`⚠️ Lỗi cuối: ${_lastSyncError}`:'✅ Không có lỗi gần đây',
+  ];
+  let el=document.getElementById('_sync-detail-popup');
+  if(!el){el=document.createElement('div');el.id='_sync-detail-popup';el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;box-shadow:var(--shadow-lg);z-index:9999;font-size:12.5px;line-height:2;min-width:280px;max-width:92vw;color:var(--ink)';document.body.appendChild(el);}
+  const btns=[
+    '<div style="display:flex;gap:8px;margin-top:10px">',
+    '<button onclick="pushLocalToFirebase().then(function(){showToast(String.fromCharCode(9989)+\' Push xong!\')})" ',
+      'style="flex:1;padding:6px;border-radius:6px;border:none;background:var(--jade);color:white;font-size:11px;cursor:pointer;font-weight:700">',
+      '&#8679; Push ngay</button>',
+    '<button onclick="pullLocalFromFirebase().then(function(){showToast(String.fromCharCode(9989)+\' Pull xong!\')})" ',
+      'style="flex:1;padding:6px;border-radius:6px;border:none;background:var(--gold);color:white;font-size:11px;cursor:pointer;font-weight:700">',
+      '&#8681; Pull ngay</button>',
+    '<button onclick="document.getElementById(\'_sync-detail-popup\').remove()" ',
+      'style="padding:6px 10px;border-radius:6px;border:none;background:var(--border);color:var(--ink);font-size:11px;cursor:pointer;font-weight:700">&#x2715;</button>',
+    '</div>',
+  ].join('');
+  el.innerHTML=lines.join('<br>')+btns;
+  el.style.display='block';
+  setTimeout(()=>{if(el.parentNode)el.remove();},15000);
+}
 async function initFirebaseBackground(){setSyncStatus('⏳','Đang kết nối...','rgba(201,168,76,0.7)');const database=await loadFirebase();if(!database){setSyncStatus('⚠️','Offline','rgba(192,96,106,0.6)');return;}
 db=database;if(auth){try{const currentUser=auth.currentUser;if(!currentUser){await new Promise(resolve=>{const timer=setTimeout(resolve,5000);const unsub=auth.onAuthStateChanged(user=>{clearTimeout(timer);unsub();resolve(user);});});}}catch(e){console.warn('Anonymous auth failed:',e.message);}}
 if(auth&&auth.currentUser){try{await auth.currentUser.getIdToken(true);}catch(e){console.warn('Token refresh:',e.message);}}
-if(auth&&auth.currentUser&&auth.currentUser.uid&&!auth.currentUser.isAnonymous){const authUid=auth.currentUser.uid;if(!userInfo.firebaseUid||userInfo.firebaseUid!==authUid){userInfo.firebaseUid=authUid;save(USER_KEY,userInfo);try{await db.ref('uid_to_member/'+authUid).once('value').then(snap=>{if(!snap.val()){db.ref('uid_to_member/'+authUid).set({memberId:userInfo.memberId,groupCode:userInfo.groupCode});}});}catch(e){console.warn('uid_to_member update failed:',e.message);}}}
+if(auth&&auth.currentUser&&auth.currentUser.uid&&!auth.currentUser.isAnonymous){const authUid=auth.currentUser.uid;
+// Luôn đồng bộ firebaseUid với auth hiện tại — tránh uid cũ trong localStorage gây PERMISSION_DENIED
+if(userInfo.firebaseUid!==authUid){
+  console.log('🔄 Cập nhật firebaseUid:',userInfo.firebaseUid,'→',authUid);
+  userInfo.firebaseUid=authUid;save(USER_KEY,userInfo);
+}
+try{await db.ref('uid_to_member/'+authUid).once('value').then(snap=>{if(!snap.val()){db.ref('uid_to_member/'+authUid).set({memberId:userInfo.memberId,groupCode:userInfo.groupCode});}});}catch(e){console.warn('uid_to_member update failed:',e.message);}}
 await pullLocalFromFirebase();const uidKey=getUidKey();if(uidKey&&userInfo.memberId&&uidKey!==userInfo.memberId){try{const newSnap=await db.ref('users/'+uidKey+'/daily').once('value');const oldSnap2=await db.ref('users/'+userInfo.memberId+'/daily').once('value');if(!newSnap.val()&&oldSnap2.val()){const fullOldSnap=await db.ref('users/'+userInfo.memberId).once('value');const oldData=fullOldSnap.val();if(oldData){await db.ref('users/'+uidKey).update(oldData);await pullLocalFromFirebase();}}}catch(e){console.warn('Migration check failed:',e.message);}}
 const localSyncTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');let cloudSyncTs=0;try{const cloudMetaSnap=await db.ref('users/'+uidKey+'/meta/syncedAt').once('value');cloudSyncTs=cloudMetaSnap.val()||0;}catch(e){}
 // hasRealLocalData: true if any past date exists, or today has real content
