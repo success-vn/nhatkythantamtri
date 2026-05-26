@@ -2680,7 +2680,22 @@ let _syncDebounceTimer=null;let _bootTime=0;function scheduleSyncPush(key){const
 pushLocalToFirebase();}},3000);}
 let teamListener=null;function fbMemberRef(){return db?db.ref('groups/'+fbKey(userInfo.groupCode)+'/'+userInfo.memberId):null;}
 let _autoSyncTimer=null;async function autoSyncMyTeamStats(){const k=todayKey();const todayEntry=getTodayEntry();const rituals=Object.values(todayEntry.rituals||{}).filter(Boolean).length;const nn=NN_LIST.map(n=>todayEntry.nnEnergy?.[n.key]||5);if(rituals===0&&nn.every(v=>v===5))return;const myStats={name:userInfo.name,date:k,rituals,nn,ts:Date.now(),autoSynced:true};localStorage.setItem('my-team-stats-'+userInfo.memberId,JSON.stringify(myStats));if(!db){const database=await loadFirebase();if(!database)return;db=database;}
-try{await fbMemberRef().set(myStats);}catch(e){console.warn('Auto-sync team failed:',e);}}
+try{
+  const ref=fbMemberRef();
+  if(!ref)return;
+  // Try with memberId path first, fallback silently on permission error
+  await ref.set(myStats).catch(async(e)=>{
+    if(e.code==='PERMISSION_DENIED'||e.message?.includes('PERMISSION_DENIED')){
+      // Try refreshing token and retry once
+      if(auth&&auth.currentUser){
+        try{
+          await auth.currentUser.getIdToken(true);
+          await ref.set(myStats);
+        }catch(e2){console.warn('Auto-sync team failed after token refresh:',e2.message);}
+      }
+    }else{console.warn('Auto-sync team failed:',e.message);}
+  });
+}catch(e){console.warn('Auto-sync team error:',e.message);}}
 async function saveMyTeamStats(){const k=todayKey();const todayEntry=getTodayEntry();const rituals=Object.values(todayEntry.rituals||{}).filter(Boolean).length;const nn=NN_LIST.map(n=>todayEntry.nnEnergy?.[n.key]||5);const myStats={name:userInfo.name,date:k,rituals,nn,ts:Date.now()};localStorage.setItem('my-team-stats-'+userInfo.memberId,JSON.stringify(myStats));if(!db){const database=await loadFirebase();if(!database)return;db=database;}
 try{await fbMemberRef().set(myStats);}catch(err){console.error('saveMyTeamStats failed:',err);}}
 async function refreshTeam(){showToast('🔄 Đang làm mới...');renderTeam();}
@@ -3264,7 +3279,7 @@ const h=Math.round((val/maxVal)*barH);const bg=val>=7?'var(--jade)':val>=5?'var(
     <div style="font-size:10.5px;color:var(--ink-muted);margin-top:6px;text-align:center">
       🟢 ≥7 · 🟡 ≥5 · 🔴 &lt;5 · Dựa trên dữ liệu thành viên đã đồng bộ
     </div>`;}
-function renderLeaderSeedsSummary(members){const el=document.getElementById('leader-seeds-summary');if(!el)return;let totalActive=0,totalDone=0;const memberStats=[];members.forEach(([mid,m])=>{const active=m.seedsActive||0;const done=m.seedsDone||0;if(active===0&&done===0)return;totalActive+=active;totalDone+=done;memberStats.push({name:m.name,active,done,reappear:0});});if(totalActive===0&&totalDone===0){el.innerHTML=`<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">
+function renderLeaderSeedsSummary(members){const el=document.getElementById('leader-seeds-summary');if(!el)return;let totalActive=0,totalDone=0,totalReappear=0;const memberStats=[];members.forEach(([mid,m])=>{const active=m.seedsActive||0;const done=m.seedsDone||0;if(active===0&&done===0)return;totalActive+=active;totalDone+=done;memberStats.push({name:m.name,active,done,reappear:0});});if(totalActive===0&&totalDone===0){el.innerHTML=`<div style="font-size:12.5px;color:var(--ink-muted);text-align:center;padding:8px">
       Chưa có dữ liệu hạt giống từ thành viên. Hạt giống cần được lưu và đồng bộ từ tab 😔 Hạt Giống.
     </div>`;return;}
 let html=`
