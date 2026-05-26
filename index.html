@@ -445,7 +445,6 @@
       padding:5px 10px;display:flex;align-items:center;gap:4px;
       transition:background 0.3s;cursor:pointer"
       onclick="showSyncDetail()" title="Bấm để xem chi tiết đồng bộ">☁️ –</div>
-    <div onclick="debugSyncNow()" style="font-size:11px;font-weight:700;color:rgba(253,248,240,0.8);background:rgba(192,96,106,0.5);border-radius:6px;padding:3px 8px;cursor:pointer;display:flex;align-items:center" title="Debug Firebase">🔍 Debug</div>
     <div id="user-badge" onclick="showAccountInfo()" style="
       font-size:11px;font-weight:700;color:rgba(253,248,240,0.65);
       background:rgba(255,255,255,0.08);border-radius:20px;
@@ -2589,49 +2588,6 @@ let _lastSyncError=null;let _syncRetryCount=0;function showSyncDetail(){
   el.style.display='block';
   setTimeout(()=>{if(el.parentNode)el.remove();},15000);
 }
-
-async function debugSyncNow(){
-  const out=[];
-  out.push('=== DEBUG SYNC ===');
-  out.push('userInfo.memberId: '+userInfo?.memberId);
-  out.push('userInfo.firebaseUid: '+userInfo?.firebaseUid);
-  out.push('auth.currentUser.uid: '+(auth?.currentUser?.uid||'null'));
-  out.push('getUidKey(): '+getUidKey());
-  out.push('SYNC_TS_KEY: '+localStorage.getItem('nk5nn-sync-ts'));
-  out.push('data keys: '+Object.keys(data).sort().slice(-3).join(', '));
-  out.push('');
-  
-  if(!db){out.push('❌ db is null - Firebase not loaded');alert(out.join('\n'));return;}
-  
-  const uidKey=getUidKey();
-  out.push('Reading users/'+uidKey+'/meta ...');
-  try{
-    const snap=await db.ref('users/'+uidKey+'/meta').once('value');
-    const val=snap.val();
-    if(val===null){out.push('❌ users/'+uidKey+'/meta = NULL (Rules chặn hoặc chưa có data)');}
-    else{out.push('✅ users/'+uidKey+'/meta = '+JSON.stringify(val));}
-  }catch(e){out.push('❌ READ ERROR: '+e.message+' (code: '+e.code+')');}
-  
-  out.push('');
-  out.push('Reading users/'+uidKey+'/daily (last 1 key)...');
-  try{
-    const snap2=await db.ref('users/'+uidKey+'/daily').limitToLast(1).once('value');
-    const val2=snap2.val();
-    if(val2===null){out.push('❌ users/'+uidKey+'/daily = NULL (Rules chặn hoặc chưa push)');}
-    else{out.push('✅ daily has data, keys: '+Object.keys(val2).join(', '));}
-  }catch(e){out.push('❌ READ ERROR: '+e.message+' (code: '+e.code+')');}
-  
-  out.push('');
-  out.push('Testing write users/'+uidKey+'/meta/debugTest ...');
-  try{
-    await db.ref('users/'+uidKey+'/meta/debugTest').set(Date.now());
-    out.push('✅ WRITE OK');
-    await db.ref('users/'+uidKey+'/meta/debugTest').remove();
-  }catch(e){out.push('❌ WRITE ERROR: '+e.message+' (code: '+e.code+')');}
-
-  alert(out.join('\n'));
-}
-
 async function initFirebaseBackground(){setSyncStatus('⏳','Đang kết nối...','rgba(201,168,76,0.7)');const database=await loadFirebase();if(!database){setSyncStatus('⚠️','Offline','rgba(192,96,106,0.6)');return;}
 db=database;if(auth){try{const currentUser=auth.currentUser;if(!currentUser){await new Promise(resolve=>{const timer=setTimeout(resolve,5000);const unsub=auth.onAuthStateChanged(user=>{clearTimeout(timer);unsub();resolve(user);});});}}catch(e){console.warn('Anonymous auth failed:',e.message);}}
 if(auth&&auth.currentUser){try{await auth.currentUser.getIdToken(true);}catch(e){console.warn('Token refresh:',e.message);}}
@@ -2680,33 +2636,17 @@ let _userDataListener=null;let _isSyncingToFirebase=false;let _membersCache=null
 const snap=await(database||db).ref('members').once('value');_membersCache=snap.val()||{};_membersCacheTs=now;return _membersCache;}
 function invalidateMembersCache(){_membersCache=null;_membersCacheTs=0;}
 function startUserDataRealtimeListener(){if(!db||!userInfo)return;const uidKey=getUidKey();const ref=db.ref('users/'+uidKey);if(_userDataListener){try{_userDataListener.off();}catch(e){}}
-_userDataListener=ref;let _firstCall=true;ref.on('value',snap=>{if(_firstCall){_firstCall=false;// Still apply first snapshot if it's newer than local
-const remoteFirst=snap.val();if(remoteFirst&&remoteFirst.meta&&remoteFirst.meta.syncedAt){const remoteTs=remoteFirst.meta.syncedAt||0;const localTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteTs>localTs&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}}
+_userDataListener=ref;let _firstCall=true;ref.on('value',snap=>{if(_firstCall){_firstCall=false;
+// Lần đầu nhận data từ Firebase: luôn apply nếu remote có data và đang không push
+const remoteFirst=snap.val();
+if(remoteFirst&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}
 return;}
-if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;const remoteSyncedAt=remote.meta?.syncedAt||0;const localSyncedAt=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteSyncedAt>0&&remoteSyncedAt<localSyncedAt)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
+if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
 async function pullLocalFromFirebase(){if(!db||!userInfo)return;try{const uidKey=getUidKey();const snap=await db.ref('users/'+uidKey).once('value');const remote=snap.val();if(!remote){return;}
 _applyRemoteData(remote);}catch(e){_lastSyncError='Pull failed: '+e.message;console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
-function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Apply remote entry for new/past dates
-// But skip today if we just reset AND remote has no real new content
-const _todayKCheck=todayKey();
-const _justResetToday=(date===_todayKCheck&&(()=>{try{return localStorage.getItem(LAST_RESET_DAY_KEY)===_todayKCheck;}catch(e){return false;}})());
-const _remoteHasContent=Object.values(remoteEntry.rituals||{}).some(Boolean)||(remoteEntry.nnEnergy&&Object.values(remoteEntry.nnEnergy).some(v=>v&&v!==5))||remoteEntry.lesson||remoteEntry.seedGreen||remoteEntry.seedRed||remoteEntry.energy>5||remoteEntry.wishContent||remoteEntry.savedWish||remoteEntry.gratitude1||remoteEntry.gratitude2||remoteEntry.gratitude3||remoteEntry.dailyGood||remoteEntry.dailyImprove||remoteEntry.selfLetter||remoteEntry.selfProud||remoteEntry.savedGratitude||remoteEntry.savedToday||remoteEntry.savedFinance;
-if(_justResetToday&&!_remoteHasContent){return;} // Skip: remote is stale yesterday data
-data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;const _todayKProtect=todayKey();const _justResetProtect=(date===_todayKProtect&&(()=>{try{return localStorage.getItem(LAST_RESET_DAY_KEY)===_todayKProtect;}catch(e){return false;}})());if(_lEmpty&&_rHas&&!_justResetProtect){data[date]=remoteEntry;return;}if(_lEmpty&&_rHas&&_justResetProtect){
-// Chỉ bỏ qua nếu remote KHÔNG có nội dung thật (tránh ghi đè midnight reset bằng data cũ)
-// Nếu remote CÓ nội dung thật (từ thiết bị khác) thì vẫn phải apply
-const _rHasRealContent=Object.values(remoteEntry.rituals||{}).some(Boolean)||(remoteEntry.nnEnergy&&Object.values(remoteEntry.nnEnergy).some(v=>v&&v!==5))||remoteEntry.lesson||remoteEntry.seedGreen||remoteEntry.seedRed||remoteEntry.energy>5||remoteEntry.wishContent||remoteEntry.savedWish||remoteEntry.gratitude1||remoteEntry.gratitude2||remoteEntry.gratitude3||remoteEntry.dailyGood||remoteEntry.dailyImprove||remoteEntry.selfLetter||remoteEntry.selfProud||remoteEntry.savedGratitude||remoteEntry.savedToday||remoteEntry.savedFinance;
-if(_rHasRealContent){data[date]=remoteEntry;return;}
-return;
-}
-// If both local and remote are empty for today, skip merge
-const _todayKMerge=todayKey();
-const _remoteHasRealContent=(date===_todayKMerge&&(Object.values(remoteEntry.rituals||{}).some(Boolean)||remoteEntry.lesson||remoteEntry.seedGreen||remoteEntry.seedRed||remoteEntry.energy>5||remoteEntry.wishContent||remoteEntry.savedWish||(remoteEntry.nnEnergy&&Object.values(remoteEntry.nnEnergy).some(v=>v&&v!==5))||remoteEntry.gratitude1||remoteEntry.gratitude2||remoteEntry.gratitude3||remoteEntry.dailyGood||remoteEntry.dailyImprove||remoteEntry.selfLetter||remoteEntry.selfProud||remoteEntry.savedGratitude||remoteEntry.savedToday||remoteEntry.savedFinance));
-if(date===_todayKMerge&&!_remoteHasRealContent&&_lEmpty){
-  // Remote has no real content for today yet, keep local clean state
-  data[date]=localEntry;
-  return;
-}
+function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Không có local → lấy remote hoàn toàn (bao gồm cả hôm nay từ thiết bị khác)
+data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;// Local trống mà remote có data → lấy remote (bao gồm cả hôm nay từ thiết bị khác)
+if(_lEmpty&&_rHas){data[date]=remoteEntry;return;}
 const base=rTs>lTs?Object.assign({},localEntry,remoteEntry):Object.assign({},remoteEntry,localEntry);base.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});// Always preserve local wish/prayer data — it's personal and not pushed by journal sync
 if(localEntry.wishContent&&!base.wishContent)base.wishContent=localEntry.wishContent;
 if(localEntry.wishDeadline&&!base.wishDeadline)base.wishDeadline=localEntry.wishDeadline;
