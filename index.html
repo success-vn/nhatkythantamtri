@@ -2424,12 +2424,13 @@ userInfo={name:member.name||displayName,groupCode:member.groupCode||mapping.grou
 save(USER_KEY,userInfo);if(database&&userInfo.memberId){try{const memberSnap=await database.ref('members/'+userInfo.memberId).once('value');const memberData=memberSnap.val();const isApprovedInMembers=memberData&&(memberData.approved===true||memberData.isLeader===true||memberData.isAdmin===true||(memberData.registeredAt&&memberData.approved===undefined));if(!isApprovedInMembers){let pendingReq=null;const reqSnap=await database.ref('member_requests/'+userInfo.memberId).once('value');const reqVal=reqSnap.val();if(reqVal&&reqVal.status==='pending')pendingReq=reqVal;if(!pendingReq&&firebaseUid){try{const allSnap=await database.ref('member_requests').once('value');const allVal=allSnap.val();if(allVal){const found=Object.values(allVal).find(r=>r.status==='pending'&&r.firebaseUid===firebaseUid);if(found)pendingReq=found;}}catch(e2){console.warn('member_requests scan failed:',e2.message);}}
 if(pendingReq){if(loadEl)loadEl.style.display='none';userInfo=null;localStorage.removeItem(USER_KEY);try{await auth.signOut();}catch(e2){}
 showPendingStep(pendingReq.name||displayName,pendingReq.groupCode||'');return;}}}catch(e){console.warn('pending check failed:',e.message);}}
-if(database)db=database;
-document.getElementById('login-screen').style.display='none';
-bootApp();
-// Pull sau bootApp để UI đã sẵn sàng — initFirebaseBackground sẽ xử lý
-if(database){setTimeout(async()=>{try{await pullLocalFromFirebase();}catch(e){console.warn('Post-login pull:',e.message);}},400);}
-}catch(e){if(loadEl)loadEl.style.display='none';let msg='⚠️ Đăng nhập thất bại.';if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){msg='⚠️ Email hoặc mật khẩu không đúng.';}else if(e.code==='auth/invalid-email'){msg='⚠️ Email không hợp lệ.';}else if(e.code==='auth/too-many-requests'){msg='⚠️ Quá nhiều lần thử. Vui lòng thử lại sau.';}
+if(database){try{db=database;const localSyncTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');const isNewDevice=Object.keys(data).length===0&&!spData.saved;
+// FIX: Luôn pull khi đăng nhập — đặc biệt quan trọng khi chuyển thiết bị
+// recentlySynced chỉ bỏ qua khi đã sync trong 5 phút GẦN ĐÂY và không phải thiết bị mới
+// Always await pull on login to ensure data is loaded before bootApp
+// Even if recently synced, we must pull to get latest data from other devices
+await pullLocalFromFirebase();}catch(pullErr){console.warn('Pre-login pull failed:',pullErr.message);const isNewDevice=Object.keys(data).length===0&&!spData.saved;if(isNewDevice){showToast('⚠️ Không tải được dữ liệu từ cloud — kiểm tra mạng và thử lại');}}}
+document.getElementById('login-screen').style.display='none';bootApp();}catch(e){if(loadEl)loadEl.style.display='none';let msg='⚠️ Đăng nhập thất bại.';if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){msg='⚠️ Email hoặc mật khẩu không đúng.';}else if(e.code==='auth/invalid-email'){msg='⚠️ Email không hợp lệ.';}else if(e.code==='auth/too-many-requests'){msg='⚠️ Quá nhiều lần thử. Vui lòng thử lại sau.';}
 if(errEl){errEl.textContent=msg;errEl.style.display='block';}
 console.error('Login error:',e.code,e.message,e.stack);_lastSyncError='Login: '+(e.code||'')+' '+e.message;}}
 function openForgotPwModal(){const modal=document.getElementById('forgot-pw-modal');const emailInput=document.getElementById('forgot-pw-email');const errEl=document.getElementById('forgot-pw-error');const sucEl=document.getElementById('forgot-pw-success');const btn=document.getElementById('forgot-pw-submit-btn');if(!modal)return;const loginEmail=document.getElementById('login-email')?.value?.trim();if(emailInput)emailInput.value=loginEmail||'';if(errEl)errEl.style.display='none';if(sucEl)sucEl.style.display='none';if(btn){btn.disabled=false;btn.textContent='📧 Gửi email đặt lại mật khẩu';}
@@ -2465,9 +2466,8 @@ if(!_activateMemberData){errEl.textContent='⚠️ Không tìm thấy dữ liệ
 errEl.style.display='none';if(loadEl)loadEl.style.display='block';try{const database=await loadFirebase();if(!auth)throw new Error('Firebase Auth chưa sẵn sàng');const{memberId,name,groupCode,email,phone,referrer}=_activateMemberData;let firebaseUid=null;try{const cred=await auth.createUserWithEmailAndPassword(email,password);firebaseUid=cred.user.uid;await cred.user.updateProfile({displayName:name});}catch(e){if(e.code==='auth/email-already-in-use'){if(loadEl)loadEl.style.display='none';errEl.textContent='⚠️ Email này đã có tài khoản rồi. Hãy dùng chức năng "Quên mật khẩu" để đặt lại mật khẩu.';errEl.style.display='block';return;}
 throw e;}
 if(firebaseUid&&database){await database.ref('uid_to_member/'+firebaseUid).set({memberId,groupCode});await database.ref('members/'+memberId).update({firebaseUid,approved:true,approvedAt:new Date().toISOString(),});try{const oldSnap=await database.ref('users/'+memberId).once('value');const oldData=oldSnap.val();if(oldData&&memberId!==firebaseUid){await database.ref('users/'+firebaseUid).set(oldData);}}catch(migrateErr){console.warn('Data migration skipped:',migrateErr.message);}}
-userInfo={name,groupCode,memberId,isLeader:_activateMemberData.isLeader||false,email,firebaseUid,approvedAt:_activateMemberData.approvedAt||null};save(USER_KEY,userInfo);if(database)db=database;
-if(loadEl)loadEl.style.display='none';document.getElementById('login-screen').style.display='none';showToast('🎉 Kích hoạt thành công! Chào mừng '+name+' trở lại!');bootApp();
-setTimeout(async()=>{try{if(db)await pullLocalFromFirebase();}catch(e){console.warn('Post-activate pull:',e.message);}},400);_activateMemberData=null;}catch(e){if(loadEl)loadEl.style.display='none';let msg='⚠️ Kích hoạt thất bại: '+e.message;if(e.code==='auth/weak-password')msg='⚠️ Mật khẩu quá yếu.';errEl.textContent=msg;errEl.style.display='block';}}
+userInfo={name,groupCode,memberId,isLeader:_activateMemberData.isLeader||false,email,firebaseUid,approvedAt:_activateMemberData.approvedAt||null};save(USER_KEY,userInfo);try{db=database;await pullLocalFromFirebase();}catch(pullErr){console.warn('Pre-boot pull failed:',pullErr.message);}
+if(loadEl)loadEl.style.display='none';document.getElementById('login-screen').style.display='none';showToast('🎉 Kích hoạt thành công! Chào mừng '+name+' trở lại!');bootApp();_activateMemberData=null;}catch(e){if(loadEl)loadEl.style.display='none';let msg='⚠️ Kích hoạt thất bại: '+e.message;if(e.code==='auth/weak-password')msg='⚠️ Mật khẩu quá yếu.';errEl.textContent=msg;errEl.style.display='block';}}
 function changeGroup(){if(!confirm('Bạn muốn đổi tên / mã nhóm? Dữ liệu cá nhân sẽ được giữ nguyên.'))return;userInfo=null;localStorage.removeItem(USER_KEY);location.reload();}
 function doLogout(){if(!confirm('Đăng xuất khỏi tài khoản này?\nDữ liệu của bạn vẫn được giữ nguyên trên thiết bị.'))return;userInfo=null;localStorage.removeItem(USER_KEY);localStorage.removeItem(ADMIN_KEY);sessionStorage.setItem('nk_show_login','1');if(typeof auth!=='undefined'&&auth&&auth.currentUser){auth.signOut().catch(e=>console.warn('signOut error:',e.message)).finally(()=>location.reload());}else{location.reload();}}
 function scrollNavBy(px){const nav=document.getElementById('main-nav');if(nav)nav.scrollBy({left:px,behavior:'smooth'});}
@@ -2598,11 +2598,35 @@ if(userInfo.firebaseUid!==authUid){
   userInfo.firebaseUid=authUid;save(USER_KEY,userInfo);
 }
 try{await db.ref('uid_to_member/'+authUid).once('value').then(snap=>{if(!snap.val()){db.ref('uid_to_member/'+authUid).set({memberId:userInfo.memberId,groupCode:userInfo.groupCode});}});}catch(e){console.warn('uid_to_member update failed:',e.message);}}
-// Luôn pull khi khởi động để lấy data mới nhất từ cloud
-await pullLocalFromFirebase().catch(e=>console.warn('Initial pull failed:',e.message));
-// Nếu local có data mới hơn cloud thì push lên
-const _uidKeyFb=getUidKey();const _localSyncTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');
-if(_localSyncTs>0&&_uidKeyFb){try{const _csSnap=await db.ref('users/'+_uidKeyFb+'/meta/syncedAt').once('value');const _cloudSyncTs=_csSnap.val()||0;if(_localSyncTs>_cloudSyncTs){setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},1500);}}catch(e){}}
+await pullLocalFromFirebase();const uidKey=getUidKey();if(uidKey&&userInfo.memberId&&uidKey!==userInfo.memberId){try{const newSnap=await db.ref('users/'+uidKey+'/daily').once('value');const oldSnap2=await db.ref('users/'+userInfo.memberId+'/daily').once('value');if(!newSnap.val()&&oldSnap2.val()){const fullOldSnap=await db.ref('users/'+userInfo.memberId).once('value');const oldData=fullOldSnap.val();if(oldData){await db.ref('users/'+uidKey).update(oldData);await pullLocalFromFirebase();}}}catch(e){console.warn('Migration check failed:',e.message);}}
+const localSyncTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');let cloudSyncTs=0;try{const cloudMetaSnap=await db.ref('users/'+uidKey+'/meta/syncedAt').once('value');cloudSyncTs=cloudMetaSnap.val()||0;}catch(e){}
+// hasRealLocalData: true if any past date exists, or today has real content
+const _todayKHRL=todayKey();const hasRealLocalData=Object.keys(data).some(dateK=>{const e=data[dateK];if(!e)return false;if(dateK!==_todayKHRL)return true;// Past days always count
+return Object.values(e.rituals||{}).some(Boolean)||e.lesson||e.seedGreen||e.seedRed||e.energy>5||e.gratitude1||e.savedEnergy||e.savedToday||e.savedGratitude||e.savedFinance||e.wishContent;});
+// SYNC STRATEGY: Pull-first to ensure cross-device sync works correctly
+// Pull if: cloud has data newer than local, OR local has no real data, OR cloudSyncTs unknown
+// Push if: local is definitively newer than cloud (cloudSyncTs confirmed > 0)
+if(cloudSyncTs>0&&hasRealLocalData&&localSyncTs>cloudSyncTs){
+  // Local is newer → push to cloud
+  await pushLocalToFirebase();
+}else if(cloudSyncTs>localSyncTs){
+  // Cloud is newer → pull from cloud
+  await pullLocalFromFirebase();
+}else if(cloudSyncTs===0){
+  // Can't confirm cloud state (read failed or genuinely empty)
+  // Always pull first — if cloud empty, nothing changes; if cloud has data, we get it
+  await pullLocalFromFirebase();
+  // Then push local data if we have real data (handles fresh cloud case)
+  if(hasRealLocalData&&localSyncTs>0){
+    setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},2000);
+  }
+}else{
+  // localSyncTs >= cloudSyncTs and both > 0
+  // Pull để đảm bảo không bỏ sót dữ liệu mới từ thiết bị khác
+  // KHÔNG push lại ngay — tránh ghi đè cloud bằng timestamp mới nhưng nội dung cũ
+  await pullLocalFromFirebase().catch(()=>{});
+}
+if(seedsData.length>0){const uidKey=getUidKey();try{const snap=await db.ref('users/'+uidKey+'/seeds').once('value');const remoteSeeds=snap.val();const remoteArr=Array.isArray(remoteSeeds)?remoteSeeds:[];if(seedsData.length>remoteArr.length){await db.ref('users/'+uidKey+'/seeds').set(seedsData);}}catch(e){console.warn('Seeds push on boot failed:',e.message);}}
 startUserDataRealtimeListener();startLeaderStatusListener();syncJournalHistoryToFirebase();setTimeout(()=>_migrateMonthlySummaries().catch(()=>{}),5000);setTimeout(()=>{const todayK=todayKey();const todayEntry=data[todayK];if(todayEntry){const rituals=Object.values(todayEntry.rituals||{}).filter(Boolean).length;const hasNN=todayEntry.nnEnergy&&Object.values(todayEntry.nnEnergy).some(v=>v&&v!==5);if(rituals>0||hasNN){autoSyncMyTeamStats();}}},1500);}
 async function pushLocalToFirebase(){if(!db||!userInfo)return;const uidKey=getUidKey();const base='users/'+uidKey;try{_isSyncingToFirebase=true;const hasLocalData=Object.keys(data).length>0||(Object.keys(spData).some(k=>k!=='_updatedAt'&&spData[k]))||kzData.length>0||msData.length>0||seedsData.length>0;if(!hasLocalData){_isSyncingToFirebase=false;return;}
 const dailyBatch={};const _pushTodayK=todayKey();Object.keys(data).sort().forEach(date=>{const e=data[date];if(date===_pushTodayK){// Don't push today's empty reset entry - it would overwrite real data on other devices
@@ -2612,119 +2636,45 @@ let _userDataListener=null;let _isSyncingToFirebase=false;let _membersCache=null
 const snap=await(database||db).ref('members').once('value');_membersCache=snap.val()||{};_membersCacheTs=now;return _membersCache;}
 function invalidateMembersCache(){_membersCache=null;_membersCacheTs=0;}
 function startUserDataRealtimeListener(){if(!db||!userInfo)return;const uidKey=getUidKey();const ref=db.ref('users/'+uidKey);if(_userDataListener){try{_userDataListener.off();}catch(e){}}
-_userDataListener=ref;let _firstCall=true;ref.on('value',snap=>{if(_firstCall){_firstCall=false;// Still apply first snapshot if it's newer than local
-const remoteFirst=snap.val();if(remoteFirst&&remoteFirst.meta&&remoteFirst.meta.syncedAt){const remoteTs=remoteFirst.meta.syncedAt||0;const localTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteTs>localTs&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}}
+_userDataListener=ref;let _firstCall=true;ref.on('value',snap=>{if(_firstCall){_firstCall=false;
+// Lần đầu nhận data từ Firebase: luôn apply nếu remote có data và đang không push
+const remoteFirst=snap.val();
+if(remoteFirst&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}
 return;}
-if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;const remoteSyncedAt=remote.meta?.syncedAt||0;const localSyncedAt=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(remoteSyncedAt>0&&remoteSyncedAt<localSyncedAt)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
+if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
 async function pullLocalFromFirebase(){if(!db||!userInfo)return;try{const uidKey=getUidKey();const snap=await db.ref('users/'+uidKey).once('value');const remote=snap.val();if(!remote){return;}
 _applyRemoteData(remote);}catch(e){_lastSyncError='Pull failed: '+e.message;console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
-function _applyRemoteData(remote){
-try{
-if(remote.daily&&typeof remote.daily==='object'){
-  Object.entries(remote.daily).forEach(([date,remoteEntry])=>{
-    const localEntry=data[date];
-    if(!localEntry){
-      data[date]=Object.assign({},remoteEntry);
-      return;
-    }
-    const rTs=remoteEntry._updatedAt||0;
-    const lTs=localEntry._updatedAt||0;
-    if(rTs>=lTs){
-      const merged=Object.assign({},remoteEntry);
-      merged.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});
-      if(localEntry.tasksV2&&!remoteEntry.tasksV2)merged.tasksV2=localEntry.tasksV2;
-      data[date]=merged;
-    }else{
-      const merged=Object.assign({},localEntry);
-      merged.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});
-      data[date]=merged;
-    }
-  });
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
-}
-if(remote.sp&&typeof remote.sp==='object'){
-  const rTs=remote.sp._updatedAt||0;const lTs=spData._updatedAt||0;
-  if(rTs>lTs||(!spData.saved&&remote.sp.saved)){Object.assign(spData,remote.sp);}
-  else{Object.entries(remote.sp).forEach(([k,v])=>{if(spData[k]==null)spData[k]=v;});}
-  try{localStorage.setItem(SP_KEY,JSON.stringify(spData));}catch(e){}
-}
-if(Array.isArray(remote.kz)){
-  let changed=false;
-  remote.kz.forEach(rKz=>{
-    const idx=kzData.findIndex(k=>k.week===rKz.week);
-    if(idx===-1){kzData.push(rKz);changed=true;}
-    else if((rKz._updatedAt||0)>(kzData[idx]._updatedAt||0)){kzData[idx]=rKz;changed=true;}
-  });
-  if(changed){kzData.sort((a,b)=>(b.week||'').localeCompare(a.week||''));try{localStorage.setItem(KZ_KEY,JSON.stringify(kzData));}catch(e){}}
-}
-if(remote.r3m&&typeof remote.r3m==='object'){
-  let changed=false;
-  Object.entries(remote.r3m).forEach(([k,v])=>{
-    if(r3mData[k]==null||(v&&v._updatedAt&&(!r3mData[k]._updatedAt||v._updatedAt>r3mData[k]._updatedAt))){r3mData[k]=v;changed=true;}
-  });
-  if(changed)try{localStorage.setItem(R3M_KEY,JSON.stringify(r3mData));}catch(e){}
-}
-if(Array.isArray(remote.ms)&&remote.ms.length>0){
-  let changed=false;
-  remote.ms.forEach(rMs=>{
-    const idx=msData.findIndex(m=>m.id===rMs.id);
-    if(idx===-1){msData.unshift(rMs);changed=true;}
-    else if((rMs._updatedAt||0)>(msData[idx]._updatedAt||0)){msData[idx]=rMs;changed=true;}
-  });
-  if(changed)try{localStorage.setItem(MS_KEY,JSON.stringify(msData));}catch(e){}
-}
-if(Array.isArray(remote.seeds)&&remote.seeds.length>0){
-  let seedsChanged=false;
-  remote.seeds.forEach(rSeed=>{
-    if(!Array.isArray(rSeed.checkins))rSeed.checkins=[];
-    if(!Array.isArray(rSeed.humbleLog))rSeed.humbleLog=[];
-    const idx=seedsData.findIndex(s=>s.id===rSeed.id);
-    if(idx===-1){seedsData.push(rSeed);seedsChanged=true;}
-    else{
-      const localSeed=seedsData[idx];
-      const checkinMap={};(localSeed.checkins||[]).forEach(c=>{if(c.date)checkinMap[c.date]=c;});
-      let cChg=false;
-      (rSeed.checkins||[]).forEach(rC=>{
-        if(!rC.date)return;
-        if(!checkinMap[rC.date]){checkinMap[rC.date]=rC;cChg=true;}
-        else if(rC.appeared&&!checkinMap[rC.date].appeared){checkinMap[rC.date]=Object.assign({},checkinMap[rC.date],{appeared:true});cChg=true;}
-      });
-      if(cChg){localSeed.checkins=Object.values(checkinMap).sort((a,b)=>a.date.localeCompare(b.date));seedsChanged=true;}
-      const humbleMap={};(localSeed.humbleLog||[]).forEach(h=>{if(h.date)humbleMap[h.date]=h;});
-      let hChg=false;
-      (rSeed.humbleLog||[]).forEach(rH=>{if(!rH.date)return;if(!humbleMap[rH.date]){humbleMap[rH.date]=rH;hChg=true;}});
-      if(hChg){localSeed.humbleLog=Object.values(humbleMap).sort((a,b)=>a.date.localeCompare(b.date));seedsChanged=true;}
-      if(rSeed.status==='done'&&localSeed.status==='active'){localSeed.status='done';localSeed.doneAt=rSeed.doneAt||localSeed.doneAt;seedsChanged=true;}
-    }
-  });
-  if(seedsChanged){try{localStorage.setItem(SEEDS_KEY,JSON.stringify(seedsData));}catch(e){}if(typeof renderSeedsPage==='function')renderSeedsPage();}
-}
-const syncedAt=remote.meta?.syncedAt||0;
-const curTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');
-if(syncedAt>curTs)try{localStorage.setItem(SYNC_TS_KEY,String(syncedAt));}catch(e){}
-if(typeof setDateBars==='function')setDateBars();
-if(typeof renderRituals==='function')renderRituals();
-if(typeof renderDimensionSliders==='function')renderDimensionSliders();
-if(typeof renderNNEnergySliders==='function')renderNNEnergySliders();
-if(typeof loadTodayFields==='function')loadTodayFields();
-if(typeof renderTasksList==='function')renderTasksList();
-if(typeof updateSlider==='function')updateSlider('overall-energy','overall-thumb','overall-val');
-const _kzW=typeof getWeekKey==='function'?getWeekKey():null;
-if(_kzW){const _kz=kzData.find(k=>k.week===_kzW);if(_kz){const gEl=document.getElementById('kaizen-good');const iEl=document.getElementById('kaizen-improve');const sEl=document.getElementById('kaizen-seed');if(_kz.good&&gEl)gEl.value=_kz.good;if(_kz.improve&&iEl)iEl.value=_kz.improve;if(_kz.seed&&sEl)sEl.value=_kz.seed;}}
-const _ap=document.querySelector('.page.active');
-if(_ap){const pid=_ap.id.replace('page-','');
-  if(pid==='dashboard'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('dash'))destroyChart(k);});if(typeof renderDashboard==='function')renderDashboard();}
-  if(pid==='history'&&typeof renderHistory==='function')renderHistory();
-  if(pid==='team'&&typeof renderTeam==='function')renderTeam();
-  if(pid==='start'&&typeof initStartPage==='function')initStartPage();
-  if(pid==='result3m'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('r3m'))destroyChart(k);});if(typeof initResult3mPage==='function')initResult3mPage();}
-  if(pid==='milestones'&&typeof initMilestonesPage==='function')initMilestonesPage();
-  if(pid==='finance'){setTimeout(()=>{if(typeof updateMoneyColorAssess==='function')updateMoneyColorAssess();if(typeof renderFinanceMonthlySummary==='function')renderFinanceMonthlySummary();},50);}
-  if(pid==='seeds'&&typeof renderSeedsPage==='function')renderSeedsPage();
-}
-const _t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});
-setSyncStatus('✅',_t,'rgba(74,140,111,0.85)');
-}catch(e){console.warn('_applyRemoteData error:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
+function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Không có local → lấy remote hoàn toàn (bao gồm cả hôm nay từ thiết bị khác)
+data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;// Local trống mà remote có data → lấy remote (bao gồm cả hôm nay từ thiết bị khác)
+if(_lEmpty&&_rHas){data[date]=remoteEntry;return;}
+const base=rTs>lTs?Object.assign({},localEntry,remoteEntry):Object.assign({},remoteEntry,localEntry);base.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});// Always preserve local wish/prayer data — it's personal and not pushed by journal sync
+if(localEntry.wishContent&&!base.wishContent)base.wishContent=localEntry.wishContent;
+if(localEntry.wishDeadline&&!base.wishDeadline)base.wishDeadline=localEntry.wishDeadline;
+if(localEntry.wishReceived&&!base.wishReceived)base.wishReceived=localEntry.wishReceived;
+if(localEntry.wishFeeling&&!base.wishFeeling)base.wishFeeling=localEntry.wishFeeling;
+if(localEntry.savedWish&&!base.savedWish)base.savedWish=localEntry.savedWish;const localTasks=localEntry.tasksV2;const remoteTasks=remoteEntry.tasksV2;if(localTasks||remoteTasks){const mergedTasks=Object.assign({},remoteTasks||{},localTasks||{});if(rTs>lTs&&remoteTasks){['main','reject','delegate','outsource','automate','extra'].forEach(sec=>{const lArr=(localTasks||{})[sec];const rArr=remoteTasks[sec];if(Array.isArray(rArr)&&rArr.some(t=>t.text)){mergedTasks[sec]=rArr;}else if(Array.isArray(lArr)&&lArr.some(t=>t.text)){mergedTasks[sec]=lArr;}else{mergedTasks[sec]=rArr||lArr;}});}
+base.tasksV2=mergedTasks;}
+const localNN=localEntry.nnEnergy||{};const remoteNN=remoteEntry.nnEnergy||{};const mergedNN={};NN_LIST.forEach(nn=>{const lv=localNN[nn.key];const rv=remoteNN[nn.key];if(lv&&rv){mergedNN[nn.key]=rTs>lTs?rv:lv;}else{mergedNN[nn.key]=lv||rv||null;}});const hasAnyNN=Object.values(mergedNN).some(v=>v!==null&&v!==undefined);if(hasAnyNN)base.nnEnergy=mergedNN;else if(localEntry.nnEnergy&&Object.keys(localEntry.nnEnergy).length>0)base.nnEnergy=localEntry.nnEnergy;data[date]=base;}});localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
+if(remote.sp&&typeof remote.sp==='object'){const remoteSpTs=remote.sp._updatedAt||0;const localSpTs=spData._updatedAt||0;if(remoteSpTs>localSpTs){Object.assign(spData,remote.sp);localStorage.setItem(SP_KEY,JSON.stringify(spData));}else if(!spData.saved&&remote.sp.saved){Object.assign(spData,remote.sp);localStorage.setItem(SP_KEY,JSON.stringify(spData));}else{Object.entries(remote.sp).forEach(([k,v])=>{if(spData[k]==null)spData[k]=v;});localStorage.setItem(SP_KEY,JSON.stringify(spData));}}
+if(Array.isArray(remote.kz)){let kzChanged=false;remote.kz.forEach(rKz=>{const idx=kzData.findIndex(k=>k.week===rKz.week);if(idx===-1){kzData.push(rKz);kzChanged=true;}else{const remoteTs=rKz._updatedAt||0;const localTs=kzData[idx]._updatedAt||0;if(remoteTs>localTs){kzData[idx]=rKz;kzChanged=true;}}});if(kzChanged){kzData.sort((a,b)=>(b.week||'').localeCompare(a.week||''));localStorage.setItem(KZ_KEY,JSON.stringify(kzData));}}
+if(remote.r3m&&typeof remote.r3m==='object'){let changed=false;Object.entries(remote.r3m).forEach(([k,v])=>{if(r3mData[k]==null||(v&&v._updatedAt&&(!r3mData[k]._updatedAt||v._updatedAt>r3mData[k]._updatedAt))){r3mData[k]=v;changed=true;}});if(changed)localStorage.setItem(R3M_KEY,JSON.stringify(r3mData));}
+if(Array.isArray(remote.ms)&&remote.ms.length>0){let msChanged=false;remote.ms.forEach(rMs=>{const idx=msData.findIndex(m=>m.id===rMs.id);if(idx===-1){msData.unshift(rMs);msChanged=true;}else{const rT=rMs._updatedAt||0;const lT=msData[idx]._updatedAt||0;if(rT>lT){msData[idx]=rMs;msChanged=true;}}});if(msChanged)localStorage.setItem(MS_KEY,JSON.stringify(msData));}
+if(Array.isArray(remote.seeds)&&remote.seeds.length>0){let seedsChanged=false;remote.seeds.forEach(rSeed=>{if(!Array.isArray(rSeed.checkins))rSeed.checkins=[];if(!Array.isArray(rSeed.humbleLog))rSeed.humbleLog=[];const idx=seedsData.findIndex(s=>s.id===rSeed.id);if(idx===-1){seedsData.push(rSeed);seedsChanged=true;}else{const localSeed=seedsData[idx];// FIX: Merge từng checkin theo date thay vì lấy bên có nhiều hơn
+// (tránh mất check-in từ thiết bị khác)
+const localCheckinMap={};(localSeed.checkins||[]).forEach(c=>{if(c.date)localCheckinMap[c.date]=c;});let checkinsChanged=false;(rSeed.checkins||[]).forEach(rC=>{if(!rC.date)return;if(!localCheckinMap[rC.date]){localCheckinMap[rC.date]=rC;checkinsChanged=true;}else if(rC.appeared&&!localCheckinMap[rC.date].appeared){localCheckinMap[rC.date]=Object.assign({},localCheckinMap[rC.date],{appeared:true});checkinsChanged=true;}});if(checkinsChanged){localSeed.checkins=Object.values(localCheckinMap).sort((a,b)=>a.date.localeCompare(b.date));seedsChanged=true;}// Merge humbleLog — union theo date
+const localHumbleMap={};(localSeed.humbleLog||[]).forEach(h=>{if(h.date)localHumbleMap[h.date]=h;});let humbleChanged=false;(rSeed.humbleLog||[]).forEach(rH=>{if(!rH.date)return;if(!localHumbleMap[rH.date]){localHumbleMap[rH.date]=rH;humbleChanged=true;}});if(humbleChanged){localSeed.humbleLog=Object.values(localHumbleMap).sort((a,b)=>a.date.localeCompare(b.date));seedsChanged=true;}// Cập nhật status: nếu remote là 'done' và local là 'active' → lấy remote
+if(rSeed.status==='done'&&localSeed.status==='active'){localSeed.status='done';localSeed.doneAt=rSeed.doneAt||localSeed.doneAt;seedsChanged=true;}}});if(seedsChanged){localStorage.setItem(SEEDS_KEY,JSON.stringify(seedsData));if(typeof renderSeedsPage==='function')renderSeedsPage();}}
+const syncedAt=remote.meta?.syncedAt||0;const currentLocalTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(syncedAt>currentLocalTs){localStorage.setItem(SYNC_TS_KEY,String(syncedAt));}
+setDateBars();renderRituals();renderDimensionSliders();renderNNEnergySliders();
+// Reload today's fields from merged data - always load to reflect latest cloud content
+loadTodayFields();
+renderTasksList();updateSlider('overall-energy','overall-thumb','overall-val');const w=getWeekKey();const kz=kzData.find(k=>k.week===w);if(kz){const goodEl=document.getElementById('kaizen-good');const impEl=document.getElementById('kaizen-improve');const seedEl=document.getElementById('kaizen-seed');if(kz.good&&goodEl)goodEl.value=kz.good;if(kz.improve&&impEl)impEl.value=kz.improve;if(kz.seed&&seedEl)seedEl.value=kz.seed;}
+const ap=document.querySelector('.page.active');if(ap){const pid=ap.id.replace('page-','');if(pid==='dashboard'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('dash'))destroyChart(k);});renderDashboard();}
+if(pid==='history')renderHistory();if(pid==='team'){renderTeam();}
+if(pid==='start')initStartPage();if(pid==='result3m'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('r3m'))destroyChart(k);});initResult3mPage();}
+if(pid==='milestones')initMilestonesPage();if(pid==='finance'){setTimeout(()=>{updateMoneyColorAssess();renderFinanceMonthlySummary();},50);}
+if(pid==='seeds'){if(typeof renderSeedsPage==='function')renderSeedsPage();}}
+const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');}catch(e){console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
 function mergeRituals(local={},remote={}){const keys=new Set([...Object.keys(local),...Object.keys(remote)]);const merged={};keys.forEach(k=>{merged[k]=!!(local[k]||remote[k]);});return merged;}
 let _syncDebounceTimer=null;let _bootTime=0;function scheduleSyncPush(key){const syncKeys=[STORAGE_KEY,SP_KEY,KZ_KEY,R3M_KEY,MS_KEY,SEEDS_KEY];if(!syncKeys.includes(key))return;clearTimeout(_syncDebounceTimer);_syncDebounceTimer=setTimeout(()=>{if(db&&userInfo){const bootAge=Date.now()-(_bootTime||0);if(bootAge<5000){setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},5000-bootAge);return;}
 pushLocalToFirebase();}},3000);}
