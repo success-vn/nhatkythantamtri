@@ -2642,14 +2642,19 @@ function startUserDataRealtimeListener(){if(!db||!userInfo)return;const uidKey=g
 _userDataListener=ref;let _firstCall=true;ref.on('value',snap=>{if(_firstCall){_firstCall=false;
 // Lần đầu nhận data từ Firebase: luôn apply nếu remote có data và đang không push
 const remoteFirst=snap.val();
-if(remoteFirst&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}
+// Chờ tối đa 6s để _isSyncingToFirebase giải phóng rồi mới apply
+const _doApplyFirst=()=>{if(remoteFirst&&!_isSyncingToFirebase){_applyRemoteData(remoteFirst);loadTodayFields();setSyncStatus('✅',new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'}),'rgba(74,140,111,0.85)');}else if(_isSyncingToFirebase){setTimeout(_doApplyFirst,800);}};
+_doApplyFirst();
 return;}
 if(_isSyncingToFirebase)return;const remote=snap.val();if(!remote)return;_applyRemoteData(remote);setSyncStatus('🔄','Vừa đồng bộ','rgba(74,140,111,0.85)');setTimeout(()=>{const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');},2000);});}
 async function pullLocalFromFirebase(){if(!db||!userInfo)return;try{const uidKey=getUidKey();const snap=await db.ref('users/'+uidKey).once('value');const remote=snap.val();if(!remote){return;}
-_applyRemoteData(remote);}catch(e){_lastSyncError='Pull failed: '+e.message;console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
+_applyRemoteData(remote);}catch(e){_lastSyncError='Pull failed: '+e.message;console.error('❌ Pull failed — code:',e.code,'| msg:',e.message);if(e.code==='PERMISSION_DENIED'||e.message?.includes('PERMISSION_DENIED')){setSyncStatus('🔒','Lỗi quyền truy cập','rgba(192,96,106,0.7)');}else if(e.message?.includes('network')||e.message?.includes('fetch')||e.message?.includes('offline')){setSyncStatus('📶','Mất mạng','rgba(201,168,76,0.7)');}else{setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}}
+
 function _applyRemoteData(remote){try{if(remote.daily&&typeof remote.daily==='object'){Object.entries(remote.daily).forEach(([date,remoteEntry])=>{const localEntry=data[date];const _todayK=todayKey();if(!localEntry){// Không có local → lấy remote hoàn toàn (bao gồm cả hôm nay từ thiết bị khác)
-data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;// Local trống mà remote có data → lấy remote (bao gồm cả hôm nay từ thiết bị khác)
+data[date]=remoteEntry;}else{const rTs=remoteEntry._updatedAt||0;const lTs=localEntry._updatedAt||0;const _todayK2=todayKey();const _lcKeys=Object.keys(localEntry).filter(k=>!['rituals','dims','nnEnergy','_updatedAt'].includes(k));const _lHasRit=Object.keys(localEntry.rituals||{}).some(k=>localEntry.rituals[k]);const _lHasTasks=localEntry.tasksV2&&Array.isArray(localEntry.tasksV2.main)&&localEntry.tasksV2.main.some(t=>t.text);const _lHasSavedData=localEntry.savedEnergy||localEntry.savedGratitude||localEntry.savedWish||localEntry.savedFinance||localEntry.energy||localEntry.gratitude1||localEntry.gratitude2||localEntry.gratitude3||localEntry.wishContent||localEntry.wishReceived||localEntry.lesson||localEntry.seedGreen||localEntry.seedRed||localEntry.dailyGood||localEntry.dailyImprove||localEntry.selfLetter||localEntry.selfProud;const _lHasNN=localEntry.nnEnergy&&Object.values(localEntry.nnEnergy).some(v=>v&&v!==5);const _lEmpty=_lcKeys.length===0&&!_lHasRit&&!_lHasTasks&&!_lHasSavedData&&!_lHasNN;const _rHas=Object.keys(remoteEntry).filter(k=>k!=='_updatedAt').length>1;// Local trống mà remote có data → lấy remote (bao gồm cả hôm nay từ thiết bị khác)
 if(_lEmpty&&_rHas){data[date]=remoteEntry;return;}
+// Hôm nay: nếu local không có nội dung thực (chỉ có timestamp do auto-load) mà remote có → ưu tiên remote
+if(date===_todayK2&&_rHas){const _lHasRealToday=_lHasRit||_lHasTasks||_lHasSavedData||_lHasNN;if(!_lHasRealToday&&rTs>0){data[date]=remoteEntry;return;}}
 const base=rTs>lTs?Object.assign({},localEntry,remoteEntry):Object.assign({},remoteEntry,localEntry);base.rituals=mergeRituals(localEntry.rituals||{},remoteEntry.rituals||{});// Always preserve local wish/prayer data — it's personal and not pushed by journal sync
 if(localEntry.wishContent&&!base.wishContent)base.wishContent=localEntry.wishContent;
 if(localEntry.wishDeadline&&!base.wishDeadline)base.wishDeadline=localEntry.wishDeadline;
@@ -2668,16 +2673,21 @@ const localCheckinMap={};(localSeed.checkins||[]).forEach(c=>{if(c.date)localChe
 const localHumbleMap={};(localSeed.humbleLog||[]).forEach(h=>{if(h.date)localHumbleMap[h.date]=h;});let humbleChanged=false;(rSeed.humbleLog||[]).forEach(rH=>{if(!rH.date)return;if(!localHumbleMap[rH.date]){localHumbleMap[rH.date]=rH;humbleChanged=true;}});if(humbleChanged){localSeed.humbleLog=Object.values(localHumbleMap).sort((a,b)=>a.date.localeCompare(b.date));seedsChanged=true;}// Cập nhật status: nếu remote là 'done' và local là 'active' → lấy remote
 if(rSeed.status==='done'&&localSeed.status==='active'){localSeed.status='done';localSeed.doneAt=rSeed.doneAt||localSeed.doneAt;seedsChanged=true;}}});if(seedsChanged){localStorage.setItem(SEEDS_KEY,JSON.stringify(seedsData));if(typeof renderSeedsPage==='function')renderSeedsPage();}}
 const syncedAt=remote.meta?.syncedAt||0;const currentLocalTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');if(syncedAt>currentLocalTs){localStorage.setItem(SYNC_TS_KEY,String(syncedAt));}
-setDateBars();renderRituals();renderDimensionSliders();renderNNEnergySliders();
-// Reload today's fields from merged data - always load to reflect latest cloud content
-loadTodayFields();
-renderTasksList();updateSlider('overall-energy','overall-thumb','overall-val');const w=getWeekKey();const kz=kzData.find(k=>k.week===w);if(kz){const goodEl=document.getElementById('kaizen-good');const impEl=document.getElementById('kaizen-improve');const seedEl=document.getElementById('kaizen-seed');if(kz.good&&goodEl)goodEl.value=kz.good;if(kz.improve&&impEl)impEl.value=kz.improve;if(kz.seed&&seedEl)seedEl.value=kz.seed;}
-const ap=document.querySelector('.page.active');if(ap){const pid=ap.id.replace('page-','');if(pid==='dashboard'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('dash'))destroyChart(k);});renderDashboard();}
+const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');}catch(e){console.error('❌ _applyRemoteData lỗi:',e.message,e.stack);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');return;}
+// Render UI SAU KHI data đã merge xong — tách khỏi try/catch Firebase để lỗi UI không bị nhầm thành lỗi mạng
+try{setDateBars();}catch(e){console.warn('setDateBars err:',e.message);}
+try{renderRituals();}catch(e){console.warn('renderRituals err:',e.message);}
+try{renderDimensionSliders();}catch(e){console.warn('renderDimensionSliders err:',e.message);}
+try{renderNNEnergySliders();}catch(e){console.warn('renderNNEnergySliders err:',e.message);}
+try{loadTodayFields();}catch(e){console.warn('loadTodayFields err:',e.message);}
+try{renderTasksList();}catch(e){console.warn('renderTasksList err:',e.message);}
+try{updateSlider('overall-energy','overall-thumb','overall-val');}catch(e){}
+try{const w=getWeekKey();const kz=kzData.find(k=>k.week===w);if(kz){const goodEl=document.getElementById('kaizen-good');const impEl=document.getElementById('kaizen-improve');const seedEl=document.getElementById('kaizen-seed');if(kz.good&&goodEl)goodEl.value=kz.good;if(kz.improve&&impEl)impEl.value=kz.improve;if(kz.seed&&seedEl)seedEl.value=kz.seed;}}catch(e){}
+try{const ap=document.querySelector('.page.active');if(ap){const pid=ap.id.replace('page-','');if(pid==='dashboard'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('dash'))destroyChart(k);});renderDashboard();}
 if(pid==='history')renderHistory();if(pid==='team'){renderTeam();}
 if(pid==='start')initStartPage();if(pid==='result3m'){Object.keys(chartInstances).forEach(k=>{if(k.startsWith('r3m'))destroyChart(k);});initResult3mPage();}
 if(pid==='milestones')initMilestonesPage();if(pid==='finance'){setTimeout(()=>{updateMoneyColorAssess();renderFinanceMonthlySummary();},50);}
-if(pid==='seeds'){if(typeof renderSeedsPage==='function')renderSeedsPage();}}
-const t=new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit'});setSyncStatus('✅',t,'rgba(74,140,111,0.85)');}catch(e){console.warn('Pull failed:',e.message);setSyncStatus('⚠️','Lỗi tải cloud','rgba(192,96,106,0.7)');}}
+if(pid==='seeds'){if(typeof renderSeedsPage==='function')renderSeedsPage();}}}catch(e){console.warn('Render active page err:',e.message);}}
 function mergeRituals(local={},remote={}){const keys=new Set([...Object.keys(local),...Object.keys(remote)]);const merged={};keys.forEach(k=>{merged[k]=!!(local[k]||remote[k]);});return merged;}
 let _syncDebounceTimer=null;let _bootTime=0;function scheduleSyncPush(key){const syncKeys=[STORAGE_KEY,SP_KEY,KZ_KEY,R3M_KEY,MS_KEY,SEEDS_KEY];if(!syncKeys.includes(key))return;clearTimeout(_syncDebounceTimer);_syncDebounceTimer=setTimeout(()=>{if(db&&userInfo){const bootAge=Date.now()-(_bootTime||0);if(bootAge<5000){setTimeout(()=>{if(db&&userInfo)pushLocalToFirebase();},5000-bootAge);return;}
 pushLocalToFirebase();}},3000);}
