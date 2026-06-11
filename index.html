@@ -2598,7 +2598,7 @@ if(userInfo.firebaseUid!==authUid){
   userInfo.firebaseUid=authUid;save(USER_KEY,userInfo);
 }
 try{await db.ref('uid_to_member/'+authUid).once('value').then(snap=>{if(!snap.val()){db.ref('uid_to_member/'+authUid).set({memberId:userInfo.memberId,groupCode:userInfo.groupCode});}});}catch(e){console.warn('uid_to_member update failed:',e.message);}}
-await pullLocalFromFirebase();const uidKey=getUidKey();if(uidKey&&userInfo.memberId&&uidKey!==userInfo.memberId){try{const newSnap=await db.ref('users/'+uidKey+'/daily').once('value');const oldSnap2=await db.ref('users/'+userInfo.memberId+'/daily').once('value');if(!newSnap.val()&&oldSnap2.val()){const fullOldSnap=await db.ref('users/'+userInfo.memberId).once('value');const oldData=fullOldSnap.val();if(oldData){await db.ref('users/'+uidKey).update(oldData);await pullLocalFromFirebase();}}}catch(e){console.warn('Migration check failed:',e.message);}}
+await pullLocalFromFirebase();
 const localSyncTs=parseInt(localStorage.getItem(SYNC_TS_KEY)||'0');let cloudSyncTs=0;try{const cloudMetaSnap=await db.ref('users/'+uidKey+'/meta/syncedAt').once('value');cloudSyncTs=cloudMetaSnap.val()||0;}catch(e){}
 // hasRealLocalData: true if any past date exists, or today has real content
 const _todayKHRL=todayKey();const hasRealLocalData=Object.keys(data).some(dateK=>{const e=data[dateK];if(!e)return false;if(dateK!==_todayKHRL)return true;// Past days always count
